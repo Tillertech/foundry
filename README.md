@@ -1,8 +1,4 @@
-# Nx Angular Repository
-
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
-
-✨ A repository showcasing key [Nx](https://nx.dev) features for Angular monorepos ✨
+# Foundry
 🚀 If you haven't connected to Nx Cloud yet, [complete your setup here](https://cloud.nx.app/get-started). Get faster builds with remote caching, distributed task execution, and self-healing CI. [See how your workspace can benefit](#nx-cloud).
 ## 📦 Project Overview
 
@@ -10,20 +6,20 @@ This repository demonstrates a production-ready Angular monorepo with:
 
 - **2 Applications**
 
-  - `shop` - Angular e-commerce application with product listings and detail views
+  - `client` - Angular e-commerce application with product listings and detail views
   - `api` - Backend API with Docker support serving product data
 
 - **6 Libraries**
 
   - `@org/feature-products` - Product listing feature (Angular)
   - `@org/feature-product-detail` - Product detail feature (Angular)
-  - `@org/data` - Data access layer for shop features
+  - `@org/data` - Data access layer for client features
   - `@org/shared-ui` - Shared UI components
   - `@org/models` - Shared data models
   - `@org/products` - API product service library
 
 - **E2E Testing**
-  - `shop-e2e` - Playwright tests for the shop application
+  - `client-e2e` - Playwright tests for the client application
 
 ## 🚀 Quick Start
 
@@ -36,8 +32,8 @@ cd <your-repository-name>
 # (Note: You may need --legacy-peer-deps)
 npm install
 
-# Serve the Angular shop application (this will simultaneously serve the API backend)
-npx nx run shop:serve
+# Serve the Angular client application (this will simultaneously serve the API backend)
+npx nx run client:serve
 
 # ...or you can serve the API separately
 npx nx run api:serve
@@ -52,7 +48,7 @@ npx nx run-many -t test
 npx nx run-many -t lint
 
 # Run e2e tests
-npx nx run shop-e2e:e2e
+npx nx run client-e2e:e2e
 
 # Run tasks in parallel
 
@@ -71,7 +67,7 @@ This repository showcases several powerful Nx features:
 Enforces architectural constraints using tags. Each project has specific dependencies it can use:
 
 - `scope:shared` - Can be used by all projects
-- `scope:shop` - Shop-specific libraries
+- `scope:client` - client-specific libraries
 - `scope:api` - API-specific libraries
 - `type:feature` - Feature libraries
 - `type:data` - Data access libraries
@@ -84,7 +80,7 @@ Enforces architectural constraints using tags. Each project has specific depende
 npx nx graph
 
 # View a specific project's details
-npx nx show project shop --web
+npx nx show project client --web
 ```
 
 [Learn more about module boundaries →](https://nx.dev/docs/features/enforce-module-boundaries)
@@ -114,10 +110,10 @@ End-to-end testing with Playwright is pre-configured:
 
 ```bash
 # Run e2e tests
-npx nx run shop-e2e:e2e
+npx nx run client-e2e:e2e
 
 # Run e2e tests in CI mode
-npx nx run shop-e2e:e2e-ci
+npx nx run client-e2e:e2e-ci
 ```
 
 [Learn more about E2E testing →](https://nx.dev/docs/technologies/test-tools/playwright)
@@ -158,15 +154,15 @@ This feature helps maintain a healthy CI pipeline by automatically detecting and
 
 ```
 ├── apps/
-│   ├── shop/           [scope:shop]    - Angular e-commerce app
-│   ├── shop-e2e/                       - E2E tests for shop
+│   ├── client/           [scope:client]    - Angular e-commerce app
+│   ├── client-e2e/                       - E2E tests for client
 │   └── api/            [scope:api]     - Backend API with Docker
 ├── packages/
-│   ├── shop/
-│   │   ├── feature-products/        [scope:shop,type:feature] - Product listing
-│   │   ├── feature-product-detail/  [scope:shop,type:feature] - Product details
-│   │   ├── data/                    [scope:shop,type:data]    - Data access
-│   │   └── shared-ui/               [scope:shop,type:ui]      - UI components
+│   ├── client/
+│   │   ├── feature-products/        [scope:client,type:feature] - Product listing
+│   │   ├── feature-product-detail/  [scope:client,type:feature] - Product details
+│   │   ├── data/                    [scope:client,type:data]    - Data access
+│   │   └── shared-ui/               [scope:client,type:ui]      - UI components
 │   ├── api/
 │   │   └── products/    [scope:api]    - Product service
 │   └── shared/
@@ -182,10 +178,10 @@ This repository uses tags to enforce module boundaries:
 
 | Project            | Tags                         | Can Import From              |
 | ------------------ | ---------------------------- | ---------------------------- |
-| `shop`             | `scope:shop`                 | `scope:shop`, `scope:shared` |
+| `client`             | `scope:client`                 | `scope:client`, `scope:shared` |
 | `api`              | `scope:api`                  | `scope:api`, `scope:shared`  |
-| `feature-products` | `scope:shop`, `type:feature` | `scope:shop`, `scope:shared` |
-| `data`             | `scope:shop`, `type:data`    | `scope:shared`               |
+| `feature-products` | `scope:client`, `type:feature` | `scope:client`, `scope:shared` |
+| `data`             | `scope:client`, `type:data`    | `scope:shared`               |
 | `models`           | `scope:shared`, `type:data`  | Nothing (base library)       |
 
 ## 📚 Useful Commands
@@ -194,12 +190,12 @@ This repository uses tags to enforce module boundaries:
 # Project exploration
 npx nx graph                                    # Interactive dependency graph
 npx nx list                                     # List installed plugins
-npx nx show project shop --web                 # View project details
+npx nx show project client --web                 # View project details
 
 # Development
-npx nx run shop:serve                              # Serve Angular app
+npx nx run client:serve                              # Serve Angular app
 npx nx run api:serve                               # Serve backend API
-npx nx run shop:build                              # Build Angular app
+npx nx run client:build                              # Build Angular app
 npx nx run data:test                               # Test a specific library
 npx nx run feature-products:lint                   # Lint a specific library
 

@@ -1,0 +1,21 @@
+FROM node:lts-slim
+
+LABEL maintainer="hello@marvinkweyu.net"
+
+WORKDIR /api
+
+RUN apt-get update && \
+    apt-get install -y python3 make g++ procps && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+
+RUN npm install
+
+COPY . .
+
+RUN npx prisma generate --schema=prisma/schema.prisma
+
+EXPOSE 3000 51212
+
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && npm run start:dev"]

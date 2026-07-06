@@ -1,0 +1,86 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: foundrydb
+    environment:
+      POSTGRES_HOST: 'db'
+    env_file:
+      - ./.env.docker
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: on-failure
+    networks:
+      - foundry
+
+  redis:
+    container_name: foundrycache
+    image: redis
+    ports:
+      - '127.0.0.1:6379:6379/tcp'
+    volumes:
+      - redis:/data
+    networks:
+      - foundry
+    restart: on-failure
+
+  redis-insight:
+    container_name: foundryredisinsight
+    image: redis/redisinsight:latest
+    ports:
+      - '127.0.0.1:5540:5540'
+    networks:
+      - foundry
+    depends_on:
+      - redis
+    volumes:
+      - redis-insight:/data
+    restart: on-failure
+
+  mailpit:
+    image: docker.io/axllent/mailpit:latest
+    container_name: foundry-mailpit
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    environment:
+      - MP_SMTP_AUTH_ACCEPT_ANY=1
+      - MP_SMTP_AUTH_ALLOW_INSECURE=1
+    volumes:
+      - mailpit-data:/data
+    networks:
+      - foundry
+
+  foundryapi:
+    container_name: foundrydb-api
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: 'true'
+      WATCHPACK_POLLING: 'true'
+    env_file:
+      - ./.env.docker
+    ports:
+      - '3000:3000'
+    volumes:
+      - .:/foundry
+
+    depends_on:
+      db:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - foundry
+
+volumes:
+  postgres_data:
+  redis:
+  redis-insight:
+  mailpit-data:
+
+networks:
+  foundry:
+    name: foundry

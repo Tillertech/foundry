@@ -1,0 +1,9 @@
+{
+  "name": "data",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/client/data/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": ["scope:client", "type:data"],
+  "targets": {}
+}
