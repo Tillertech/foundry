@@ -1,0 +1,164 @@
+<div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
+  <app-page-header
+    title="Expenses"
+    [description]="
+      filtered().length + ' expenses · ' + money(total()) + ' spent · ' + money(billable()) + ' billable'
+    "
+  >
+    <button actions hlmBtn size="sm" class="h-9 gap-1.5 shadow-[var(--shadow-glow)]" (click)="openNew()">
+      <ng-icon name="lucidePlus" size="16" />
+      New expense
+    </button>
+  </app-page-header>
+
+  <!-- Toolbar -->
+  <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="relative min-w-[220px] max-w-md flex-1">
+      <ng-icon
+        name="lucideSearch"
+        size="16"
+        class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+      />
+      <input
+        hlmInput
+        type="text"
+        placeholder="Search vendors…"
+        class="h-9 w-full pl-9"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+      />
+    </div>
+    <hlm-native-select
+      class="w-[170px]"
+      selectClass="h-9"
+      [ngModel]="catFilter()"
+      (ngModelChange)="catFilter.set($event)"
+    >
+      <option hlmNativeSelectOption value="all">All categories</option>
+      @for (c of catOptions; track c[0]) {
+        <option hlmNativeSelectOption [value]="c[0]">{{ c[1] }}</option>
+      }
+    </hlm-native-select>
+  </div>
+
+  @defer (on timer(400ms)) {
+  @if (filtered().length === 0) {
+    <div class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
+      <div class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+        <span class="font-mono text-lg">∅</span>
+      </div>
+      <p class="mt-4 text-sm font-semibold">No expenses yet</p>
+      <button hlmBtn size="sm" class="mt-4 gap-1.5" (click)="openNew()">
+        <ng-icon name="lucidePlus" size="16" />
+        New expense
+      </button>
+    </div>
+  } @else {
+    <div class="surface-card overflow-hidden">
+      <div
+        class="grid grid-cols-[minmax(0,2fr)_120px] items-center gap-3 border-b border-border bg-muted/40 px-5 py-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid-cols-[minmax(0,2fr)_120px_100px_100px_120px]"
+      >
+        <span>Vendor</span>
+        <span class="hidden sm:inline">Category</span>
+        <span class="hidden sm:inline">Date</span>
+        <span class="hidden sm:inline">Billable</span>
+        <span class="text-right">Amount</span>
+      </div>
+      <div class="divide-y divide-border">
+        @for (e of filtered(); track e.id) {
+          <button
+            type="button"
+            (click)="openEdit(e)"
+            class="grid w-full grid-cols-[minmax(0,2fr)_120px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(0,2fr)_120px_100px_100px_120px]"
+          >
+            <div class="flex min-w-0 items-center gap-3">
+              <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+                <ng-icon name="lucideReceipt" size="16" />
+              </div>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium">{{ e.vendor }}</p>
+                @if (e.projectId) {
+                  <p class="truncate text-xs text-muted-foreground">{{ projectName(e.projectId) }}</p>
+                }
+              </div>
+            </div>
+            <span class="hidden text-xs text-muted-foreground sm:inline">{{ label(e.category) }}</span>
+            <span class="hidden text-xs text-muted-foreground sm:inline">{{ e.date }}</span>
+            <span class="hidden text-xs sm:inline">
+              @if (e.billable) {
+                <span class="text-primary">Billable</span>
+              } @else {
+                <span class="text-muted-foreground">—</span>
+              }
+            </span>
+            <span class="text-right text-sm font-semibold tabular-nums">
+              {{ money(e.amount, e.currency) }}
+            </span>
+          </button>
+        }
+      </div>
+    </div>
+  }
+  } @placeholder {
+    <app-list-skeleton [rows]="5" />
+  }
+
+  <app-entity-sheet
+    [(open)]="sheetOpen"
+    [title]="isNew ? 'New expense' : 'Edit ' + form.vendor"
+    [canSave]="!!form.vendor.trim() && form.amount > 0"
+    [showDelete]="!isNew"
+    (saved)="save()"
+    (deleted)="removeCurrent()"
+  >
+    <div class="grid gap-4">
+      <app-field label="Vendor">
+        <input hlmInput class="w-full" [(ngModel)]="form.vendor" placeholder="Figma, Lufthansa, …" />
+      </app-field>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Category">
+          <hlm-native-select class="w-full" [(ngModel)]="form.category">
+            @for (c of catOptions; track c[0]) {
+              <option hlmNativeSelectOption [value]="c[0]">{{ c[1] }}</option>
+            }
+          </hlm-native-select>
+        </app-field>
+        <app-field label="Date">
+          <app-date-field [(value)]="form.date" />
+        </app-field>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Amount">
+          <input hlmInput type="number" min="0" step="0.01" class="w-full" [(ngModel)]="form.amount" />
+        </app-field>
+        <app-field label="Currency">
+          <hlm-native-select class="w-full" [(ngModel)]="form.currency">
+            <option hlmNativeSelectOption value="USD">USD</option>
+            <option hlmNativeSelectOption value="EUR">EUR</option>
+            <option hlmNativeSelectOption value="GBP">GBP</option>
+          </hlm-native-select>
+        </app-field>
+      </div>
+      <app-field label="Project (optional)">
+        <hlm-native-select class="w-full" [(ngModel)]="form.projectId">
+          <option hlmNativeSelectOption value="">Not linked</option>
+          @for (p of store.projects(); track p.id) {
+            <option hlmNativeSelectOption [value]="p.id">{{ p.name }}</option>
+          }
+        </hlm-native-select>
+      </app-field>
+      <div class="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+        <div>
+          <p class="text-sm font-medium">Billable to client</p>
+          <p class="text-xs text-muted-foreground">
+            Include on the next invoice for the linked project.
+          </p>
+        </div>
+        <hlm-switch [(ngModel)]="form.billable" aria-label="Billable to client" />
+      </div>
+      <app-field label="Notes">
+        <textarea hlmTextarea rows="3" class="w-full" [(ngModel)]="form.notes"></textarea>
+      </app-field>
+    </div>
+  </app-entity-sheet>
+</div>

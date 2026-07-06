@@ -56,7 +56,7 @@ services:
     container_name: foundrydb-api
     build:
       context: .
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile.api.local
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: 'true'

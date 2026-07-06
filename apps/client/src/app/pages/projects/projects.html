@@ -1,0 +1,164 @@
+<div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
+  <app-page-header title="Projects" description="Budgets, milestones, and billable work per client.">
+    <button actions hlmBtn size="sm" class="h-9 gap-1.5 shadow-[var(--shadow-glow)]" (click)="openNew()">
+      <ng-icon name="lucidePlus" size="16" />
+      New project
+    </button>
+  </app-page-header>
+
+  <!-- Toolbar -->
+  <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="relative min-w-[220px] max-w-md flex-1">
+      <ng-icon
+        name="lucideSearch"
+        size="16"
+        class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+      />
+      <input
+        hlmInput
+        type="text"
+        placeholder="Search projects…"
+        class="h-9 w-full pl-9"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+      />
+    </div>
+    <hlm-native-select
+      class="w-[180px]"
+      selectClass="h-9"
+      [ngModel]="clientFilter()"
+      (ngModelChange)="clientFilter.set($event)"
+    >
+      <option hlmNativeSelectOption value="all">All clients</option>
+      @for (c of store.clients(); track c.id) {
+        <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
+      }
+    </hlm-native-select>
+    <hlm-native-select
+      class="w-[150px]"
+      selectClass="h-9"
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)"
+    >
+      <option hlmNativeSelectOption value="all">All statuses</option>
+      <option hlmNativeSelectOption value="planning">Planning</option>
+      <option hlmNativeSelectOption value="active">Active</option>
+      <option hlmNativeSelectOption value="on_hold">On hold</option>
+      <option hlmNativeSelectOption value="completed">Completed</option>
+    </hlm-native-select>
+  </div>
+
+  @defer (on timer(400ms)) {
+  @if (filtered().length === 0) {
+    <div class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
+      <div class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+        <span class="font-mono text-lg">∅</span>
+      </div>
+      <p class="mt-4 text-sm font-semibold">No projects match</p>
+      <button hlmBtn size="sm" class="mt-4 gap-1.5" (click)="openNew()">
+        <ng-icon name="lucidePlus" size="16" />
+        New project
+      </button>
+    </div>
+  } @else {
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      @for (p of filtered(); track p.id) {
+        <button
+          type="button"
+          (click)="openEdit(p)"
+          class="surface-card hover-lift group p-5 text-left"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold">{{ p.name }}</p>
+              <p class="mt-0.5 truncate text-xs text-muted-foreground">
+                {{ clientMap()[p.clientId]?.company || clientMap()[p.clientId]?.name || '—' }}
+              </p>
+            </div>
+            <app-status-badge [status]="p.status" />
+          </div>
+          <div class="mt-5 grid grid-cols-2 gap-3">
+            <div>
+              <p class="text-[11px] uppercase tracking-wider text-muted-foreground">Budget</p>
+              <p class="mt-0.5 text-sm font-semibold tabular-nums">
+                {{ money(p.budget, clientMap()[p.clientId]?.currency || 'USD') }}
+              </p>
+            </div>
+            <div>
+              <p class="text-[11px] uppercase tracking-wider text-muted-foreground">Rate</p>
+              <p class="mt-0.5 text-sm font-semibold tabular-nums">
+                @if (p.hourlyRate) {
+                  {{ money(p.hourlyRate, clientMap()[p.clientId]?.currency || 'USD') }}/hr
+                } @else {
+                  —
+                }
+              </p>
+            </div>
+          </div>
+          <div
+            class="mt-4 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground"
+          >
+            <span>Started {{ p.startDate }}</span>
+            @if (p.endDate) {
+              <span>Ended {{ p.endDate }}</span>
+            }
+          </div>
+        </button>
+      }
+    </div>
+  }
+  } @placeholder {
+    <app-list-skeleton variant="cards" [rows]="6" />
+  }
+
+  <app-entity-sheet
+    [(open)]="sheetOpen"
+    [title]="isNew ? 'New project' : 'Edit ' + form.name"
+    [canSave]="!!form.name.trim() && !!form.clientId"
+    [showDelete]="!isNew"
+    (saved)="save()"
+    (deleted)="removeCurrent()"
+  >
+    <div class="grid gap-4">
+      <app-field label="Project name">
+        <input hlmInput class="w-full" [(ngModel)]="form.name" placeholder="Marketing site redesign" />
+      </app-field>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Client">
+          <hlm-native-select class="w-full" [(ngModel)]="form.clientId">
+            @for (c of store.clients(); track c.id) {
+              <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
+            }
+          </hlm-native-select>
+        </app-field>
+        <app-field label="Status">
+          <hlm-native-select class="w-full" [(ngModel)]="form.status">
+            <option hlmNativeSelectOption value="planning">Planning</option>
+            <option hlmNativeSelectOption value="active">Active</option>
+            <option hlmNativeSelectOption value="on_hold">On hold</option>
+            <option hlmNativeSelectOption value="completed">Completed</option>
+          </hlm-native-select>
+        </app-field>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Budget">
+          <input hlmInput type="number" min="0" class="w-full" [(ngModel)]="form.budget" />
+        </app-field>
+        <app-field label="Hourly rate">
+          <input hlmInput type="number" min="0" class="w-full" [(ngModel)]="form.hourlyRate" />
+        </app-field>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Start date">
+          <app-date-field [(value)]="form.startDate" />
+        </app-field>
+        <app-field label="End date">
+          <app-date-field [(value)]="form.endDate" />
+        </app-field>
+      </div>
+      <app-field label="Description">
+        <textarea hlmTextarea rows="3" class="w-full" [(ngModel)]="form.description"></textarea>
+      </app-field>
+    </div>
+  </app-entity-sheet>
+</div>

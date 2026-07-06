@@ -55,3 +55,4 @@ vitest.config.*.timestamp*
 .nx/self-healing
 .nx/migrate-runs
 instructions.md
+apps/api/src/generated

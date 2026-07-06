@@ -1,0 +1,92 @@
+<div class="mx-auto max-w-3xl px-4 py-8 md:px-8">
+  <div class="mb-8">
+    <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
+    <p class="mt-1 text-sm text-muted-foreground">
+      Configure your workspace and personalize the look.
+    </p>
+  </div>
+
+  <section class="surface-card p-6">
+    <div class="mb-5 flex items-center gap-2">
+      <ng-icon name="lucidePalette" size="16" class="text-primary" />
+      <h2 class="text-sm font-semibold">Appearance</h2>
+    </div>
+
+    <div class="space-y-6">
+      <div>
+        <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Theme</p>
+        <div class="grid grid-cols-3 gap-2">
+          @for (m of modes; track m.id) {
+            <button
+              type="button"
+              [disabled]="m.disabled"
+              (click)="setMode(m.id)"
+              class="flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-sm transition-all"
+              [class]="
+                isActiveMode(m.id)
+                  ? 'border-primary/60 bg-primary/5 text-foreground shadow-[var(--shadow-glow)]'
+                  : m.disabled
+                    ? 'cursor-not-allowed border-border bg-surface text-muted-foreground opacity-40'
+                    : 'border-border bg-surface text-muted-foreground hover:border-primary/40 hover:text-foreground'
+              "
+            >
+              <ng-icon [name]="m.icon" size="20" />
+              {{ m.label }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div>
+        <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Accent color
+        </p>
+        <div class="flex flex-wrap gap-2">
+          @for (a of accents; track a.id) {
+            <button
+              type="button"
+              (click)="theme.setAccent(a.id)"
+              class="group relative flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all"
+              [class]="
+                theme.accent() === a.id
+                  ? 'border-primary/60 bg-primary/10'
+                  : 'border-border bg-surface hover:border-primary/40'
+              "
+            >
+              <span
+                class="h-4 w-4 rounded-full ring-2 ring-background"
+                [style.background-color]="a.swatch"
+              ></span>
+              {{ a.label }}
+              @if (theme.accent() === a.id) {
+                <ng-icon name="lucideCheck" size="14" class="text-primary" />
+              }
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="surface-card mt-4 p-6">
+    <h2 class="text-sm font-semibold">Workspace</h2>
+    <p class="mt-1 text-xs text-muted-foreground">
+      Company details, currency, tax and team permissions coming soon.
+    </p>
+  </section>
+
+  <section class="surface-card mt-4 p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-sm font-semibold">Demo data</h2>
+        <p class="mt-1 text-xs text-muted-foreground">
+          All records live in your browser's local storage. Reset to restore the seed data.
+        </p>
+      </div>
+      <button hlmBtn variant="outline" size="sm" class="gap-1.5" (click)="store.reset()">
+        <ng-icon name="lucideRotateCcw" size="14" />
+        Reset demo data
+      </button>
+    </div>
+  </section>
+</div>

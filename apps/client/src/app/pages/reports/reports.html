@@ -1,0 +1,125 @@
+<div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
+  <app-page-header
+    title="Reports"
+    description="Revenue, cash flow, and top clients - the numbers that matter."
+  />
+
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    @for (kpi of kpis(); track kpi.label) {
+    <div class="surface-card p-5">
+      <div class="flex items-center justify-between">
+        <p class="text-[13px] font-medium text-muted-foreground">
+          {{ kpi.label }}
+        </p>
+        <div
+          class="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary"
+        >
+          <ng-icon [name]="kpi.icon" size="16" />
+        </div>
+      </div>
+      <p class="mt-2 text-2xl font-semibold tracking-tight tabular-nums">
+        {{ kpi.value }}
+      </p>
+      @if (kpi.trend) {
+      <p class="mt-1 flex items-center gap-1 text-[11px] text-success">
+        <ng-icon name="lucideArrowUpRight" size="12" />
+        {{ kpi.trend }}
+      </p>
+      }
+    </div>
+    }
+  </div>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <div class="surface-card p-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-semibold">Top clients</h2>
+          <p class="text-xs text-muted-foreground">By invoiced volume</p>
+        </div>
+      </div>
+      <div class="mt-4 space-y-3">
+        @for (row of byClient(); track row.id) {
+        <div>
+          <div class="mb-1 flex items-center justify-between text-sm">
+            <span class="truncate">{{ row.name }}</span>
+            <span class="font-semibold tabular-nums">{{ row.amount }}</span>
+          </div>
+          <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              class="h-full rounded-full bg-primary"
+              [style.width.%]="row.pct"
+            ></div>
+          </div>
+        </div>
+        }
+      </div>
+    </div>
+
+    <div class="surface-card p-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-semibold">Expenses by category</h2>
+          <p class="text-xs text-muted-foreground">All time</p>
+        </div>
+        <p class="flex items-center gap-1 text-[11px] text-destructive">
+          <ng-icon name="lucideArrowDownRight" size="12" />
+          {{ money(spent()) }} spent
+        </p>
+      </div>
+      <div class="mt-4 space-y-3">
+        @for (row of expByCat(); track row.cat) {
+        <div>
+          <div class="mb-1 flex items-center justify-between text-sm">
+            <span class="capitalize">{{ row.cat }}</span>
+            <span class="font-semibold tabular-nums">{{ row.amount }}</span>
+          </div>
+          <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              class="h-full rounded-full bg-info"
+              [style.width.%]="row.pct"
+            ></div>
+          </div>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-3">
+    <div class="surface-card p-5">
+      <p class="text-[11px] uppercase tracking-wider text-muted-foreground">
+        Net profit
+      </p>
+      <p
+        class="mt-2 text-3xl font-bold tabular-nums"
+        [class]="profit() >= 0 ? 'text-success' : 'text-destructive'"
+      >
+        {{ money(profit()) }}
+      </p>
+      <p class="mt-1 text-xs text-muted-foreground">Revenue minus expenses</p>
+    </div>
+    <div class="surface-card p-5">
+      <p class="text-[11px] uppercase tracking-wider text-muted-foreground">
+        Avg invoice
+      </p>
+      <p class="mt-2 text-3xl font-bold tabular-nums">
+        {{ money(avgInvoice()) }}
+      </p>
+      <p class="mt-1 text-xs text-muted-foreground">
+        Across {{ paidCount() }} paid invoices
+      </p>
+    </div>
+    <div class="surface-card p-5">
+      <p class="text-[11px] uppercase tracking-wider text-muted-foreground">
+        Collected
+      </p>
+      <p class="mt-2 text-3xl font-bold tabular-nums">
+        {{ money(collected()) }}
+      </p>
+      <p class="mt-1 text-xs text-muted-foreground">
+        {{ paymentCount() }} payments recorded
+      </p>
+    </div>
+  </div>
+</div>

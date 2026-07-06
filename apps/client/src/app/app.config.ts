@@ -3,8 +3,13 @@ import {
   provideBrowserGlobalErrorListeners,
   provideZoneChangeDetection,
 } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import {
+  provideRouter,
+  withComponentInputBinding,
+  withViewTransitions,
+} from '@angular/router';
 import { provideHttpClient, withFetch } from '@angular/common/http';
+import { BrnNativeDateAdapter, provideDateAdapter } from '@spartan-ng/brain/date-time';
 import { appRoutes } from './app.routes';
 import {
   provideClientHydration,
@@ -16,7 +21,8 @@ export const appConfig: ApplicationConfig = {
     provideClientHydration(withEventReplay()),
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(appRoutes),
+    provideRouter(appRoutes, withComponentInputBinding(), withViewTransitions()),
     provideHttpClient(withFetch()),
+    provideDateAdapter(BrnNativeDateAdapter),
   ],
 };

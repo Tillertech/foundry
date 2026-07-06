@@ -1,0 +1,208 @@
+<div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
+  <app-page-header
+    title="Clients"
+    [description]="store.clients().length + ' companies and people you work with'"
+  >
+    <button
+      actions
+      hlmBtn
+      size="sm"
+      class="h-9 gap-1.5 shadow-[var(--shadow-glow)]"
+      (click)="openNew()"
+    >
+      <ng-icon name="lucidePlus" size="16" />
+      New client
+    </button>
+  </app-page-header>
+
+  <!-- Toolbar -->
+  <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="relative min-w-[220px] max-w-md flex-1">
+      <ng-icon
+        name="lucideSearch"
+        size="16"
+        class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+      />
+      <input
+        hlmInput
+        type="text"
+        placeholder="Search clients…"
+        class="h-9 w-full pl-9"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+      />
+    </div>
+    <hlm-native-select
+      class="w-[150px]"
+      selectClass="h-9"
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)"
+    >
+      <option hlmNativeSelectOption value="all">All statuses</option>
+      <option hlmNativeSelectOption value="active">Active</option>
+      <option hlmNativeSelectOption value="lead">Lead</option>
+      <option hlmNativeSelectOption value="archived">Archived</option>
+    </hlm-native-select>
+  </div>
+
+  @defer (on timer(400ms)) { @if (filtered().length === 0) {
+  <div
+    class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center"
+  >
+    <div
+      class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground"
+    >
+      <span class="font-mono text-lg">∅</span>
+    </div>
+    <p class="mt-4 text-sm font-semibold">No clients match</p>
+    <p class="mt-1 max-w-sm text-xs text-muted-foreground">
+      Try clearing filters, or add your first client.
+    </p>
+    <button hlmBtn size="sm" class="mt-4 gap-1.5" (click)="openNew()">
+      <ng-icon name="lucidePlus" size="16" />
+      New client
+    </button>
+  </div>
+  } @else {
+  <div class="surface-card overflow-hidden">
+    <div
+      class="grid grid-cols-[minmax(0,2fr)_100px] items-center gap-3 border-b border-border bg-muted/40 px-5 py-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid-cols-[minmax(0,2fr)_1fr_120px_100px] md:grid-cols-[minmax(0,2fr)_1fr_120px_120px_100px]"
+    >
+      <span>Client</span>
+      <span class="hidden sm:inline">Contact</span>
+      <span class="hidden md:inline">Currency</span>
+      <span class="hidden sm:inline">Revenue</span>
+      <span>Status</span>
+    </div>
+    <div class="divide-y divide-border">
+      @for (c of filtered(); track c.id) {
+      <button
+        type="button"
+        (click)="openEdit(c)"
+        class="grid w-full grid-cols-[minmax(0,2fr)_100px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(0,2fr)_1fr_120px_100px] md:grid-cols-[minmax(0,2fr)_1fr_120px_120px_100px]"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <div
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-primary/30 to-primary/5 font-mono text-[11px] font-semibold text-primary"
+          >
+            {{ initials(c.company || c.name) }}
+          </div>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium">
+              {{ c.company || c.name }}
+            </p>
+            <p class="truncate text-xs text-muted-foreground">
+              {{ c.company ? c.name : c.email }}
+            </p>
+          </div>
+        </div>
+        <span class="hidden truncate text-xs text-muted-foreground sm:inline"
+          >{{ c.email }}</span
+        >
+        <span class="hidden font-mono text-xs text-muted-foreground md:inline"
+          >{{ c.currency }}</span
+        >
+        <span class="hidden text-sm font-semibold tabular-nums sm:inline">
+          {{ money(revenueByClient()[c.id] || 0, c.currency) }}
+        </span>
+        <app-status-badge [status]="c.status" />
+      </button>
+      }
+    </div>
+  </div>
+  } } @placeholder {
+  <app-list-skeleton [rows]="6" />
+  }
+
+  <app-entity-sheet
+    [(open)]="sheetOpen"
+    [title]="isNew ? 'New client' : 'Edit ' + form.name"
+    description="Companies and contacts you invoice."
+    [canSave]="!!form.name.trim()"
+    [showDelete]="!isNew"
+    (saved)="save()"
+    (deleted)="removeCurrent()"
+  >
+    <div class="grid gap-4">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Contact name">
+          <input
+            hlmInput
+            class="w-full"
+            [(ngModel)]="form.name"
+            placeholder="Jane Doe"
+          />
+        </app-field>
+        <app-field label="Company">
+          <input
+            hlmInput
+            class="w-full"
+            [(ngModel)]="form.company"
+            placeholder="Acme Inc."
+          />
+        </app-field>
+      </div>
+      <app-field label="Email">
+        <div class="relative">
+          <ng-icon
+            name="lucideMail"
+            size="16"
+            class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+          />
+          <input
+            hlmInput
+            type="email"
+            class="w-full pl-9"
+            [(ngModel)]="form.email"
+            placeholder="hello@acme.com"
+          />
+        </div>
+      </app-field>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Currency">
+          <hlm-native-select class="w-full" [(ngModel)]="form.currency">
+            <option hlmNativeSelectOption value="USD">USD - US Dollar</option>
+            <option hlmNativeSelectOption value="EUR">EUR - Euro</option>
+            <option hlmNativeSelectOption value="GBP">
+              GBP - British Pound
+            </option>
+          </hlm-native-select>
+        </app-field>
+        <app-field label="Status">
+          <hlm-native-select class="w-full" [(ngModel)]="form.status">
+            <option hlmNativeSelectOption value="active">Active</option>
+            <option hlmNativeSelectOption value="lead">Lead</option>
+            <option hlmNativeSelectOption value="archived">Archived</option>
+          </hlm-native-select>
+        </app-field>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Tax ID / VAT">
+          <input
+            hlmInput
+            class="w-full"
+            [(ngModel)]="form.taxId"
+            placeholder="Optional"
+          />
+        </app-field>
+        <app-field label="Address">
+          <input
+            hlmInput
+            class="w-full"
+            [(ngModel)]="form.address"
+            placeholder="Optional"
+          />
+        </app-field>
+      </div>
+      <app-field label="Notes">
+        <textarea
+          hlmTextarea
+          rows="3"
+          class="w-full"
+          [(ngModel)]="form.notes"
+          placeholder="Internal notes about this client…"
+        ></textarea>
+      </app-field>
+    </div>
+  </app-entity-sheet>
+</div>

@@ -1,0 +1,164 @@
+<div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
+  <app-page-header
+    title="Payments"
+    [description]="filtered().length + ' payments · ' + money(total()) + ' total'"
+  >
+    <button actions hlmBtn size="sm" class="h-9 gap-1.5 shadow-[var(--shadow-glow)]" (click)="openNew()">
+      <ng-icon name="lucidePlus" size="16" />
+      Record payment
+    </button>
+  </app-page-header>
+
+  <!-- Toolbar -->
+  <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="relative min-w-[220px] max-w-md flex-1">
+      <ng-icon
+        name="lucideSearch"
+        size="16"
+        class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+      />
+      <input
+        hlmInput
+        type="text"
+        placeholder="Search payments…"
+        class="h-9 w-full pl-9"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+      />
+    </div>
+    <hlm-native-select
+      class="w-[170px]"
+      selectClass="h-9"
+      [ngModel]="methodFilter()"
+      (ngModelChange)="methodFilter.set($event)"
+    >
+      <option hlmNativeSelectOption value="all">All methods</option>
+      @for (m of methodOptions; track m[0]) {
+        <option hlmNativeSelectOption [value]="m[0]">{{ m[1] }}</option>
+      }
+    </hlm-native-select>
+  </div>
+
+  @defer (on timer(400ms)) {
+  @if (filtered().length === 0) {
+    <div class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
+      <div class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+        <span class="font-mono text-lg">∅</span>
+      </div>
+      <p class="mt-4 text-sm font-semibold">No payments yet</p>
+      <button hlmBtn size="sm" class="mt-4 gap-1.5" (click)="openNew()">
+        <ng-icon name="lucidePlus" size="16" />
+        Record payment
+      </button>
+    </div>
+  } @else {
+    <div class="surface-card overflow-hidden">
+      <ul class="divide-y divide-border">
+        @for (p of filtered(); track p.id) {
+          <li>
+            <button
+              type="button"
+              (click)="openEdit(p)"
+              class="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40"
+            >
+              <div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/12 text-success">
+                <ng-icon name="lucideWallet" size="16" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium">
+                  {{ clientMap()[p.clientId]?.company || clientMap()[p.clientId]?.name || 'Unknown' }}
+                </p>
+                <p class="truncate text-xs text-muted-foreground">
+                  {{ label(p.method) }}
+                  @if (p.reference) {
+                    · {{ p.reference }}
+                  }
+                  @if (p.invoiceId) {
+                    · {{ invoiceNumber(p.invoiceId) }}
+                  }
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-semibold tabular-nums text-success">
+                  +{{ money(p.amount, p.currency) }}
+                </p>
+                <p class="text-[11px] text-muted-foreground">{{ p.date }}</p>
+              </div>
+            </button>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+  } @placeholder {
+    <app-list-skeleton [rows]="5" />
+  }
+
+  <app-entity-sheet
+    [(open)]="sheetOpen"
+    [title]="isNew ? 'Record payment' : 'Edit payment'"
+    [canSave]="!!form.clientId && form.amount > 0"
+    [showDelete]="!isNew"
+    (saved)="save()"
+    (deleted)="removeCurrent()"
+  >
+    <div class="grid gap-4">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Client">
+          <hlm-native-select
+            class="w-full"
+            [ngModel]="form.clientId"
+            (ngModelChange)="onClientChange($event)"
+          >
+            @for (c of store.clients(); track c.id) {
+              <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
+            }
+          </hlm-native-select>
+        </app-field>
+        <app-field label="Invoice (optional)">
+          <hlm-native-select class="w-full" [(ngModel)]="form.invoiceId">
+            <option hlmNativeSelectOption value="">Unlinked</option>
+            @for (i of clientInvoices; track i.id) {
+              <option hlmNativeSelectOption [value]="i.id">{{ i.number }}</option>
+            }
+          </hlm-native-select>
+        </app-field>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Amount">
+          <input hlmInput type="number" min="0" step="0.01" class="w-full" [(ngModel)]="form.amount" />
+        </app-field>
+        <app-field label="Currency">
+          <hlm-native-select class="w-full" [(ngModel)]="form.currency">
+            <option hlmNativeSelectOption value="USD">USD</option>
+            <option hlmNativeSelectOption value="EUR">EUR</option>
+            <option hlmNativeSelectOption value="GBP">GBP</option>
+          </hlm-native-select>
+        </app-field>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Method">
+          <hlm-native-select class="w-full" [(ngModel)]="form.method">
+            @for (m of methodOptions; track m[0]) {
+              <option hlmNativeSelectOption [value]="m[0]">{{ m[1] }}</option>
+            }
+          </hlm-native-select>
+        </app-field>
+        <app-field label="Date">
+          <app-date-field [(value)]="form.date" />
+        </app-field>
+      </div>
+      <app-field label="Reference">
+        <input
+          hlmInput
+          class="w-full"
+          [(ngModel)]="form.reference"
+          placeholder="Transaction ID, cheque #, etc."
+        />
+      </app-field>
+      <app-field label="Notes">
+        <textarea hlmTextarea rows="3" class="w-full" [(ngModel)]="form.notes"></textarea>
+      </app-field>
+    </div>
+  </app-entity-sheet>
+</div>

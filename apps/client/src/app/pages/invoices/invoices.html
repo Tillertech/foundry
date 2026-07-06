@@ -1,0 +1,223 @@
+<div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
+  <app-page-header
+    title="Invoices"
+    [description]="filtered().length + ' invoices · ' + money(totalOutstanding()) + ' outstanding'"
+  >
+    <button actions hlmBtn size="sm" class="h-9 gap-1.5 shadow-[var(--shadow-glow)]" (click)="openNew()">
+      <ng-icon name="lucidePlus" size="16" />
+      New invoice
+    </button>
+  </app-page-header>
+
+  <!-- Toolbar -->
+  <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="relative min-w-[220px] max-w-md flex-1">
+      <ng-icon
+        name="lucideSearch"
+        size="16"
+        class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+      />
+      <input
+        hlmInput
+        type="text"
+        placeholder="Search invoices…"
+        class="h-9 w-full pl-9"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+      />
+    </div>
+    <hlm-native-select
+      class="w-[150px]"
+      selectClass="h-9"
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)"
+    >
+      <option hlmNativeSelectOption value="all">All statuses</option>
+      <option hlmNativeSelectOption value="draft">Draft</option>
+      <option hlmNativeSelectOption value="sent">Sent</option>
+      <option hlmNativeSelectOption value="viewed">Viewed</option>
+      <option hlmNativeSelectOption value="paid">Paid</option>
+      <option hlmNativeSelectOption value="overdue">Overdue</option>
+      <option hlmNativeSelectOption value="cancelled">Cancelled</option>
+    </hlm-native-select>
+    <hlm-native-select
+      class="w-[180px]"
+      selectClass="h-9"
+      [ngModel]="clientFilter()"
+      (ngModelChange)="clientFilter.set($event)"
+    >
+      <option hlmNativeSelectOption value="all">All clients</option>
+      @for (c of store.clients(); track c.id) {
+        <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
+      }
+    </hlm-native-select>
+  </div>
+
+  @defer (on timer(400ms)) {
+  @if (filtered().length === 0) {
+    <div class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
+      <div class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+        <span class="font-mono text-lg">∅</span>
+      </div>
+      <p class="mt-4 text-sm font-semibold">No invoices match</p>
+      <button hlmBtn size="sm" class="mt-4 gap-1.5" (click)="openNew()">
+        <ng-icon name="lucidePlus" size="16" />
+        New invoice
+      </button>
+    </div>
+  } @else {
+    <div class="surface-card overflow-hidden">
+      <div
+        class="grid grid-cols-[90px_minmax(0,1.5fr)_100px_90px] items-center gap-3 border-b border-border bg-muted/40 px-5 py-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground md:grid-cols-[100px_minmax(0,1.5fr)_1fr_110px_110px_100px]"
+      >
+        <span>Number</span>
+        <span>Client</span>
+        <span class="hidden md:inline">Issued</span>
+        <span class="hidden md:inline">Due</span>
+        <span class="text-right">Total</span>
+        <span>Status</span>
+      </div>
+      <div class="divide-y divide-border">
+        @for (inv of filtered(); track inv.id) {
+          <button
+            type="button"
+            (click)="openEdit(inv)"
+            class="grid w-full grid-cols-[90px_minmax(0,1.5fr)_100px_90px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40 md:grid-cols-[100px_minmax(0,1.5fr)_1fr_110px_110px_100px]"
+          >
+            <span class="font-mono text-xs text-muted-foreground">{{ inv.number }}</span>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium">
+                {{ clientMap()[inv.clientId]?.company || clientMap()[inv.clientId]?.name || '—' }}
+              </p>
+              @if (inv.projectId) {
+                <p class="truncate text-xs text-muted-foreground">{{ projectName(inv.projectId) }}</p>
+              }
+            </div>
+            <span class="hidden text-xs text-muted-foreground md:inline">{{ inv.issueDate }}</span>
+            <span class="hidden text-xs text-muted-foreground md:inline">{{ inv.dueDate }}</span>
+            <span class="text-right text-sm font-semibold tabular-nums">
+              {{ money(total(inv), inv.currency) }}
+            </span>
+            <app-status-badge [status]="inv.status" />
+          </button>
+        }
+      </div>
+    </div>
+  }
+  } @placeholder {
+    <app-list-skeleton [rows]="6" />
+  }
+
+  <app-entity-sheet
+    [(open)]="sheetOpen"
+    [title]="isNew ? 'New invoice' : 'Edit ' + form.number"
+    description="A Notion-meets-Stripe editor with live totals."
+    [canSave]="!!form.clientId && form.items.length > 0"
+    [showDelete]="!isNew"
+    (saved)="save()"
+    (deleted)="removeCurrent()"
+  >
+    <div class="grid gap-4">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Invoice number">
+          <input hlmInput class="w-full font-mono" [(ngModel)]="form.number" />
+        </app-field>
+        <app-field label="Status">
+          <hlm-native-select class="w-full" [(ngModel)]="form.status">
+            <option hlmNativeSelectOption value="draft">Draft</option>
+            <option hlmNativeSelectOption value="sent">Sent</option>
+            <option hlmNativeSelectOption value="viewed">Viewed</option>
+            <option hlmNativeSelectOption value="paid">Paid</option>
+            <option hlmNativeSelectOption value="overdue">Overdue</option>
+            <option hlmNativeSelectOption value="cancelled">Cancelled</option>
+          </hlm-native-select>
+        </app-field>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Client">
+          <hlm-native-select
+            class="w-full"
+            [ngModel]="form.clientId"
+            (ngModelChange)="onClientChange($event)"
+          >
+            @for (c of store.clients(); track c.id) {
+              <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
+            }
+          </hlm-native-select>
+        </app-field>
+        <app-field label="Project (optional)">
+          <hlm-native-select class="w-full" [(ngModel)]="form.projectId">
+            <option hlmNativeSelectOption value="">None</option>
+            @for (p of clientProjects; track p.id) {
+              <option hlmNativeSelectOption [value]="p.id">{{ p.name }}</option>
+            }
+          </hlm-native-select>
+        </app-field>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <app-field label="Issue date">
+          <app-date-field [(value)]="form.issueDate" />
+        </app-field>
+        <app-field label="Due date">
+          <app-date-field [(value)]="form.dueDate" />
+        </app-field>
+        <app-field label="Currency">
+          <hlm-native-select class="w-full" [(ngModel)]="form.currency">
+            <option hlmNativeSelectOption value="USD">USD</option>
+            <option hlmNativeSelectOption value="EUR">EUR</option>
+            <option hlmNativeSelectOption value="GBP">GBP</option>
+          </hlm-native-select>
+        </app-field>
+      </div>
+
+      <div>
+        <p class="mb-1.5 text-xs font-medium text-muted-foreground">Line items</p>
+        <app-line-items-editor
+          [items]="form.items"
+          [currency]="form.currency"
+          (itemsChange)="onItemsChange($event)"
+        />
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Discount">
+          <input hlmInput type="number" min="0" step="0.01" class="w-full" [(ngModel)]="form.discount" />
+        </app-field>
+        <app-field label="Tax / VAT rate (%)">
+          <input hlmInput type="number" min="0" max="100" step="0.01" class="w-full" [(ngModel)]="form.taxRate" />
+        </app-field>
+      </div>
+
+      <div class="rounded-lg border border-border bg-muted/30 p-4">
+        <div class="flex justify-between text-sm">
+          <span class="text-muted-foreground">Subtotal</span>
+          <span class="tabular-nums">{{ money(totals.subtotal, form.currency) }}</span>
+        </div>
+        @if (totals.discount > 0) {
+          <div class="mt-1 flex justify-between text-sm">
+            <span class="text-muted-foreground">Discount</span>
+            <span class="tabular-nums">−{{ money(totals.discount, form.currency) }}</span>
+          </div>
+        }
+        <div class="mt-1 flex justify-between text-sm">
+          <span class="text-muted-foreground">Tax ({{ form.taxRate }}%)</span>
+          <span class="tabular-nums">{{ money(totals.tax, form.currency) }}</span>
+        </div>
+        <div class="mt-3 flex items-center justify-between border-t border-border pt-3">
+          <span class="text-sm font-semibold">Total</span>
+          <span class="text-lg font-bold tabular-nums">{{ money(totals.total, form.currency) }}</span>
+        </div>
+      </div>
+
+      <app-field label="Notes / terms">
+        <textarea
+          hlmTextarea
+          rows="3"
+          class="w-full"
+          [(ngModel)]="form.notes"
+          placeholder="Net 14. Late fees apply after due date."
+        ></textarea>
+      </app-field>
+    </div>
+  </app-entity-sheet>
+</div>

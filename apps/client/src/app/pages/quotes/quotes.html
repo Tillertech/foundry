@@ -1,0 +1,172 @@
+<div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
+  <app-page-header title="Quotes" [description]="filtered().length + ' proposals'">
+    <button actions hlmBtn size="sm" class="h-9 gap-1.5 shadow-[var(--shadow-glow)]" (click)="openNew()">
+      <ng-icon name="lucidePlus" size="16" />
+      New quote
+    </button>
+  </app-page-header>
+
+  <!-- Toolbar -->
+  <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="relative min-w-[220px] max-w-md flex-1">
+      <ng-icon
+        name="lucideSearch"
+        size="16"
+        class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+      />
+      <input
+        hlmInput
+        type="text"
+        placeholder="Search quotes…"
+        class="h-9 w-full pl-9"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+      />
+    </div>
+    <hlm-native-select
+      class="w-[150px]"
+      selectClass="h-9"
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)"
+    >
+      <option hlmNativeSelectOption value="all">All statuses</option>
+      <option hlmNativeSelectOption value="draft">Draft</option>
+      <option hlmNativeSelectOption value="sent">Sent</option>
+      <option hlmNativeSelectOption value="accepted">Accepted</option>
+      <option hlmNativeSelectOption value="declined">Declined</option>
+      <option hlmNativeSelectOption value="expired">Expired</option>
+    </hlm-native-select>
+  </div>
+
+  @defer (on timer(400ms)) {
+  @if (filtered().length === 0) {
+    <div class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
+      <div class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+        <span class="font-mono text-lg">∅</span>
+      </div>
+      <p class="mt-4 text-sm font-semibold">No quotes yet</p>
+      <button hlmBtn size="sm" class="mt-4 gap-1.5" (click)="openNew()">
+        <ng-icon name="lucidePlus" size="16" />
+        New quote
+      </button>
+    </div>
+  } @else {
+    <div class="surface-card overflow-hidden">
+      <div
+        class="grid grid-cols-[90px_minmax(0,2fr)_100px_90px] items-center gap-3 border-b border-border bg-muted/40 px-5 py-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid-cols-[100px_minmax(0,2fr)_120px_120px_100px]"
+      >
+        <span>Number</span>
+        <span>Client</span>
+        <span class="hidden sm:inline">Valid until</span>
+        <span class="text-right">Total</span>
+        <span>Status</span>
+      </div>
+      <div class="divide-y divide-border">
+        @for (q of filtered(); track q.id) {
+          <button
+            type="button"
+            (click)="openEdit(q)"
+            class="grid w-full grid-cols-[90px_minmax(0,2fr)_100px_90px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40 sm:grid-cols-[100px_minmax(0,2fr)_120px_120px_100px]"
+          >
+            <span class="font-mono text-xs text-muted-foreground">{{ q.number }}</span>
+            <span class="truncate text-sm font-medium">
+              {{ clientMap()[q.clientId]?.company || clientMap()[q.clientId]?.name || '—' }}
+            </span>
+            <span class="hidden text-xs text-muted-foreground sm:inline">{{ q.validUntil }}</span>
+            <span class="text-right text-sm font-semibold tabular-nums">
+              {{ money(total(q), q.currency) }}
+            </span>
+            <app-status-badge [status]="q.status" />
+          </button>
+        }
+      </div>
+    </div>
+  }
+  } @placeholder {
+    <app-list-skeleton [rows]="5" />
+  }
+
+  <app-entity-sheet
+    [(open)]="sheetOpen"
+    [title]="isNew ? 'New quote' : 'Edit ' + form.number"
+    [canSave]="!!form.clientId && form.items.length > 0"
+    [showDelete]="!isNew"
+    (saved)="save()"
+    (deleted)="removeCurrent()"
+  >
+    <div class="grid gap-4">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Quote number">
+          <input hlmInput class="w-full font-mono" [(ngModel)]="form.number" />
+        </app-field>
+        <app-field label="Status">
+          <hlm-native-select class="w-full" [(ngModel)]="form.status">
+            <option hlmNativeSelectOption value="draft">Draft</option>
+            <option hlmNativeSelectOption value="sent">Sent</option>
+            <option hlmNativeSelectOption value="accepted">Accepted</option>
+            <option hlmNativeSelectOption value="declined">Declined</option>
+            <option hlmNativeSelectOption value="expired">Expired</option>
+          </hlm-native-select>
+        </app-field>
+      </div>
+      <app-field label="Client">
+        <hlm-native-select
+          class="w-full"
+          [ngModel]="form.clientId"
+          (ngModelChange)="onClientChange($event)"
+        >
+          @for (c of store.clients(); track c.id) {
+            <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
+          }
+        </hlm-native-select>
+      </app-field>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <app-field label="Issue date">
+          <app-date-field [(value)]="form.issueDate" />
+        </app-field>
+        <app-field label="Valid until">
+          <app-date-field [(value)]="form.validUntil" />
+        </app-field>
+        <app-field label="Currency">
+          <hlm-native-select class="w-full" [(ngModel)]="form.currency">
+            <option hlmNativeSelectOption value="USD">USD</option>
+            <option hlmNativeSelectOption value="EUR">EUR</option>
+            <option hlmNativeSelectOption value="GBP">GBP</option>
+          </hlm-native-select>
+        </app-field>
+      </div>
+
+      <div>
+        <p class="mb-1.5 text-xs font-medium text-muted-foreground">Line items</p>
+        <app-line-items-editor
+          [items]="form.items"
+          [currency]="form.currency"
+          (itemsChange)="onItemsChange($event)"
+        />
+      </div>
+
+      <app-field label="Tax / VAT rate (%)">
+        <input hlmInput type="number" min="0" max="100" step="0.01" class="w-full" [(ngModel)]="form.taxRate" />
+      </app-field>
+
+      <div class="rounded-lg border border-border bg-muted/30 p-4">
+        <div class="flex justify-between text-sm">
+          <span class="text-muted-foreground">Subtotal</span>
+          <span class="tabular-nums">{{ money(totals.subtotal, form.currency) }}</span>
+        </div>
+        <div class="mt-1 flex justify-between text-sm">
+          <span class="text-muted-foreground">Tax ({{ form.taxRate }}%)</span>
+          <span class="tabular-nums">{{ money(totals.tax, form.currency) }}</span>
+        </div>
+        <div class="mt-3 flex items-center justify-between border-t border-border pt-3">
+          <span class="text-sm font-semibold">Total</span>
+          <span class="text-lg font-bold tabular-nums">{{ money(totals.total, form.currency) }}</span>
+        </div>
+      </div>
+
+      <app-field label="Notes">
+        <textarea hlmTextarea rows="3" class="w-full" [(ngModel)]="form.notes"></textarea>
+      </app-field>
+    </div>
+  </app-entity-sheet>
+</div>
