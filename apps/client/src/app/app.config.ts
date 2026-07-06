@@ -8,7 +8,12 @@ import {
   withComponentInputBinding,
   withViewTransitions,
 } from '@angular/router';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import {
+  provideHttpClient,
+  withFetch,
+  withInterceptors,
+} from '@angular/common/http';
+import { authInterceptor } from './core/api/auth.interceptor';
 import { BrnNativeDateAdapter, provideDateAdapter } from '@spartan-ng/brain/date-time';
 import { appRoutes } from './app.routes';
 import {
@@ -22,7 +27,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(appRoutes, withComponentInputBinding(), withViewTransitions()),
-    provideHttpClient(withFetch()),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
     provideDateAdapter(BrnNativeDateAdapter),
   ],
 };

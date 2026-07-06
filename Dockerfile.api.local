@@ -1,21 +1,25 @@
 FROM node:lts-slim
 
-LABEL maintainer="hello@marvinkweyu.net"
+LABEL maintainer="hello@tillertech.io"
 
-WORKDIR /api
+WORKDIR /foundry
 
 RUN apt-get update && \
-    apt-get install -y python3 make g++ procps && \
+    apt-get install -y python3 make g++ procps openssl && \
     rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 
-RUN npm install
+RUN npm ci --legacy-peer-deps
 
 COPY . .
 
-RUN npx prisma generate --schema=prisma/schema.prisma
+RUN npx prisma generate --config=apps/api/prisma.config.ts
 
-EXPOSE 3000 51212
+EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && npm run start:dev"]
+ENV NX_DAEMON=false
+
+# The compose volume mounts the repo over /foundry, so regenerate the Prisma
+# client for the mounted source before starting the dev server.
+CMD ["sh", "-c", "npx prisma generate --config=apps/api/prisma.config.ts && npx prisma migrate deploy --config=apps/api/prisma.config.ts && npx nx serve api --configuration=development"]

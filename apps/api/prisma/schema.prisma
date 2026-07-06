@@ -90,7 +90,7 @@ model User {
 
 model Workspace {
   id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String       @db.VarChar(250)
+  name      String       @db.VarChar(500)
   slug      String       @db.VarChar(500)
   currency  Currency     @default(USD)
   status    ClientStatus @default(active)
@@ -236,7 +236,7 @@ model Payment {
 
   clientId  String   @db.Uuid
   client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  invoiceId String?
+  invoiceId String?  @db.Uuid
   invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
