@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,15 +10,22 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
+  ApiExtraModels,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { requestBaseUrl } from '../common/http/request-base-url';
@@ -38,13 +46,31 @@ export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Post()
-  @ApiOperation({
-    summary: 'Register a document (upload the file via POST /uploads first)',
+  @ApiOperation({ summary: 'Upload a file and register it as a document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiExtraModels(CreateDocumentDto)
+  @ApiBody({
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(CreateDocumentDto) },
+        {
+          type: 'object',
+          properties: { file: { type: 'string', format: 'binary' } },
+          required: ['file'],
+        },
+      ],
+    },
   })
+  @UseInterceptors(FileInterceptor('file'))
   @ApiCreatedResponse({ type: DocumentEntity })
   @ApiNotFoundResponse({ description: 'Client or project not found' })
-  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateDocumentDto) {
-    return this.documentsService.create(user.sub, dto);
+  create(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateDocumentDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No file provided');
+    return this.documentsService.create(user.sub, dto, file);
   }
 
   @Get()

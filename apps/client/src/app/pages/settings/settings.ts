@@ -1,16 +1,30 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  inject,
+  signal,
+} from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideBuilding2,
   lucideCheck,
   lucideMonitor,
   lucideMoon,
   lucidePalette,
-  lucideRotateCcw,
   lucideSun,
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { StoreService } from '../../core/store.service';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
+import { apiErrorMessage } from '../../core/http';
+import { Currency } from '../../domains/shared';
+import { Workspace, WorkspacesApiService } from '../../domains/workspaces';
+import { ToastService } from '../../core/toast.service';
 import { Accent, ThemeService } from '../../core/theme.service';
+import { Field } from '../../shared/field';
 
 const accents: { id: Accent; label: string; swatch: string }[] = [
   { id: 'orange', label: 'Orange', swatch: '#f97316' },
@@ -23,14 +37,14 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
 @Component({
   selector: 'app-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgIcon, HlmButton],
+  imports: [FormsModule, NgIcon, HlmButton, HlmInput, HlmNativeSelectImports, Field],
   providers: [
     provideIcons({
+      lucideBuilding2,
       lucideCheck,
       lucideMonitor,
       lucideMoon,
       lucidePalette,
-      lucideRotateCcw,
       lucideSun,
     }),
   ],
@@ -38,9 +52,50 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
 })
 export class Settings {
   protected readonly theme = inject(ThemeService);
-  protected readonly store = inject(StoreService);
+  private readonly workspacesApi = inject(WorkspacesApiService);
+  private readonly toast = inject(ToastService);
 
   protected readonly accents = accents;
+
+  protected readonly workspace = signal<Workspace | null>(null);
+  protected readonly savingWorkspace = signal(false);
+  protected workspaceName = '';
+  protected workspaceCurrency: Currency = 'USD';
+
+  constructor() {
+    if (isPlatformBrowser(inject(PLATFORM_ID))) {
+      this.workspacesApi.getDefault().subscribe({
+        next: (ws) => {
+          this.workspace.set(ws);
+          this.workspaceName = ws.name;
+          this.workspaceCurrency = ws.currency;
+        },
+        error: () => undefined,
+      });
+    }
+  }
+
+  protected saveWorkspace(): void {
+    const ws = this.workspace();
+    if (!ws || !this.workspaceName.trim() || this.savingWorkspace()) return;
+    this.savingWorkspace.set(true);
+    this.workspacesApi
+      .update(ws.id, {
+        name: this.workspaceName.trim(),
+        currency: this.workspaceCurrency,
+      })
+      .subscribe({
+        next: (updated) => {
+          this.savingWorkspace.set(false);
+          this.workspace.set(updated);
+          this.toast.updated('Workspace');
+        },
+        error: (err) => {
+          this.savingWorkspace.set(false);
+          this.toast.error('Could not update workspace', apiErrorMessage(err));
+        },
+      });
+  }
 
   protected readonly modes = [
     { id: 'light' as const, label: 'Light', icon: 'lucideSun', disabled: false },

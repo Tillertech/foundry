@@ -1,7 +1,7 @@
 # Foundry
 > The modern workspace for independent consultants
 
-## 📦 Project Overview
+##  Project Overview
 
 This repository demonstrates a production-ready Angular monorepo with:
 
@@ -22,7 +22,7 @@ This repository demonstrates a production-ready Angular monorepo with:
 - **E2E Testing**
   - `client-e2e` - Playwright tests for the client application
 
-## 🚀 Quick Start
+##  Quick Start
 
 ```bash
 # Clone the repository
@@ -59,11 +59,11 @@ npx nx run-many -t lint test build e2e --parallel=3
 npx nx graph
 ```
 
-## ⭐ Featured Nx Capabilities
+##  Featured Nx Capabilities
 
 This repository showcases several powerful Nx features:
 
-### 1. 🔒 Module Boundaries
+### 1.  Module Boundaries
 
 Enforces architectural constraints using tags. Each project has specific dependencies it can use:
 
@@ -86,7 +86,7 @@ npx nx show project client --web
 
 [Learn more about module boundaries →](https://nx.dev/docs/features/enforce-module-boundaries)
 
-### 2. 🐳 Docker Integration
+### 2. Docker Integration
 
 The API project includes Docker support with automated targets and release management:
 
@@ -105,7 +105,7 @@ npx nx release
 
 [Learn more about Docker integration →](https://nx.dev/docs/guides/nx-release/release-docker-images)
 
-### 3. 🎭 Playwright E2E Testing
+### 3. Playwright E2E Testing
 
 End-to-end testing with Playwright is pre-configured:
 
@@ -133,7 +133,7 @@ npx nx run-many -t test
 
 [Learn more about Vite testing →](https://nx.dev/docs/technologies/build-tools/vite)
 
-### 5. 🔧 Self-Healing CI
+### 5.  Self-Healing CI
 
 The CI pipeline includes `nx fix-ci` which automatically identifies and suggests fixes for common issues:
 
@@ -151,7 +151,7 @@ This feature helps maintain a healthy CI pipeline by automatically detecting and
 
 [Learn more about self-healing CI →](https://nx.dev/docs/features/ci-features/self-healing-ci)
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 ├── apps/
@@ -173,7 +173,7 @@ This feature helps maintain a healthy CI pipeline by automatically detecting and
 └── eslint.config.mjs   - ESLint with module boundary rules
 ```
 
-## 🏷️ Understanding Tags
+##  Understanding Tags
 
 This repository uses tags to enforce module boundaries:
 
@@ -185,7 +185,7 @@ This repository uses tags to enforce module boundaries:
 | `data`             | `scope:client`, `type:data`    | `scope:shared`               |
 | `models`           | `scope:shared`, `type:data`  | Nothing (base library)       |
 
-## 📚 Useful Commands
+##  Useful Commands
 
 ```bash
 # Project exploration
@@ -214,7 +214,7 @@ npx nx run api:docker:build                        # Build Docker image
 npx nx run api:docker:run                          # Run Docker container
 ```
 
-## 🎯 Adding New Features
+##  Adding New Features
 
 ### Generate a new Angular application:
 

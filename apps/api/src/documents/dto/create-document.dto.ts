@@ -1,41 +1,26 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Min,
-  MinLength,
-} from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 import { DocumentType } from '../../generated/prisma/enums';
 
+/**
+ * Multipart body for POST /documents: metadata fields alongside the binary
+ * `file` part (handled by multer). Storage key, size and mime type are
+ * derived server-side from the uploaded file.
+ */
 export class CreateDocumentDto {
-  @ApiProperty({ example: 'Acme MSA v2.pdf' })
+  @ApiPropertyOptional({
+    example: 'Acme MSA v2.pdf',
+    description: 'Defaults to the uploaded file name',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  name: string;
+  name?: string;
 
   @ApiPropertyOptional({ enum: Object.values(DocumentType), enumName: 'DocumentType' })
   @IsOptional()
   @IsEnum(DocumentType)
   type?: DocumentType;
-
-  @ApiProperty({ description: 'Storage key returned by POST /uploads' })
-  @IsString()
-  @MinLength(1)
-  storageKey: string;
-
-  @ApiPropertyOptional({ description: 'Bytes', default: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  size?: number;
-
-  @ApiPropertyOptional({ example: 'application/pdf' })
-  @IsOptional()
-  @IsString()
-  mimeType?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -39,7 +39,9 @@
     </hlm-native-select>
   </div>
 
-  @defer (on timer(400ms)) {
+  @if (loading()) {
+    <app-list-skeleton [rows]="5" />
+  } @else {
   @if (filtered().length === 0) {
     <div class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
       <div class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
@@ -82,7 +84,7 @@
                 <p class="text-sm font-semibold tabular-nums text-success">
                   +{{ money(p.amount, p.currency) }}
                 </p>
-                <p class="text-[11px] text-muted-foreground">{{ p.date }}</p>
+                <p class="text-[11px] text-muted-foreground">{{ day(p.date) }}</p>
               </div>
             </button>
           </li>
@@ -90,8 +92,6 @@
       </ul>
     </div>
   }
-  } @placeholder {
-    <app-list-skeleton [rows]="5" />
   }
 
   <app-entity-sheet
@@ -110,7 +110,7 @@
             [ngModel]="form.clientId"
             (ngModelChange)="onClientChange($event)"
           >
-            @for (c of store.clients(); track c.id) {
+            @for (c of clients(); track c.id) {
               <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
             }
           </hlm-native-select>
@@ -133,6 +133,7 @@
             <option hlmNativeSelectOption value="USD">USD</option>
             <option hlmNativeSelectOption value="EUR">EUR</option>
             <option hlmNativeSelectOption value="GBP">GBP</option>
+            <option hlmNativeSelectOption value="KES">KES</option>
           </hlm-native-select>
         </app-field>
       </div>

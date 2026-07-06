@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideSearch } from '@ng-icons/lucide';
@@ -6,7 +14,16 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
-import { Project, StoreService, money, newId } from '../../core/store.service';
+import { apiErrorMessage } from '../../core/http';
+import { ApiClient, ClientsApiService } from '../../domains/clients';
+import {
+  CreateProjectRequest,
+  Project,
+  ProjectStatus,
+  ProjectsApiService,
+  UpdateProjectRequest,
+} from '../../domains/projects';
+import { isoDay, money, num, toApiDate } from '../../domains/shared';
 import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
@@ -15,7 +32,19 @@ import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
 import { StatusBadge } from '../../shared/status-badge';
 
-const emptyProject = (): Project => ({
+interface ProjectForm {
+  id: string;
+  name: string;
+  clientId: string;
+  status: ProjectStatus;
+  budget: number;
+  hourlyRate: number;
+  startDate: string;
+  endDate: string;
+  description: string;
+}
+
+const emptyProject = (): ProjectForm => ({
   id: '',
   name: '',
   clientId: '',
@@ -48,59 +77,131 @@ const emptyProject = (): Project => ({
   templateUrl: './projects.html',
 })
 export class Projects {
-  protected readonly store = inject(StoreService);
+  private readonly projectsApi = inject(ProjectsApiService);
+  private readonly clientsApi = inject(ClientsApiService);
   private readonly toast = inject(ToastService);
+
+  protected readonly loading = signal(true);
+  protected readonly projects = signal<Project[]>([]);
+  protected readonly clients = signal<ApiClient[]>([]);
 
   protected readonly query = signal('');
   protected readonly statusFilter = signal('all');
   protected readonly clientFilter = signal('all');
   protected readonly sheetOpen = signal(false);
+  protected readonly saving = signal(false);
   protected isNew = true;
-  protected form: Project = emptyProject();
+  protected form: ProjectForm = emptyProject();
+
+  constructor() {
+    if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
+  }
+
+  private refresh(): void {
+    this.projectsApi.list({ take: 100 }).subscribe({
+      next: (res) => {
+        this.projects.set(res.results);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.toast.error('Could not load projects', apiErrorMessage(err));
+      },
+    });
+    this.clientsApi.list({ take: 100 }).subscribe({
+      next: (res) => this.clients.set(res.results),
+      error: () => undefined,
+    });
+  }
 
   protected readonly clientMap = computed(() =>
-    Object.fromEntries(this.store.clients().map((c) => [c.id, c])),
+    Object.fromEntries(this.clients().map((c) => [c.id, c])),
   );
 
   protected readonly filtered = computed(() => {
     const term = this.query().toLowerCase();
     const status = this.statusFilter();
     const client = this.clientFilter();
-    return this.store
-      .projects()
-      .filter(
-        (p) =>
-          (status === 'all' || p.status === status) &&
-          (client === 'all' || p.clientId === client) &&
-          (!term || p.name.toLowerCase().includes(term)),
-      );
+    return this.projects().filter(
+      (p) =>
+        (status === 'all' || p.status === status) &&
+        (client === 'all' || p.clientId === client) &&
+        (!term || p.name.toLowerCase().includes(term)),
+    );
   });
 
   protected openNew(): void {
-    this.form = { ...emptyProject(), id: newId(), clientId: this.store.clients()[0]?.id ?? '' };
+    this.form = { ...emptyProject(), clientId: this.clients()[0]?.id ?? '' };
     this.isNew = true;
     this.sheetOpen.set(true);
   }
 
   protected openEdit(p: Project): void {
-    this.form = { ...p };
+    this.form = {
+      id: p.id,
+      name: p.name,
+      clientId: p.clientId,
+      status: p.status,
+      budget: num(p.budget),
+      hourlyRate: num(p.hourlyRate),
+      startDate: isoDay(p.startDate),
+      endDate: isoDay(p.endDate),
+      description: p.description ?? '',
+    };
     this.isNew = false;
     this.sheetOpen.set(true);
   }
 
   protected save(): void {
-    if (!this.form.name.trim() || !this.form.clientId) return;
-    this.store.upsert('projects', this.form);
-    this.sheetOpen.set(false);
-    if (this.isNew) this.toast.created('Project');
-    else this.toast.updated('Project');
+    if (!this.form.name.trim() || !this.form.clientId || this.saving()) return;
+    const common: UpdateProjectRequest = {
+      name: this.form.name.trim(),
+      status: this.form.status,
+      budget: num(this.form.budget),
+      hourlyRate: num(this.form.hourlyRate),
+      startDate: toApiDate(this.form.startDate),
+      endDate: this.form.endDate ? toApiDate(this.form.endDate) : undefined,
+      description: this.form.description.trim() || undefined,
+    };
+    this.saving.set(true);
+    const request = this.isNew
+      ? this.projectsApi.create({
+          ...common,
+          clientId: this.form.clientId,
+        } as CreateProjectRequest)
+      : this.projectsApi.update(this.form.id, common);
+    request.subscribe({
+      next: (project) => {
+        this.saving.set(false);
+        this.projects.update((list) =>
+          this.isNew
+            ? [project, ...list]
+            : list.map((p) => (p.id === project.id ? project : p)),
+        );
+        this.sheetOpen.set(false);
+        if (this.isNew) this.toast.created('Project');
+        else this.toast.updated('Project');
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.toast.error('Could not save project', apiErrorMessage(err));
+      },
+    });
   }
 
   protected removeCurrent(): void {
-    this.store.remove('projects', this.form.id);
-    this.sheetOpen.set(false);
-    this.toast.deleted('Project');
+    const id = this.form.id;
+    this.projectsApi.delete(id).subscribe({
+      next: () => {
+        this.projects.update((list) => list.filter((p) => p.id !== id));
+        this.sheetOpen.set(false);
+        this.toast.deleted('Project');
+      },
+      error: (err) =>
+        this.toast.error('Could not delete project', apiErrorMessage(err)),
+    });
   }
 
   protected readonly money = money;
+  protected readonly day = isoDay;
 }

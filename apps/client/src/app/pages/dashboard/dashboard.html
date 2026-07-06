@@ -7,34 +7,36 @@
         Good morning, {{ firstName() }}
       </h1>
       <p class="mt-1 text-sm text-muted-foreground">
-        You have <span class="font-medium text-foreground">2 invoices</span> due this week and
-        <span class="font-medium text-destructive">1 overdue</span>.
+        You have
+        <span class="font-medium text-foreground">{{ dueThisWeek() }} {{ dueThisWeek() === 1 ? 'invoice' : 'invoices' }}</span>
+        due this week and
+        <span class="font-medium text-destructive">{{ overdueCount() }} overdue</span>.
       </p>
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <button hlmBtn variant="outline" size="sm" class="h-9 gap-1.5">
+      <a hlmBtn variant="outline" size="sm" class="h-9 gap-1.5" routerLink="/clients">
         <ng-icon name="lucideUserPlus" size="16" />
         New client
-      </button>
-      <button hlmBtn variant="outline" size="sm" class="h-9 gap-1.5">
+      </a>
+      <a hlmBtn variant="outline" size="sm" class="h-9 gap-1.5" routerLink="/quotes">
         <ng-icon name="lucideFilePlus2" size="16" />
         New quote
-      </button>
-      <button hlmBtn variant="outline" size="sm" class="h-9 gap-1.5">
+      </a>
+      <a hlmBtn variant="outline" size="sm" class="h-9 gap-1.5" routerLink="/payments">
         <ng-icon name="lucideCircleDollarSign" size="16" />
         Record payment
-      </button>
-      <button hlmBtn size="sm" class="h-9 gap-1.5 shadow-[var(--shadow-glow)]">
+      </a>
+      <a hlmBtn size="sm" class="h-9 gap-1.5 shadow-[var(--shadow-glow)]" routerLink="/invoices">
         <ng-icon name="lucidePlus" size="16" />
         New invoice
-      </button>
+      </a>
     </div>
   </div>
 
   <!-- KPIs -->
   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-    @for (kpi of kpis; track kpi.label) {
+    @for (kpi of kpis(); track kpi.label) {
       <div class="surface-card hover-lift p-5">
         <div class="flex items-center justify-between">
           <p class="text-[13px] font-medium text-muted-foreground">{{ kpi.label }}</p>
@@ -56,7 +58,7 @@
             {{ kpi.delta }}
           </span>
         </div>
-        <p class="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{{ fmt(kpi.value) }}</p>
+        <p class="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{{ kpi.value }}</p>
         <p class="mt-1 text-xs text-muted-foreground">{{ kpi.hint }}</p>
       </div>
     }
@@ -70,24 +72,12 @@
           <h2 class="text-sm font-semibold">Revenue</h2>
           <p class="text-xs text-muted-foreground">Last 12 months</p>
         </div>
-        <div class="flex items-center gap-1 rounded-lg border border-border bg-surface p-0.5 text-xs">
-          @for (range of ranges; track range) {
-            <button
-              type="button"
-              class="rounded-md px-2.5 py-1 font-medium transition-colors"
-              [class]="
-                selectedRange() === range
-                  ? 'bg-muted text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              "
-              (click)="selectedRange.set(range)"
-            >
-              {{ range }}
-            </button>
-          }
-        </div>
       </div>
-      <app-revenue-chart />
+      <app-revenue-chart
+        [months]="chart().months"
+        [revenue]="chart().revenue"
+        [expenses]="chart().expenses"
+      />
     </div>
 
     <div class="surface-card p-5">
@@ -96,12 +86,9 @@
           <h2 class="text-sm font-semibold">Upcoming</h2>
           <p class="text-xs text-muted-foreground">Due in the next 10 days</p>
         </div>
-        <button hlmBtn variant="ghost" size="icon" class="h-7 w-7">
-          <ng-icon name="lucideEllipsis" size="16" />
-        </button>
       </div>
       <div class="space-y-1">
-        @for (inv of upcomingInvoices; track inv.id) {
+        @for (inv of upcomingInvoices(); track inv.id) {
           <div class="group flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/60">
             <div
               class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted font-mono text-[10px] font-semibold text-muted-foreground"
@@ -110,19 +97,19 @@
             </div>
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">{{ inv.client }}</p>
-              <p class="truncate text-xs text-muted-foreground">{{ inv.id }} · Due {{ inv.due }}</p>
+              <p class="truncate text-xs text-muted-foreground">{{ inv.number }} · Due {{ inv.due }}</p>
             </div>
-            <p class="shrink-0 text-sm font-semibold tabular-nums">{{ fmt(inv.amount) }}</p>
+            <p class="shrink-0 text-sm font-semibold tabular-nums">{{ inv.amount }}</p>
           </div>
         }
       </div>
-      <button
-        type="button"
+      <a
+        routerLink="/invoices"
         class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
         <ng-icon name="lucideSparkles" size="14" />
         View all upcoming
-      </button>
+      </a>
     </div>
   </div>
 

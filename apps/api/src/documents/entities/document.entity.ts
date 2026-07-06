@@ -11,7 +11,7 @@ export class DocumentEntity {
   @ApiProperty({ enum: Object.values(DocumentType), enumName: 'DocumentType' })
   type: DocumentType;
 
-  @ApiProperty({ description: 'Storage key from POST /uploads' })
+  @ApiProperty({ description: 'Storage key assigned when the file is uploaded' })
   storageKey: string;
 
   @ApiProperty({ description: 'Bytes' })

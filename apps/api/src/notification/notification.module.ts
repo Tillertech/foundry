@@ -8,17 +8,22 @@ import { NotificationService } from './notification.service';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
 
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 
-// In local dev nest start --watch compiles to dist/src/ (prisma.config.ts at the root
-// shifts TypeScript's implicit rootDir), so __dirname lands in dist/src/notification/.
-// Use process.cwd()+src in dev to hit the volume-mounted source; __dirname in prod
-// where dist/src/notification/mail/templates/ is populated by the CLI asset copy.
+// In dev the bundle runs from dist, so __dirname has no templates — read them from
+// the source tree instead. cwd is the workspace root under nx serve (also in the
+// docker containers) but apps/api under a bare nest start, so probe both.
+const DEV_TEMPLATE_DIRS = [
+  join(process.cwd(), 'apps', 'api', 'src', 'notification', 'mail', 'templates'),
+  join(process.cwd(), 'src', 'notification', 'mail', 'templates'),
+];
+
 const TEMPLATE_DIR =
   process.env.NODE_ENV === 'production'
     ? join(__dirname, 'mail', 'templates')
-    : join(process.cwd(), 'src', 'notification', 'mail', 'templates');
+    : (DEV_TEMPLATE_DIRS.find((dir) => existsSync(dir)) ?? DEV_TEMPLATE_DIRS[0]);
 
 @Module({
   imports: [
@@ -38,7 +43,7 @@ const TEMPLATE_DIR =
           },
         },
         defaults: {
-          from: `"${config.get('SEND_EMAIL_FROM', 'No Reply')}" <${config.get('SEND_EMAIL_FROM', 'notification@neoafric.com')}>`,
+          from: `"${config.get('SEND_EMAIL_FROM', 'No Reply')}" <${config.get('SEND_EMAIL_FROM', 'notification@tillertech.io')}>`,
         },
         template: {
           dir: TEMPLATE_DIR,

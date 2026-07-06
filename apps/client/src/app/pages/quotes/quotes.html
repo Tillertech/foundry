@@ -38,7 +38,9 @@
     </hlm-native-select>
   </div>
 
-  @defer (on timer(400ms)) {
+  @if (loading()) {
+    <app-list-skeleton [rows]="5" />
+  } @else {
   @if (filtered().length === 0) {
     <div class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
       <div class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
@@ -72,7 +74,7 @@
             <span class="truncate text-sm font-medium">
               {{ clientMap()[q.clientId]?.company || clientMap()[q.clientId]?.name || '—' }}
             </span>
-            <span class="hidden text-xs text-muted-foreground sm:inline">{{ q.validUntil }}</span>
+            <span class="hidden text-xs text-muted-foreground sm:inline">{{ day(q.validUntil) }}</span>
             <span class="text-right text-sm font-semibold tabular-nums">
               {{ money(total(q), q.currency) }}
             </span>
@@ -82,8 +84,6 @@
       </div>
     </div>
   }
-  } @placeholder {
-    <app-list-skeleton [rows]="5" />
   }
 
   <app-entity-sheet
@@ -96,8 +96,8 @@
   >
     <div class="grid gap-4">
       <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Quote number">
-          <input hlmInput class="w-full font-mono" [(ngModel)]="form.number" />
+        <app-field label="Quote number" hint="Leave blank to auto-generate.">
+          <input hlmInput class="w-full font-mono" [(ngModel)]="form.number" placeholder="Q-…" />
         </app-field>
         <app-field label="Status">
           <hlm-native-select class="w-full" [(ngModel)]="form.status">
@@ -115,7 +115,7 @@
           [ngModel]="form.clientId"
           (ngModelChange)="onClientChange($event)"
         >
-          @for (c of store.clients(); track c.id) {
+          @for (c of clients(); track c.id) {
             <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
           }
         </hlm-native-select>
@@ -132,6 +132,7 @@
             <option hlmNativeSelectOption value="USD">USD</option>
             <option hlmNativeSelectOption value="EUR">EUR</option>
             <option hlmNativeSelectOption value="GBP">GBP</option>
+            <option hlmNativeSelectOption value="KES">KES</option>
           </hlm-native-select>
         </app-field>
       </div>

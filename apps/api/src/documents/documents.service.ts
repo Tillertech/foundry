@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClientsService } from '../clients/clients.service';
 import {
   PaginationRes,
@@ -12,10 +13,6 @@ import { CreateDocumentDto } from './dto/create-document.dto';
 import { ListDocumentsQueryDto } from './dto/list-documents-query.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 
-/**
- * Documents with neither client nor project have no ownership chain in the
- * schema, so they are visible to all users; linked ones are owner-scoped.
- */
 @Injectable()
 export class DocumentsService {
   constructor(
@@ -24,6 +21,7 @@ export class DocumentsService {
     private readonly clients: ClientsService,
     private readonly projects: ProjectsService,
     private readonly storage: StorageService,
+    private readonly events: EventEmitter2,
   ) {}
 
   private scope(ownerId: string) {
@@ -36,10 +34,25 @@ export class DocumentsService {
     };
   }
 
-  async create(ownerId: string, dto: CreateDocumentDto): Promise<Document> {
+  /** Stores the uploaded file and registers its metadata in one call. */
+  async create(
+    ownerId: string,
+    dto: CreateDocumentDto,
+    file: Express.Multer.File,
+  ): Promise<Document> {
     if (dto.clientId) await this.clients.findOne(ownerId, dto.clientId);
     if (dto.projectId) await this.projects.findOne(ownerId, dto.projectId);
-    return this.prisma.document.create({ data: dto });
+    const stored = await this.storage.upload(file);
+    this.events.emit('file.uploaded', stored);
+    return this.prisma.document.create({
+      data: {
+        ...dto,
+        name: dto.name ?? stored.originalName,
+        storageKey: stored.key,
+        size: stored.size,
+        mimeType: stored.mimeType,
+      },
+    });
   }
 
   findAll(

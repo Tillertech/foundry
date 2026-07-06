@@ -1,10 +1,17 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowDownRight,
   lucideArrowUpRight,
   lucideCircleDollarSign,
-  lucideEllipsis,
   lucideFilePlus2,
   lucidePlus,
   lucideSparkles,
@@ -12,19 +19,14 @@ import {
 } from '@ng-icons/lucide';
 import { RouterLink } from '@angular/router';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { KPIS, upcomingInvoices } from '../../core/mock-data';
-import { AuthService } from '../../core/auth.service';
-import { StoreService, invoiceTotal, money } from '../../core/store.service';
+import { AuthService } from '../../domains/auth';
+import { ApiClient, ClientsApiService } from '../../domains/clients';
+import { Expense, ExpensesApiService } from '../../domains/expenses';
+import { Invoice, InvoicesApiService } from '../../domains/invoices';
+import { Payment, PaymentsApiService } from '../../domains/payments';
+import { invoiceTotal, isoDay, money, num } from '../../domains/shared';
 import { StatusBadge } from '../../shared/status-badge';
 import { RevenueChart } from './revenue-chart';
-
-interface Kpi {
-  label: string;
-  value: number;
-  delta: string;
-  trend: 'up' | 'down' | 'neutral';
-  hint: string;
-}
 
 const methodLabels: Record<string, string> = {
   card: 'Card',
@@ -32,8 +34,11 @@ const methodLabels: Record<string, string> = {
   stripe: 'Stripe',
   paypal: 'PayPal',
   cash: 'Cash',
+  mobile_money: 'Mobile money',
   other: 'Other',
 };
+
+const OPEN_STATUSES = ['sent', 'viewed', 'overdue'];
 
 @Component({
   selector: 'app-dashboard',
@@ -44,7 +49,6 @@ const methodLabels: Record<string, string> = {
       lucideArrowDownRight,
       lucideArrowUpRight,
       lucideCircleDollarSign,
-      lucideEllipsis,
       lucideFilePlus2,
       lucidePlus,
       lucideSparkles,
@@ -54,8 +58,33 @@ const methodLabels: Record<string, string> = {
   templateUrl: './dashboard.html',
 })
 export class Dashboard {
-  private readonly store = inject(StoreService);
   protected readonly auth = inject(AuthService);
+  private readonly invoicesApi = inject(InvoicesApiService);
+  private readonly paymentsApi = inject(PaymentsApiService);
+  private readonly clientsApi = inject(ClientsApiService);
+  private readonly expensesApi = inject(ExpensesApiService);
+
+  private readonly invoices = signal<Invoice[]>([]);
+  private readonly payments = signal<Payment[]>([]);
+  private readonly clients = signal<ApiClient[]>([]);
+  private readonly expenses = signal<Expense[]>([]);
+
+  constructor() {
+    if (isPlatformBrowser(inject(PLATFORM_ID))) {
+      this.invoicesApi
+        .list({ take: 100 })
+        .subscribe({ next: (r) => this.invoices.set(r.results), error: () => undefined });
+      this.paymentsApi
+        .list({ take: 100 })
+        .subscribe({ next: (r) => this.payments.set(r.results), error: () => undefined });
+      this.clientsApi
+        .list({ take: 100 })
+        .subscribe({ next: (r) => this.clients.set(r.results), error: () => undefined });
+      this.expensesApi
+        .list({ take: 100 })
+        .subscribe({ next: (r) => this.expenses.set(r.results), error: () => undefined });
+    }
+  }
 
   protected readonly today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -64,25 +93,117 @@ export class Dashboard {
   });
 
   protected readonly firstName = computed(
-    () => (this.auth.user()?.name || 'Mika').split(' ')[0],
+    () => (this.auth.user()?.name || 'there').split(' ')[0],
   );
 
-  protected readonly kpis: Kpi[] = [
-    { label: "Today's revenue", value: KPIS.todayRevenue, delta: '+12.4%', trend: 'up', hint: 'vs. yesterday' },
-    { label: 'Outstanding', value: KPIS.outstanding, delta: '4 invoices', trend: 'neutral', hint: 'Awaiting payment' },
-    { label: 'Overdue', value: KPIS.overdue, delta: '1 invoice', trend: 'down', hint: 'Needs follow-up' },
-    { label: 'Monthly recurring', value: KPIS.mrr, delta: '+3.1%', trend: 'up', hint: '6 active subscriptions' },
-  ];
+  protected readonly dueThisWeek = computed(() => {
+    const now = Date.now();
+    const week = now + 7 * 864e5;
+    return this.invoices().filter((i) => {
+      if (!OPEN_STATUSES.includes(i.status)) return false;
+      const due = new Date(i.dueDate).getTime();
+      return due >= now && due <= week;
+    }).length;
+  });
 
-  protected readonly ranges = ['3M', '6M', '12M', 'All'];
-  protected readonly selectedRange = signal('12M');
+  protected readonly overdueCount = computed(
+    () => this.invoices().filter((i) => i.status === 'overdue').length,
+  );
 
-  protected readonly upcomingInvoices = upcomingInvoices;
+  protected readonly kpis = computed(() => {
+    const invoices = this.invoices();
+    const open = invoices.filter((i) => OPEN_STATUSES.includes(i.status));
+    const overdue = invoices.filter((i) => i.status === 'overdue');
+    const paid = invoices.filter((i) => i.status === 'paid');
+    const collected = this.payments().reduce((s, p) => s + num(p.amount), 0);
+    return [
+      {
+        label: 'Revenue (paid)',
+        value: money(paid.reduce((s, i) => s + invoiceTotal(i).total, 0)),
+        delta: `${paid.length} invoices`,
+        trend: 'up' as const,
+        hint: 'All time',
+      },
+      {
+        label: 'Outstanding',
+        value: money(open.reduce((s, i) => s + invoiceTotal(i).total, 0)),
+        delta: `${open.length} invoices`,
+        trend: 'neutral' as const,
+        hint: 'Awaiting payment',
+      },
+      {
+        label: 'Overdue',
+        value: money(overdue.reduce((s, i) => s + invoiceTotal(i).total, 0)),
+        delta: `${overdue.length} invoices`,
+        trend: overdue.length ? ('down' as const) : ('neutral' as const),
+        hint: 'Needs follow-up',
+      },
+      {
+        label: 'Collected',
+        value: money(collected),
+        delta: `${this.payments().length} payments`,
+        trend: 'up' as const,
+        hint: 'All time',
+      },
+    ];
+  });
+
+  /** Last 12 months of collected payments vs recorded expenses. */
+  protected readonly chart = computed(() => {
+    const months: { key: string; label: string }[] = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleDateString('en-US', { month: 'short' }),
+      });
+    }
+    const revenue = new Map(months.map((m) => [m.key, 0]));
+    const expenses = new Map(months.map((m) => [m.key, 0]));
+    for (const p of this.payments()) {
+      const key = isoDay(p.date).slice(0, 7);
+      if (revenue.has(key)) revenue.set(key, (revenue.get(key) || 0) + num(p.amount));
+    }
+    for (const e of this.expenses()) {
+      const key = isoDay(e.date).slice(0, 7);
+      if (expenses.has(key)) expenses.set(key, (expenses.get(key) || 0) + num(e.amount));
+    }
+    return {
+      months: months.map((m) => m.label),
+      revenue: months.map((m) => Math.round(revenue.get(m.key) || 0)),
+      expenses: months.map((m) => Math.round(expenses.get(m.key) || 0)),
+    };
+  });
+
+  protected readonly upcomingInvoices = computed(() => {
+    const now = Date.now();
+    const horizon = now + 10 * 864e5;
+    const clients = this.clients();
+    return this.invoices()
+      .filter((i) => {
+        if (!OPEN_STATUSES.includes(i.status)) return false;
+        const due = new Date(i.dueDate).getTime();
+        return due <= horizon;
+      })
+      .slice()
+      .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))
+      .slice(0, 5)
+      .map((i) => {
+        const client = clients.find((c) => c.id === i.clientId);
+        return {
+          id: i.id,
+          number: i.number,
+          client: client?.company || client?.name || '—',
+          due: isoDay(i.dueDate).slice(5),
+          amount: money(invoiceTotal(i).total, i.currency),
+        };
+      });
+  });
 
   protected readonly recentInvoices = computed(() => {
-    const clients = this.store.clients();
-    return this.store
-      .invoices()
+    const clients = this.clients();
+    return this.invoices()
       .slice()
       .sort((a, b) => (a.issueDate < b.issueDate ? 1 : -1))
       .slice(0, 5)
@@ -92,7 +213,7 @@ export class Dashboard {
           id: inv.id,
           number: inv.number,
           client: client?.company || client?.name || '—',
-          due: inv.status === 'draft' ? '—' : inv.dueDate.slice(5),
+          due: inv.status === 'draft' ? '—' : isoDay(inv.dueDate).slice(5),
           status: inv.status,
           amount: money(invoiceTotal(inv).total, inv.currency),
         };
@@ -100,9 +221,8 @@ export class Dashboard {
   });
 
   protected readonly recentPayments = computed(() => {
-    const clients = this.store.clients();
-    return this.store
-      .payments()
+    const clients = this.clients();
+    return this.payments()
       .slice()
       .sort((a, b) => (a.date < b.date ? 1 : -1))
       .slice(0, 4)
@@ -112,15 +232,11 @@ export class Dashboard {
           id: p.id,
           client: client?.company || client?.name || '—',
           method: methodLabels[p.method] ?? p.method,
-          when: p.date,
-          amount: money(p.amount, p.currency),
+          when: isoDay(p.date),
+          amount: money(num(p.amount), p.currency),
         };
       });
   });
-
-  protected fmt(n: number): string {
-    return `$${n.toLocaleString('en-US')}`;
-  }
 
   protected initials(name: string): string {
     return name

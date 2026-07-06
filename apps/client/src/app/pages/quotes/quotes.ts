@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideSearch } from '@ng-icons/lucide';
@@ -6,25 +14,47 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
+import { apiErrorMessage } from '../../core/http';
+import { ApiClient, ClientsApiService } from '../../domains/clients';
 import {
-  InvoiceItem,
+  CreateQuoteRequest,
   Quote,
-  StoreService,
+  QuoteStatus,
+  QuotesApiService,
+  UpdateQuoteRequest,
+} from '../../domains/quotes';
+import {
+  Currency,
+  isoDay,
   money,
   newId,
-  nextNumber,
+  num,
   quoteTotal,
-} from '../../core/store.service';
+  toApiDate,
+} from '../../domains/shared';
 import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
 import { Field } from '../../shared/field';
-import { LineItemsEditor } from '../../shared/line-items-editor';
+import { LineItemDraft, LineItemsEditor } from '../../shared/line-items-editor';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
 import { StatusBadge } from '../../shared/status-badge';
 
-const emptyQuote = (): Quote => ({
+interface QuoteForm {
+  id: string;
+  number: string;
+  clientId: string;
+  status: QuoteStatus;
+  issueDate: string;
+  validUntil: string;
+  currency: Currency;
+  items: LineItemDraft[];
+  taxRate: number;
+  notes: string;
+}
+
+const emptyQuote = (): QuoteForm => ({
   id: '',
   number: '',
   clientId: '',
@@ -59,25 +89,51 @@ const emptyQuote = (): Quote => ({
   templateUrl: './quotes.html',
 })
 export class Quotes {
-  protected readonly store = inject(StoreService);
+  private readonly quotesApi = inject(QuotesApiService);
+  private readonly clientsApi = inject(ClientsApiService);
   private readonly toast = inject(ToastService);
+
+  protected readonly loading = signal(true);
+  protected readonly quotes = signal<Quote[]>([]);
+  protected readonly clients = signal<ApiClient[]>([]);
 
   protected readonly query = signal('');
   protected readonly statusFilter = signal('all');
   protected readonly sheetOpen = signal(false);
+  protected readonly saving = signal(false);
   protected isNew = true;
-  protected form: Quote = emptyQuote();
+  protected form: QuoteForm = emptyQuote();
+
+  constructor() {
+    if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
+  }
+
+  private refresh(): void {
+    this.quotesApi.list({ take: 100 }).subscribe({
+      next: (res) => {
+        this.quotes.set(res.results);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.toast.error('Could not load quotes', apiErrorMessage(err));
+      },
+    });
+    this.clientsApi.list({ take: 100 }).subscribe({
+      next: (res) => this.clients.set(res.results),
+      error: () => undefined,
+    });
+  }
 
   protected readonly clientMap = computed(() =>
-    Object.fromEntries(this.store.clients().map((c) => [c.id, c])),
+    Object.fromEntries(this.clients().map((c) => [c.id, c])),
   );
 
   protected readonly filtered = computed(() => {
     const term = this.query().toLowerCase();
     const status = this.statusFilter();
     const clientMap = this.clientMap();
-    return this.store
-      .quotes()
+    return this.quotes()
       .filter(
         (q) =>
           (status === 'all' || q.status === status) &&
@@ -96,11 +152,9 @@ export class Quotes {
   }
 
   protected openNew(): void {
-    const c = this.store.clients()[0];
+    const c = this.clients()[0];
     this.form = {
       ...emptyQuote(),
-      id: newId(),
-      number: nextNumber(this.store.quotes(), 'Q-'),
       clientId: c?.id ?? '',
       currency: c?.currency ?? 'USD',
       items: [{ id: newId(), description: '', quantity: 1, rate: 0 }],
@@ -110,32 +164,89 @@ export class Quotes {
   }
 
   protected openEdit(q: Quote): void {
-    this.form = { ...q, items: q.items.map((it) => ({ ...it })) };
+    this.form = {
+      id: q.id,
+      number: q.number,
+      clientId: q.clientId,
+      status: q.status,
+      issueDate: isoDay(q.issueDate),
+      validUntil: isoDay(q.validUntil),
+      currency: q.currency,
+      items: q.items.map((it) => ({
+        id: it.id,
+        description: it.description,
+        quantity: num(it.quantity),
+        rate: num(it.rate),
+      })),
+      taxRate: num(q.taxRate),
+      notes: q.notes ?? '',
+    };
     this.isNew = false;
     this.sheetOpen.set(true);
   }
 
   protected save(): void {
-    if (!this.form.clientId || this.form.items.length === 0) return;
-    this.store.upsert('quotes', this.form);
-    this.sheetOpen.set(false);
-    if (this.isNew) this.toast.created('Quote');
-    else this.toast.updated('Quote');
+    if (!this.form.clientId || this.form.items.length === 0 || this.saving()) return;
+    const common: UpdateQuoteRequest = {
+      number: this.form.number.trim() || undefined,
+      status: this.form.status,
+      issueDate: toApiDate(this.form.issueDate),
+      validUntil: toApiDate(this.form.validUntil),
+      currency: this.form.currency,
+      taxRate: num(this.form.taxRate),
+      notes: this.form.notes.trim() || undefined,
+      items: this.form.items.map(({ description, quantity, rate }) => ({
+        description,
+        quantity,
+        rate,
+      })),
+    };
+    this.saving.set(true);
+    const request = this.isNew
+      ? this.quotesApi.create({
+          ...common,
+          clientId: this.form.clientId,
+        } as CreateQuoteRequest)
+      : this.quotesApi.update(this.form.id, common);
+    request.subscribe({
+      next: (quote) => {
+        this.saving.set(false);
+        this.quotes.update((list) =>
+          this.isNew
+            ? [quote, ...list]
+            : list.map((q) => (q.id === quote.id ? quote : q)),
+        );
+        this.sheetOpen.set(false);
+        if (this.isNew) this.toast.created('Quote');
+        else this.toast.updated('Quote');
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.toast.error('Could not save quote', apiErrorMessage(err));
+      },
+    });
   }
 
   protected removeCurrent(): void {
-    this.store.remove('quotes', this.form.id);
-    this.sheetOpen.set(false);
-    this.toast.deleted('Quote');
+    const id = this.form.id;
+    this.quotesApi.delete(id).subscribe({
+      next: () => {
+        this.quotes.update((list) => list.filter((q) => q.id !== id));
+        this.sheetOpen.set(false);
+        this.toast.deleted('Quote');
+      },
+      error: (err) =>
+        this.toast.error('Could not delete quote', apiErrorMessage(err)),
+    });
   }
 
   protected onClientChange(clientId: string): void {
-    const c = this.store.clients().find((x) => x.id === clientId);
+    const c = this.clients().find((x) => x.id === clientId);
     this.form.clientId = clientId;
     if (c) this.form.currency = c.currency;
   }
 
-  protected onItemsChange(items: InvoiceItem[]): void {
+  protected onItemsChange(items: LineItemDraft[]): void {
     this.form.items = items;
   }
 
@@ -144,4 +255,5 @@ export class Quotes {
   }
 
   protected readonly money = money;
+  protected readonly day = isoDay;
 }

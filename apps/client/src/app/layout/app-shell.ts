@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -22,8 +30,8 @@ import {
   lucideWallet,
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { AuthService } from '../core/auth.service';
-import { StoreService } from '../core/store.service';
+import { AuthService } from '../domains/auth';
+import { ApiClient, ClientsApiService } from '../domains/clients';
 import { ThemeService } from '../core/theme.service';
 
 interface NavItem {
@@ -64,23 +72,31 @@ interface NavItem {
 export class AppShell {
   protected readonly theme = inject(ThemeService);
   protected readonly auth = inject(AuthService);
-  private readonly store = inject(StoreService);
+  private readonly clientsApi = inject(ClientsApiService);
 
   protected readonly collapsed = signal(false);
+  private readonly clients = signal<ApiClient[]>([]);
+
+  constructor() {
+    if (isPlatformBrowser(inject(PLATFORM_ID))) {
+      this.auth.refresh();
+      this.clientsApi.list({ take: 3 }).subscribe({
+        next: (res) => this.clients.set(res.results),
+        error: () => undefined,
+      });
+    }
+  }
 
   protected readonly recentClients = computed(() =>
-    this.store
-      .clients()
-      .slice(0, 3)
-      .map((c) => ({
-        id: c.id,
-        name: c.company || c.name,
-        initials: (c.company || c.name)
-          .split(' ')
-          .map((s) => s[0])
-          .slice(0, 2)
-          .join(''),
-      })),
+    this.clients().map((c) => ({
+      id: c.id,
+      name: c.company || c.name,
+      initials: (c.company || c.name)
+        .split(' ')
+        .map((s) => s[0])
+        .slice(0, 2)
+        .join(''),
+    })),
   );
 
   protected readonly nav: NavItem[] = [

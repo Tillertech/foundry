@@ -65,7 +65,8 @@
       },
       "defaultConfiguration": "development",
       "options": {
-        "proxyConfig": "apps/client/proxy.conf.json"
+        "proxyConfig": "apps/client/proxy.conf.json",
+        "allowedHosts": ["localhost", "127.0.0.1"]
       }
     },
     "extract-i18n": {

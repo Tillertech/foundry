@@ -1,7 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import type { EChartsCoreOption } from 'echarts/core';
 import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
-import { revenueSeries } from '../../core/mock-data';
 import { ThemeService } from '../../core/theme.service';
 
 @Component({
@@ -39,6 +38,10 @@ import { ThemeService } from '../../core/theme.service';
 export class RevenueChart {
   private readonly theme = inject(ThemeService);
 
+  readonly months = input.required<string[]>();
+  readonly revenue = input.required<number[]>();
+  readonly expenses = input.required<number[]>();
+
   protected readonly options = computed<EChartsCoreOption>(() => {
     const isDark = this.theme.dark();
     const grid = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
@@ -65,7 +68,7 @@ export class RevenueChart {
       },
       xAxis: {
         type: 'category',
-        data: revenueSeries.months,
+        data: this.months(),
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: { color: axis, fontFamily: 'Inter', fontSize: 11 },
@@ -77,7 +80,7 @@ export class RevenueChart {
           color: axis,
           fontFamily: 'Inter',
           fontSize: 11,
-          formatter: (v: number) => `$${v / 1000}k`,
+          formatter: (v: number) => (v >= 1000 ? `$${v / 1000}k` : `$${v}`),
         },
       },
       series: [
@@ -85,7 +88,7 @@ export class RevenueChart {
           name: 'Revenue',
           type: 'line',
           smooth: true,
-          data: revenueSeries.revenue,
+          data: this.revenue(),
           symbol: 'circle',
           symbolSize: 6,
           showSymbol: false,
@@ -109,7 +112,7 @@ export class RevenueChart {
           name: 'Expenses',
           type: 'line',
           smooth: true,
-          data: revenueSeries.expenses,
+          data: this.expenses(),
           symbol: 'circle',
           symbolSize: 6,
           showSymbol: false,

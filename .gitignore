@@ -56,3 +56,4 @@ vitest.config.*.timestamp*
 .nx/migrate-runs
 instructions.md
 apps/api/src/generated
+uploads

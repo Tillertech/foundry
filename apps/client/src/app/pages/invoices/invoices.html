@@ -47,13 +47,15 @@
       (ngModelChange)="clientFilter.set($event)"
     >
       <option hlmNativeSelectOption value="all">All clients</option>
-      @for (c of store.clients(); track c.id) {
+      @for (c of clients(); track c.id) {
         <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
       }
     </hlm-native-select>
   </div>
 
-  @defer (on timer(400ms)) {
+  @if (loading()) {
+    <app-list-skeleton [rows]="6" />
+  } @else {
   @if (filtered().length === 0) {
     <div class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
       <div class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
@@ -93,8 +95,8 @@
                 <p class="truncate text-xs text-muted-foreground">{{ projectName(inv.projectId) }}</p>
               }
             </div>
-            <span class="hidden text-xs text-muted-foreground md:inline">{{ inv.issueDate }}</span>
-            <span class="hidden text-xs text-muted-foreground md:inline">{{ inv.dueDate }}</span>
+            <span class="hidden text-xs text-muted-foreground md:inline">{{ day(inv.issueDate) }}</span>
+            <span class="hidden text-xs text-muted-foreground md:inline">{{ day(inv.dueDate) }}</span>
             <span class="text-right text-sm font-semibold tabular-nums">
               {{ money(total(inv), inv.currency) }}
             </span>
@@ -104,8 +106,6 @@
       </div>
     </div>
   }
-  } @placeholder {
-    <app-list-skeleton [rows]="6" />
   }
 
   <app-entity-sheet
@@ -119,8 +119,8 @@
   >
     <div class="grid gap-4">
       <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Invoice number">
-          <input hlmInput class="w-full font-mono" [(ngModel)]="form.number" />
+        <app-field label="Invoice number" hint="Leave blank to auto-generate.">
+          <input hlmInput class="w-full font-mono" [(ngModel)]="form.number" placeholder="INV-…" />
         </app-field>
         <app-field label="Status">
           <hlm-native-select class="w-full" [(ngModel)]="form.status">
@@ -140,7 +140,7 @@
             [ngModel]="form.clientId"
             (ngModelChange)="onClientChange($event)"
           >
-            @for (c of store.clients(); track c.id) {
+            @for (c of clients(); track c.id) {
               <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
             }
           </hlm-native-select>
@@ -166,6 +166,7 @@
             <option hlmNativeSelectOption value="USD">USD</option>
             <option hlmNativeSelectOption value="EUR">EUR</option>
             <option hlmNativeSelectOption value="GBP">GBP</option>
+            <option hlmNativeSelectOption value="KES">KES</option>
           </hlm-native-select>
         </app-field>
       </div>
@@ -208,6 +209,21 @@
           <span class="text-lg font-bold tabular-nums">{{ money(totals.total, form.currency) }}</span>
         </div>
       </div>
+
+      @if (!isNew) {
+        <button
+          hlmBtn
+          type="button"
+          variant="outline"
+          size="sm"
+          class="gap-1.5 self-start"
+          [disabled]="sending()"
+          (click)="sendCurrent()"
+        >
+          <ng-icon name="lucideSend" size="14" />
+          {{ sending() ? 'Sending…' : 'Email invoice to client' }}
+        </button>
+      }
 
       <app-field label="Notes / terms">
         <textarea

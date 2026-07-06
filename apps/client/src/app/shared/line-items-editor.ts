@@ -8,7 +8,15 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGripVertical, lucidePlus, lucideTrash2 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { Currency, InvoiceItem, money, newId } from '../core/store.service';
+import { money, newId, Currency } from '../domains/shared';
+
+/** Editable line item; ids are local until the API replaces them on save. */
+export interface LineItemDraft {
+  id: string;
+  description: string;
+  quantity: number;
+  rate: number;
+}
 
 @Component({
   selector: 'app-line-items-editor',
@@ -103,11 +111,11 @@ import { Currency, InvoiceItem, money, newId } from '../core/store.service';
   `,
 })
 export class LineItemsEditor {
-  readonly items = input.required<InvoiceItem[]>();
+  readonly items = input.required<LineItemDraft[]>();
   readonly currency = input<Currency>('USD');
-  readonly itemsChange = output<InvoiceItem[]>();
+  readonly itemsChange = output<LineItemDraft[]>();
 
-  protected update(id: string, patch: Partial<InvoiceItem>): void {
+  protected update(id: string, patch: Partial<LineItemDraft>): void {
     this.itemsChange.emit(
       this.items().map((it) => (it.id === id ? { ...it, ...patch } : it)),
     );
@@ -124,7 +132,7 @@ export class LineItemsEditor {
     this.itemsChange.emit(this.items().filter((it) => it.id !== id));
   }
 
-  protected amount(it: InvoiceItem): string {
+  protected amount(it: LineItemDraft): string {
     return money(it.quantity * it.rate, this.currency());
   }
 

@@ -15,7 +15,8 @@ import {
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { AuthService } from '../../core/auth.service';
+import { apiErrorMessage } from '../../core/http';
+import { AuthService } from '../../domains/auth';
 import { ToastService } from '../../core/toast.service';
 import { Field } from '../../shared/field';
 
@@ -35,7 +36,7 @@ import { Field } from '../../shared/field';
           <div
             class="grid h-12 w-12 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
           >
-            <span class="font-mono text-lg font-bold">L</span>
+            <span class="font-mono text-lg font-bold">F</span>
           </div>
           <h1 class="mt-4 text-2xl font-semibold tracking-tight">
             Welcome back
@@ -121,8 +122,14 @@ import { Field } from '../../shared/field';
             {{ submitting() ? 'Signing in…' : 'Sign in' }}
           </button>
 
-          <p class="text-center text-[11px] text-muted-foreground">
-            Demo workspace - any email and password will do.
+          <p class="text-center text-xs text-muted-foreground">
+            No account yet?
+            <a
+              routerLink="/auth/signup"
+              class="font-medium text-primary transition-colors hover:underline"
+            >
+              Create one
+            </a>
           </p>
         </form>
       </div>
@@ -147,11 +154,17 @@ export class Login {
     }
     this.error.set('');
     this.submitting.set(true);
-    this.auth.login(this.email.trim(), this.password);
-    this.toast.info(
-      'Verification code sent',
-      `We emailed a 6-digit code to ${this.email.trim()}.`,
-    );
-    void this.router.navigateByUrl('/auth/otp');
+    this.auth
+      .login({ email: this.email.trim(), password: this.password })
+      .subscribe({
+        next: (res) => {
+          this.toast.success('Welcome back', `Signed in as ${res.user.name}.`);
+          void this.router.navigateByUrl('/');
+        },
+        error: (err) => {
+          this.submitting.set(false);
+          this.error.set(apiErrorMessage(err, 'Invalid email or password.'));
+        },
+      });
   }
 }

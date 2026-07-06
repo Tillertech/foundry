@@ -69,24 +69,41 @@
   </section>
 
   <section class="surface-card mt-4 p-6">
-    <h2 class="text-sm font-semibold">Workspace</h2>
-    <p class="mt-1 text-xs text-muted-foreground">
-      Company details, currency, tax and team permissions coming soon.
-    </p>
-  </section>
-
-  <section class="surface-card mt-4 p-6">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 class="text-sm font-semibold">Demo data</h2>
-        <p class="mt-1 text-xs text-muted-foreground">
-          All records live in your browser's local storage. Reset to restore the seed data.
-        </p>
-      </div>
-      <button hlmBtn variant="outline" size="sm" class="gap-1.5" (click)="store.reset()">
-        <ng-icon name="lucideRotateCcw" size="14" />
-        Reset demo data
-      </button>
+    <div class="mb-5 flex items-center gap-2">
+      <ng-icon name="lucideBuilding2" size="16" class="text-primary" />
+      <h2 class="text-sm font-semibold">Workspace</h2>
     </div>
+    @if (workspace(); as ws) {
+      <form class="grid gap-4" (ngSubmit)="saveWorkspace()">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <app-field label="Name">
+            <input hlmInput class="w-full" name="workspaceName" [(ngModel)]="workspaceName" />
+          </app-field>
+          <app-field label="Default currency">
+            <hlm-native-select class="w-full" name="workspaceCurrency" [(ngModel)]="workspaceCurrency">
+              <option hlmNativeSelectOption value="USD">USD - US Dollar</option>
+              <option hlmNativeSelectOption value="EUR">EUR - Euro</option>
+              <option hlmNativeSelectOption value="GBP">GBP - British Pound</option>
+              <option hlmNativeSelectOption value="KES">KES - Kenyan Shilling</option>
+            </hlm-native-select>
+          </app-field>
+        </div>
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-muted-foreground">
+            Slug: <span class="font-mono">{{ ws.slug }}</span>
+          </p>
+          <button
+            hlmBtn
+            size="sm"
+            type="submit"
+            [disabled]="savingWorkspace() || !workspaceName.trim()"
+          >
+            {{ savingWorkspace() ? 'Saving…' : 'Save workspace' }}
+          </button>
+        </div>
+      </form>
+    } @else {
+      <p class="text-xs text-muted-foreground">Loading workspace…</p>
+    }
   </section>
 </div>

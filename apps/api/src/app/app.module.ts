@@ -21,7 +21,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { QuotesModule } from '../quotes/quotes.module';
 import { StorageModule } from '../storage/storage.module';
-import { UploadsModule } from '../uploads/uploads.module';
 import { WorkspacesModule } from '../workspaces/workspaces.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -71,7 +70,6 @@ import { AppService } from './app.service';
     PaymentsModule,
     ExpensesModule,
     DocumentsModule,
-    UploadsModule,
     NotificationModule,
     EventsModule,
   ],

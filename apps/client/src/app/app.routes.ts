@@ -1,5 +1,5 @@
 import { Route } from '@angular/router';
-import { authGuard, guestGuard, otpGuard } from './core/auth.guard';
+import { authGuard, guestGuard } from './domains/auth';
 import { AppShell } from './layout/app-shell';
 
 export const appRoutes: Route[] = [
@@ -13,15 +13,14 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('./pages/auth/login').then((m) => m.Login),
       },
       {
+        path: 'signup',
+        title: 'Create account - Foundry',
+        loadComponent: () => import('./pages/auth/signup').then((m) => m.Signup),
+      },
+      {
         path: 'reset',
         title: 'Reset password - Foundry',
         loadComponent: () => import('./pages/auth/reset-password').then((m) => m.ResetPassword),
-      },
-      {
-        path: 'otp',
-        title: 'Verify code - Foundry',
-        canActivate: [otpGuard],
-        loadComponent: () => import('./pages/auth/verify-otp').then((m) => m.VerifyOtp),
       },
       { path: '', pathMatch: 'full', redirectTo: 'login' },
     ],
