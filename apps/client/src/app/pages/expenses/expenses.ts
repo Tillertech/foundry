@@ -121,7 +121,7 @@ export class Expenses {
     v ? (this.projects().find((p) => p.id === v)?.name ?? v) : 'Not linked';
 
   constructor() {
-    if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
+    this.refresh();
   }
 
   private refresh(): void {

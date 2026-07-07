@@ -1,6 +1,6 @@
 # Foundry
 
-Nx 23 npm monorepo. `npm install` requires `--legacy-peer-deps` (express4 vs @nestjs/serve-static peer conflict). Apps: `apps/api` NestJS 11 (webpack build → dist/apps/api/main.js), `apps/client` Angular 21 SSR standalone+signals (spartan-ng, tailwind4, ng-icons/lucide, ngx-echarts), plus api-e2e/client-e2e.
+Nx 23 npm monorepo. `npm install` requires `--legacy-peer-deps` (express4 vs @nestjs/serve-static peer conflict). Apps: `apps/api` NestJS 11 (webpack build → dist/apps/api/main.js), `apps/client` Angular 21 CSR SPA standalone+signals (spartan-ng, tailwind4, ng-icons/lucide, ngx-echarts), plus api-e2e/client-e2e. No SSR — the app is fully auth-gated with no public/SEO surface, so it ships as a client-rendered SPA.
 
 ## Nx
 
@@ -12,7 +12,7 @@ Schema `apps/api/prisma/schema.prisma`; all prisma CLI calls need `--config=apps
 
 ## Docker / just
 
-Dev: `just develop` → docker-compose.local.yml: db 5433, redis 6379 (container foundrycache), mailpit 1025/8025 (UI), api 3000, client 4200; `just studio` (profile tools, 5555); `just migrate "name"`, `just generate`, `just status`, `just reset`; env .env.docker. Prod: `just prod-build|prod-up|prod-down|prod-logs|prod-migrate` → docker-compose.production.yml + .env.production (template .env.production.example). Dockerfile.{api,client}.{local,production} at repo root; api prod image runs prisma migrate deploy then node main.js, hbs templates copied to /app/mail/templates; client prod runs node server/server.mjs on 4000. client:serve dependsOn api:serve — use `--excludeTaskDependencies` to serve alone. Containers mount the repo but tmpfs `/foundry/.nx` — nx's PID-keyed running-task DB must not be shared across host/containers or serve waits on phantom processes. client:serve sets allowedHosts localhost+127.0.0.1 (Angular SSR dev hard-400s other Host headers).
+Dev: `just develop` → docker-compose.local.yml: db 5433, redis 6379 (container foundrycache), mailpit 1025/8025 (UI), api 3000, client 4200; `just studio` (profile tools, 5555); `just migrate "name"`, `just generate`, `just status`, `just reset`; env .env.docker. Prod: `just prod-build|prod-up|prod-down|prod-logs|prod-migrate` → docker-compose.production.yml + .env.production (template .env.production.example). Dockerfile.{api,client}.{local,production} at repo root; api prod image runs prisma migrate deploy then node main.js, hbs templates copied to /app/mail/templates; client prod is a static SPA served by nginx:alpine on port 80 (nginx.conf at repo root) which reverse-proxies /api + /uploads → foundryapi:3000 (runtime DNS via docker resolver 127.0.0.11) and SPA-falls-back to index.html. client:serve dependsOn api:serve — use `--excludeTaskDependencies` to serve alone. Containers mount the repo but tmpfs `/foundry/.nx` — nx's PID-keyed running-task DB must not be shared across host/containers or serve waits on phantom processes. client:serve sets allowedHosts localhost+127.0.0.1 (dev-server hard-400s other Host headers) and proxies /api via proxy.conf.
 
 ## API (apps/api/src)
 
@@ -31,8 +31,8 @@ Dev: `just develop` → docker-compose.local.yml: db 5433, redis 6379 (container
 
 - core/api/: api.models.ts interfaces mirror API responses (Decimal→string, ISO date strings); per-resource services AuthApiService, WorkspacesApiService, ClientsApiService, ProjectsApiService, InvoicesApiService, QuotesApiService, PaymentsApiService, ExpensesApiService, DocumentsApiService (create(file, meta) posts multipart); base '/api/v1'; authInterceptor (registered in app.config) attaches JWT from ApiTokenStore (localStorage foundry.token.v1) and clears it + redirects to /auth/login on non-auth 401s; apiErrorMessage() flattens Nest error payloads; barrel core/api/index.ts.
 - Dev proxy proxy.conf.json → localhost:3000; docker variant proxy.conf.docker.json → foundryapi:3000.
-- Auth: core/auth.service.ts wraps AuthApiService (login/signup/refresh via /auth/me, user cached in localStorage foundry.user.v1); routes /auth/login, /auth/signup, /auth/reset (two-step OTP reset). Guards render optimistically on SSR.
-- Pages fetch in the browser only (isPlatformBrowser guard in constructors) — SSR renders skeletons; localStorage JWT is unavailable server-side. Decimal/date coercion helpers live in core/format.ts (num, money, isoDay, toApiDate — Prisma rejects date-only strings, invoiceTotal/quoteTotal); shared/line-items-editor exports LineItemDraft (numeric qty/rate) mapped to/from string API items.
+- Auth: core/auth.service.ts wraps AuthApiService (login/signup/refresh via /auth/me, user cached in localStorage foundry.user.v1); routes /auth/login, /auth/signup, /auth/reset (two-step OTP reset). authGuard/guestGuard read the restored session synchronously (appInitializer runs auth.restore() before the router), so protected routes never flash before redirecting.
+- Pages fetch data on init and show skeletons while loading (CSR — no server render). Decimal/date coercion helpers live in core/format.ts (num, money, isoDay, toApiDate — Prisma rejects date-only strings, invoiceTotal/quoteTotal); shared/line-items-editor exports LineItemDraft (numeric qty/rate) mapped to/from string API items.
 
 ## Conventions
 

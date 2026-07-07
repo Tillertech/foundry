@@ -111,7 +111,7 @@ export class Quotes {
   protected readonly fieldError = fieldError;
 
   constructor() {
-    if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
+    this.refresh();
   }
 
   private refresh(): void {

@@ -127,7 +127,7 @@ export class Payments {
     v ? (this.invoices().find((i) => i.id === v)?.number ?? v) : 'Unlinked';
 
   constructor() {
-    if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
+    this.refresh();
   }
 
   private refresh(): void {

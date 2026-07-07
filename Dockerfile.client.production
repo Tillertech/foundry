@@ -3,7 +3,7 @@ FROM node:lts-slim AS builder
 WORKDIR /foundry
 
 RUN apt-get update && \
-    apt-get install -y python3 make g++ && \
+    apt-get install -y --no-install-recommends python3 make g++ && \
     rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
@@ -17,21 +17,16 @@ ENV NX_DAEMON=false
 RUN npx nx build client --configuration=production
 
 
-FROM node:lts-slim AS runner
+# The client is a client-side-rendered SPA (no SSR). nginx serves the static
+# bundle, falls back to index.html for client routes, and reverse-proxies the
+# API so the browser keeps calling same-origin /api and /uploads.
+FROM nginx:alpine AS runner
 
 LABEL maintainer="hello@tillertech.io"
 
-WORKDIR /app
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /foundry/dist/apps/client/browser /usr/share/nginx/html
 
-ENV NODE_ENV=production
-ENV PORT=4000
+EXPOSE 80
 
-#Override at build or runtime(compose)
-ARG NG_ALLOWED_HOSTS="foundryapp.tillertech.io"
-ENV NG_ALLOWED_HOSTS=${NG_ALLOWED_HOSTS}
-
-COPY --from=builder /foundry/dist/apps/client ./
-
-EXPOSE 4000
-
-CMD ["node", "server/server.mjs"]
+CMD ["nginx", "-g", "daemon off;"]

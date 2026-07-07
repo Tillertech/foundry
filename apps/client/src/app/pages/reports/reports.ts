@@ -1,12 +1,11 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowDownRight,
@@ -51,20 +50,22 @@ export class Reports {
   private readonly clients = signal<ApiClient[]>([]);
 
   constructor() {
-    if (isPlatformBrowser(inject(PLATFORM_ID))) {
-      this.invoicesApi
-        .list({ take: 100 })
-        .subscribe({ next: (r) => this.invoices.set(r.results), error: () => undefined });
-      this.expensesApi
-        .list({ take: 100 })
-        .subscribe({ next: (r) => this.expenses.set(r.results), error: () => undefined });
-      this.paymentsApi
-        .list({ take: 100 })
-        .subscribe({ next: (r) => this.payments.set(r.results), error: () => undefined });
-      this.clientsApi
-        .list({ take: 100 })
-        .subscribe({ next: (r) => this.clients.set(r.results), error: () => undefined });
-    }
+    this.invoicesApi.list({ take: 100 }).subscribe({
+      next: (r) => this.invoices.set(r.results),
+      error: () => undefined,
+    });
+    this.expensesApi.list({ take: 100 }).subscribe({
+      next: (r) => this.expenses.set(r.results),
+      error: () => undefined,
+    });
+    this.paymentsApi.list({ take: 100 }).subscribe({
+      next: (r) => this.payments.set(r.results),
+      error: () => undefined,
+    });
+    this.clientsApi.list({ take: 100 }).subscribe({
+      next: (r) => this.clients.set(r.results),
+      error: () => undefined,
+    });
   }
 
   protected readonly revenue = computed(() =>
@@ -106,8 +107,17 @@ export class Reports {
   protected readonly paymentCount = computed(() => this.payments().length);
 
   protected readonly kpis = computed(() => [
-    { label: 'Revenue (paid)', value: money(this.revenue()), icon: 'lucideTrendingUp', trend: `${this.paidCount()} paid invoices` },
-    { label: 'Outstanding', value: money(this.outstanding()), icon: 'lucideFileText' },
+    {
+      label: 'Revenue (paid)',
+      value: money(this.revenue()),
+      icon: 'lucideTrendingUp',
+      trend: `${this.paidCount()} paid invoices`,
+    },
+    {
+      label: 'Outstanding',
+      value: money(this.outstanding()),
+      icon: 'lucideFileText',
+    },
     { label: 'Overdue', value: money(this.overdue()), icon: 'lucideWallet' },
     { label: 'Total spent', value: money(this.spent()), icon: 'lucideReceipt' },
   ]);
@@ -141,7 +151,11 @@ export class Reports {
     }
     const rows = Object.entries(map).sort((a, b) => b[1] - a[1]);
     const max = Math.max(1, ...rows.map(([, v]) => v));
-    return rows.map(([cat, amt]) => ({ cat, amount: money(amt), pct: (amt / max) * 100 }));
+    return rows.map(([cat, amt]) => ({
+      cat,
+      amount: money(amt),
+      pct: (amt / max) * 100,
+    }));
   });
 
   protected readonly money = money;

@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   computed,
   inject,
   signal,
@@ -78,13 +77,11 @@ export class AppShell {
   private readonly clients = signal<ApiClient[]>([]);
 
   constructor() {
-    if (isPlatformBrowser(inject(PLATFORM_ID))) {
-      this.auth.refresh();
-      this.clientsApi.list({ take: 3 }).subscribe({
-        next: (res) => this.clients.set(res.results),
-        error: () => undefined,
-      });
-    }
+    this.auth.refresh();
+    this.clientsApi.list({ take: 3 }).subscribe({
+      next: (res) => this.clients.set(res.results),
+      error: () => undefined,
+    });
   }
 
   protected readonly recentClients = computed(() =>
@@ -100,7 +97,12 @@ export class AppShell {
   );
 
   protected readonly nav: NavItem[] = [
-    { path: '/', label: 'Dashboard', icon: 'lucideLayoutDashboard', exact: true },
+    {
+      path: '/',
+      label: 'Dashboard',
+      icon: 'lucideLayoutDashboard',
+      exact: true,
+    },
     { path: '/clients', label: 'Clients', icon: 'lucideUsers' },
     { path: '/projects', label: 'Projects', icon: 'lucideFolderKanban' },
     { path: '/invoices', label: 'Invoices', icon: 'lucideFileText' },
