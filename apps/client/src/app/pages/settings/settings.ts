@@ -1,11 +1,9 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   inject,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
 import { FormField, form, minLength, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -80,15 +78,13 @@ export class Settings {
     })[v] ?? v;
 
   constructor() {
-    if (isPlatformBrowser(inject(PLATFORM_ID))) {
-      this.workspacesApi.getDefault().subscribe({
-        next: (ws) => {
-          this.workspace.set(ws);
-          this.model.set({ name: ws.name, currency: ws.currency });
-        },
-        error: () => undefined,
-      });
-    }
+    this.workspacesApi.getDefault().subscribe({
+      next: (ws) => {
+        this.workspace.set(ws);
+        this.model.set({ name: ws.name, currency: ws.currency });
+      },
+      error: () => undefined,
+    });
   }
 
   protected saveWorkspace(): void {
@@ -115,9 +111,19 @@ export class Settings {
   }
 
   protected readonly modes = [
-    { id: 'light' as const, label: 'Light', icon: 'lucideSun', disabled: false },
+    {
+      id: 'light' as const,
+      label: 'Light',
+      icon: 'lucideSun',
+      disabled: false,
+    },
     { id: 'dark' as const, label: 'Dark', icon: 'lucideMoon', disabled: false },
-    { id: 'system' as const, label: 'System', icon: 'lucideMonitor', disabled: true },
+    {
+      id: 'system' as const,
+      label: 'System',
+      icon: 'lucideMonitor',
+      disabled: true,
+    },
   ];
 
   protected isActiveMode(id: 'light' | 'dark' | 'system'): boolean {

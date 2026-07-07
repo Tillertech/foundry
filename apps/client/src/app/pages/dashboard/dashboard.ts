@@ -1,12 +1,11 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowDownRight,
@@ -70,20 +69,22 @@ export class Dashboard {
   private readonly expenses = signal<Expense[]>([]);
 
   constructor() {
-    if (isPlatformBrowser(inject(PLATFORM_ID))) {
-      this.invoicesApi
-        .list({ take: 100 })
-        .subscribe({ next: (r) => this.invoices.set(r.results), error: () => undefined });
-      this.paymentsApi
-        .list({ take: 100 })
-        .subscribe({ next: (r) => this.payments.set(r.results), error: () => undefined });
-      this.clientsApi
-        .list({ take: 100 })
-        .subscribe({ next: (r) => this.clients.set(r.results), error: () => undefined });
-      this.expensesApi
-        .list({ take: 100 })
-        .subscribe({ next: (r) => this.expenses.set(r.results), error: () => undefined });
-    }
+    this.invoicesApi.list({ take: 100 }).subscribe({
+      next: (r) => this.invoices.set(r.results),
+      error: () => undefined,
+    });
+    this.paymentsApi.list({ take: 100 }).subscribe({
+      next: (r) => this.payments.set(r.results),
+      error: () => undefined,
+    });
+    this.clientsApi.list({ take: 100 }).subscribe({
+      next: (r) => this.clients.set(r.results),
+      error: () => undefined,
+    });
+    this.expensesApi.list({ take: 100 }).subscribe({
+      next: (r) => this.expenses.set(r.results),
+      error: () => undefined,
+    });
   }
 
   protected readonly today = new Date().toLocaleDateString('en-US', {
@@ -163,11 +164,13 @@ export class Dashboard {
     const expenses = new Map(months.map((m) => [m.key, 0]));
     for (const p of this.payments()) {
       const key = isoDay(p.date).slice(0, 7);
-      if (revenue.has(key)) revenue.set(key, (revenue.get(key) || 0) + num(p.amount));
+      if (revenue.has(key))
+        revenue.set(key, (revenue.get(key) || 0) + num(p.amount));
     }
     for (const e of this.expenses()) {
       const key = isoDay(e.date).slice(0, 7);
-      if (expenses.has(key)) expenses.set(key, (expenses.get(key) || 0) + num(e.amount));
+      if (expenses.has(key))
+        expenses.set(key, (expenses.get(key) || 0) + num(e.amount));
     }
     return {
       months: months.map((m) => m.label),

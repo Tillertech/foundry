@@ -1,16 +1,12 @@
-# Reinstalled fresh via `npm ci` inside the image — never copy host artifacts.
 node_modules
 **/node_modules
 dist
 tmp
 uploads
 
-# Nx / Angular / build caches
 .nx
 .angular
 **/.cache
-
-# VCS & CI
 .git
 .github
 
@@ -23,7 +19,6 @@ uploads
 .agents
 .claude
 
-# Local env & docs (baked/provided at deploy time, not needed to build)
 .env
 .env.*
 !.env.production.example

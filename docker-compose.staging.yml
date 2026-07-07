@@ -9,7 +9,7 @@ services:
       - foundry
 
   foundryapi:
-    container_name: foundry-api
+    container_name: foundryapi
     build:
       context: .
       dockerfile: Dockerfile.api.production
@@ -31,20 +31,12 @@ services:
       - foundry
 
   foundryclient:
-    container_name: foundry-client
+    container_name: foundryclient
     build:
       context: .
       dockerfile: Dockerfile.client.production
-      args:
-        NG_ALLOWED_HOSTS: ${NG_ALLOWED_HOSTS:-localhost,127.0.0.1}
-    environment:
-      NODE_ENV: production
-      PORT: 4000
-      NG_ALLOWED_HOSTS: ${NG_ALLOWED_HOSTS:-localhost,127.0.0.1}
-    env_file:
-      - ./.env
     ports:
-      - 8083:4000
+      - 8083:80
     depends_on:
       foundryapi:
         condition: service_started
