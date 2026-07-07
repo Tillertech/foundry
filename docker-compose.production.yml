@@ -48,9 +48,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.client.production
+      args:
+        NG_ALLOWED_HOSTS: ${NG_ALLOWED_HOSTS:-localhost,127.0.0.1}
     environment:
       NODE_ENV: production
       PORT: 4000
+      NG_ALLOWED_HOSTS: ${NG_ALLOWED_HOSTS:-localhost,127.0.0.1}
     env_file:
       - ./.env.production
     ports:

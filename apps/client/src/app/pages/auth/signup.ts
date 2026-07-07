@@ -130,7 +130,7 @@ import { fieldError } from '../../shared/field-error';
             </div>
           </app-field>
 
-          <app-field label="Workspace name" hint="Optional — defaults to your studio.">
+          <app-field label="Workspace name" hint="Optional - defaults to your studio.">
             <div class="relative">
               <ng-icon
                 name="lucideBuilding2"

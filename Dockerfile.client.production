@@ -26,6 +26,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4000
 
+#Override at build or runtime(compose)
+ARG NG_ALLOWED_HOSTS="foundryapp.tillertech.io"
+ENV NG_ALLOWED_HOSTS=${NG_ALLOWED_HOSTS}
+
 COPY --from=builder /foundry/dist/apps/client ./
 
 EXPOSE 4000

@@ -35,7 +35,7 @@ RUN apt-get update && \
 COPY --from=builder /foundry/dist/apps/api ./
 
 RUN npm install --omit=dev --legacy-peer-deps && \
-    npm install --no-save --legacy-peer-deps prisma@^7.8.0
+    npm install --no-save --legacy-peer-deps prisma@^7.8.0 @prisma/client@^7.8.0
 
 # Prisma schema/migrations for `migrate deploy`, and mail templates which the
 # mailer resolves relative to the bundle directory in production.
