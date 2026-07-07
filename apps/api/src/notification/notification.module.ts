@@ -16,14 +16,23 @@ import { ConfigService } from '@nestjs/config';
 // the source tree instead. cwd is the workspace root under nx serve (also in the
 // docker containers) but apps/api under a bare nest start, so probe both.
 const DEV_TEMPLATE_DIRS = [
-  join(process.cwd(), 'apps', 'api', 'src', 'notification', 'mail', 'templates'),
+  join(
+    process.cwd(),
+    'apps',
+    'api',
+    'src',
+    'notification',
+    'mail',
+    'templates',
+  ),
   join(process.cwd(), 'src', 'notification', 'mail', 'templates'),
 ];
 
 const TEMPLATE_DIR =
   process.env.NODE_ENV === 'production'
     ? join(__dirname, 'mail', 'templates')
-    : (DEV_TEMPLATE_DIRS.find((dir) => existsSync(dir)) ?? DEV_TEMPLATE_DIRS[0]);
+    : (DEV_TEMPLATE_DIRS.find((dir) => existsSync(dir)) ??
+      DEV_TEMPLATE_DIRS[0]);
 
 @Module({
   imports: [
@@ -35,7 +44,7 @@ const TEMPLATE_DIR =
         transport: {
           host: config.get('SMTP_HOST', 'mailpit'),
           port: config.get('SMTP_PORT', 1025),
-          secure: false,
+          secure: config.get('SMTP_SECURE', false),
           ignoreTLS: false,
           auth: {
             user: config.get('SMTP_USER', 'email'),
