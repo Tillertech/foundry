@@ -24,8 +24,6 @@ services:
     volumes:
       - uploads:/app/uploads
     depends_on:
-      db:
-        condition: service_started
       redis:
         condition: service_started
     restart: always
