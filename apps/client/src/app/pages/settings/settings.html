@@ -74,18 +74,23 @@
       <h2 class="text-sm font-semibold">Workspace</h2>
     </div>
     @if (workspace(); as ws) {
-      <form class="grid gap-4" (ngSubmit)="saveWorkspace()">
+      <form class="grid gap-4" (submit)="$event.preventDefault(); saveWorkspace()">
         <div class="grid gap-4 sm:grid-cols-2">
-          <app-field label="Name">
-            <input hlmInput class="w-full" name="workspaceName" [(ngModel)]="workspaceName" />
+          <app-field label="Name" [error]="fieldError(f.name())">
+            <input hlmInput class="w-full" [formField]="f.name" />
           </app-field>
           <app-field label="Default currency">
-            <hlm-native-select class="w-full" name="workspaceCurrency" [(ngModel)]="workspaceCurrency">
-              <option hlmNativeSelectOption value="USD">USD - US Dollar</option>
-              <option hlmNativeSelectOption value="EUR">EUR - Euro</option>
-              <option hlmNativeSelectOption value="GBP">GBP - British Pound</option>
-              <option hlmNativeSelectOption value="KES">KES - Kenyan Shilling</option>
-            </hlm-native-select>
+            <hlm-select class="w-full" [formField]="f.currency" [itemToString]="currencyLabel">
+              <hlm-select-trigger class="w-full">
+                <hlm-select-value />
+              </hlm-select-trigger>
+              <hlm-select-content *hlmSelectPortal>
+                <hlm-select-item value="USD">USD - US Dollar</hlm-select-item>
+                <hlm-select-item value="EUR">EUR - Euro</hlm-select-item>
+                <hlm-select-item value="GBP">GBP - British Pound</hlm-select-item>
+                <hlm-select-item value="KES">KES - Kenyan Shilling</hlm-select-item>
+              </hlm-select-content>
+            </hlm-select>
           </app-field>
         </div>
         <div class="flex items-center justify-between">
@@ -96,7 +101,7 @@
             hlmBtn
             size="sm"
             type="submit"
-            [disabled]="savingWorkspace() || !workspaceName.trim()"
+            [disabled]="savingWorkspace() || f().invalid()"
           >
             {{ savingWorkspace() ? 'Saving…' : 'Save workspace' }}
           </button>

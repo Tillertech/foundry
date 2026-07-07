@@ -20,25 +20,31 @@
         class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
       />
       <input
+        #search
         hlmInput
         type="text"
         placeholder="Search vendors…"
         class="h-9 w-full pl-9"
-        [ngModel]="query()"
-        (ngModelChange)="query.set($event)"
+        [value]="query()"
+        (input)="query.set(search.value)"
       />
     </div>
-    <hlm-native-select
+    <hlm-select
       class="w-[170px]"
-      selectClass="h-9"
-      [ngModel]="catFilter()"
-      (ngModelChange)="catFilter.set($event)"
+      [value]="catFilter()"
+      (valueChange)="catFilter.set($event ?? 'all')"
+      [itemToString]="catFilterLabel"
     >
-      <option hlmNativeSelectOption value="all">All categories</option>
-      @for (c of catOptions; track c[0]) {
-        <option hlmNativeSelectOption [value]="c[0]">{{ c[1] }}</option>
-      }
-    </hlm-native-select>
+      <hlm-select-trigger class="h-9 w-full">
+        <hlm-select-value />
+      </hlm-select-trigger>
+      <hlm-select-content *hlmSelectPortal>
+        <hlm-select-item value="all">All categories</hlm-select-item>
+        @for (c of catOptions; track c[0]) {
+          <hlm-select-item [value]="c[0]">{{ c[1] }}</hlm-select-item>
+        }
+      </hlm-select-content>
+    </hlm-select>
   </div>
 
   @if (loading()) {
@@ -105,48 +111,66 @@
 
   <app-entity-sheet
     [(open)]="sheetOpen"
-    [title]="isNew ? 'New expense' : 'Edit ' + form.vendor"
-    [canSave]="!!form.vendor.trim() && form.amount > 0"
+    [title]="isNew ? 'New expense' : 'Edit ' + model().vendor"
+    [canSave]="f().valid()"
     [showDelete]="!isNew"
     (saved)="save()"
     (deleted)="removeCurrent()"
   >
     <div class="grid gap-4">
-      <app-field label="Vendor">
-        <input hlmInput class="w-full" [(ngModel)]="form.vendor" placeholder="Figma, Lufthansa, …" />
+      <app-field label="Vendor" [error]="fieldError(f.vendor())">
+        <input hlmInput class="w-full" [formField]="f.vendor" placeholder="Figma, Lufthansa, …" />
       </app-field>
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Category">
-          <hlm-native-select class="w-full" [(ngModel)]="form.category">
-            @for (c of catOptions; track c[0]) {
-              <option hlmNativeSelectOption [value]="c[0]">{{ c[1] }}</option>
-            }
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.category" [itemToString]="catLabel">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              @for (c of catOptions; track c[0]) {
+                <hlm-select-item [value]="c[0]">{{ c[1] }}</hlm-select-item>
+              }
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
         <app-field label="Date">
-          <app-date-field [(value)]="form.date" />
+          <app-date-field
+            [value]="f.date().value()"
+            (valueChange)="f.date().value.set($event ?? '')"
+          />
         </app-field>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Amount">
-          <input hlmInput type="number" min="0" step="0.01" class="w-full" [(ngModel)]="form.amount" />
+        <app-field label="Amount" [error]="fieldError(f.amount())">
+          <input hlmInput type="number" step="0.01" class="w-full" [formField]="f.amount" />
         </app-field>
         <app-field label="Currency">
-          <hlm-native-select class="w-full" [(ngModel)]="form.currency">
-            <option hlmNativeSelectOption value="USD">USD</option>
-            <option hlmNativeSelectOption value="EUR">EUR</option>
-            <option hlmNativeSelectOption value="GBP">GBP</option>
-            <option hlmNativeSelectOption value="KES">KES</option>
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.currency">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-item value="USD">USD</hlm-select-item>
+              <hlm-select-item value="EUR">EUR</hlm-select-item>
+              <hlm-select-item value="GBP">GBP</hlm-select-item>
+              <hlm-select-item value="KES">KES</hlm-select-item>
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
       </div>
       <app-field label="Project (optional)">
-        <hlm-native-select class="w-full" [(ngModel)]="form.projectId">
-          <option hlmNativeSelectOption value="">Not linked</option>
-          @for (p of projects(); track p.id) {
-            <option hlmNativeSelectOption [value]="p.id">{{ p.name }}</option>
-          }
-        </hlm-native-select>
+        <hlm-select class="w-full" [formField]="f.projectId" [itemToString]="projectLabel">
+          <hlm-select-trigger class="w-full">
+            <hlm-select-value placeholder="Not linked" />
+          </hlm-select-trigger>
+          <hlm-select-content *hlmSelectPortal>
+            <hlm-select-item value="">Not linked</hlm-select-item>
+            @for (p of projects(); track p.id) {
+              <hlm-select-item [value]="p.id">{{ p.name }}</hlm-select-item>
+            }
+          </hlm-select-content>
+        </hlm-select>
       </app-field>
       <div class="flex items-center justify-between rounded-lg border border-border px-4 py-3">
         <div>
@@ -155,10 +179,10 @@
             Include on the next invoice for the linked project.
           </p>
         </div>
-        <hlm-switch [(ngModel)]="form.billable" aria-label="Billable to client" />
+        <hlm-switch [formField]="f.billable" aria-label="Billable to client" />
       </div>
       <app-field label="Notes">
-        <textarea hlmTextarea rows="3" class="w-full" [(ngModel)]="form.notes"></textarea>
+        <textarea hlmTextarea rows="3" class="w-full" [formField]="f.notes"></textarea>
       </app-field>
     </div>
   </app-entity-sheet>

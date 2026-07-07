@@ -18,25 +18,31 @@
         class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
       />
       <input
+        #search
         hlmInput
         type="text"
         placeholder="Search payments…"
         class="h-9 w-full pl-9"
-        [ngModel]="query()"
-        (ngModelChange)="query.set($event)"
+        [value]="query()"
+        (input)="query.set(search.value)"
       />
     </div>
-    <hlm-native-select
+    <hlm-select
       class="w-[170px]"
-      selectClass="h-9"
-      [ngModel]="methodFilter()"
-      (ngModelChange)="methodFilter.set($event)"
+      [value]="methodFilter()"
+      (valueChange)="methodFilter.set($event ?? 'all')"
+      [itemToString]="methodFilterLabel"
     >
-      <option hlmNativeSelectOption value="all">All methods</option>
-      @for (m of methodOptions; track m[0]) {
-        <option hlmNativeSelectOption [value]="m[0]">{{ m[1] }}</option>
-      }
-    </hlm-native-select>
+      <hlm-select-trigger class="h-9 w-full">
+        <hlm-select-value />
+      </hlm-select-trigger>
+      <hlm-select-content *hlmSelectPortal>
+        <hlm-select-item value="all">All methods</hlm-select-item>
+        @for (m of methodOptions; track m[0]) {
+          <hlm-select-item [value]="m[0]">{{ m[1] }}</hlm-select-item>
+        }
+      </hlm-select-content>
+    </hlm-select>
   </div>
 
   @if (loading()) {
@@ -97,68 +103,92 @@
   <app-entity-sheet
     [(open)]="sheetOpen"
     [title]="isNew ? 'Record payment' : 'Edit payment'"
-    [canSave]="!!form.clientId && form.amount > 0"
+    [canSave]="f().valid()"
     [showDelete]="!isNew"
     (saved)="save()"
     (deleted)="removeCurrent()"
   >
     <div class="grid gap-4">
       <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Client">
-          <hlm-native-select
+        <app-field label="Client" [error]="fieldError(f.clientId())">
+          <hlm-select
             class="w-full"
-            [ngModel]="form.clientId"
-            (ngModelChange)="onClientChange($event)"
+            [value]="model().clientId"
+            (valueChange)="onClientChange($event ?? '')"
+            [itemToString]="clientLabel"
           >
-            @for (c of clients(); track c.id) {
-              <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
-            }
-          </hlm-native-select>
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value placeholder="Select a client" />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              @for (c of clients(); track c.id) {
+                <hlm-select-item [value]="c.id">{{ c.company || c.name }}</hlm-select-item>
+              }
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
         <app-field label="Invoice (optional)">
-          <hlm-native-select class="w-full" [(ngModel)]="form.invoiceId">
-            <option hlmNativeSelectOption value="">Unlinked</option>
-            @for (i of clientInvoices; track i.id) {
-              <option hlmNativeSelectOption [value]="i.id">{{ i.number }}</option>
-            }
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.invoiceId" [itemToString]="invoiceLabel">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value placeholder="Unlinked" />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-item value="">Unlinked</hlm-select-item>
+              @for (i of clientInvoices; track i.id) {
+                <hlm-select-item [value]="i.id">{{ i.number }}</hlm-select-item>
+              }
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Amount">
-          <input hlmInput type="number" min="0" step="0.01" class="w-full" [(ngModel)]="form.amount" />
+        <app-field label="Amount" [error]="fieldError(f.amount())">
+          <input hlmInput type="number" step="0.01" class="w-full" [formField]="f.amount" />
         </app-field>
         <app-field label="Currency">
-          <hlm-native-select class="w-full" [(ngModel)]="form.currency">
-            <option hlmNativeSelectOption value="USD">USD</option>
-            <option hlmNativeSelectOption value="EUR">EUR</option>
-            <option hlmNativeSelectOption value="GBP">GBP</option>
-            <option hlmNativeSelectOption value="KES">KES</option>
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.currency">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-item value="USD">USD</hlm-select-item>
+              <hlm-select-item value="EUR">EUR</hlm-select-item>
+              <hlm-select-item value="GBP">GBP</hlm-select-item>
+              <hlm-select-item value="KES">KES</hlm-select-item>
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Method">
-          <hlm-native-select class="w-full" [(ngModel)]="form.method">
-            @for (m of methodOptions; track m[0]) {
-              <option hlmNativeSelectOption [value]="m[0]">{{ m[1] }}</option>
-            }
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.method" [itemToString]="methodLabel">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              @for (m of methodOptions; track m[0]) {
+                <hlm-select-item [value]="m[0]">{{ m[1] }}</hlm-select-item>
+              }
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
         <app-field label="Date">
-          <app-date-field [(value)]="form.date" />
+          <app-date-field
+            [value]="f.date().value()"
+            (valueChange)="f.date().value.set($event ?? '')"
+          />
         </app-field>
       </div>
       <app-field label="Reference">
         <input
           hlmInput
           class="w-full"
-          [(ngModel)]="form.reference"
+          [formField]="f.reference"
           placeholder="Transaction ID, cheque #, etc."
         />
       </app-field>
       <app-field label="Notes">
-        <textarea hlmTextarea rows="3" class="w-full" [(ngModel)]="form.notes"></textarea>
+        <textarea hlmTextarea rows="3" class="w-full" [formField]="f.notes"></textarea>
       </app-field>
     </div>
   </app-entity-sheet>

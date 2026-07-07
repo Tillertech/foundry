@@ -1,5 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import {
+  FormField,
+  email as emailValidator,
+  form,
+  minLength,
+  required,
+} from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowLeft, lucideLock, lucideMail, lucideShieldCheck } from '@ng-icons/lucide';
@@ -11,6 +18,7 @@ import { apiErrorMessage } from '../../core/http';
 import { AuthApiService } from '../../domains/auth';
 import { ToastService } from '../../core/toast.service';
 import { Field } from '../../shared/field';
+import { fieldError } from '../../shared/field-error';
 
 /**
  * Two-step reset: request a 6-digit code by email, then exchange the
@@ -21,6 +29,7 @@ import { Field } from '../../shared/field';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     FormsModule,
+    FormField,
     RouterLink,
     NgIcon,
     HlmButton,
@@ -53,14 +62,18 @@ import { Field } from '../../shared/field';
               We'll email you a 6-digit code to set a new one.
             } @else {
               We sent a 6-digit code to
-              <span class="font-medium text-foreground">{{ email }}</span>
+              <span class="font-medium text-foreground">{{ model().email }}</span>
             }
           </p>
         </div>
 
         @if (step() === 'email') {
-          <form class="surface-card space-y-4 p-6" (ngSubmit)="sendCode()">
-            <app-field label="Email" hint="Use the address you signed up with.">
+          <form class="surface-card space-y-4 p-6" (submit)="$event.preventDefault(); sendCode()">
+            <app-field
+              label="Email"
+              hint="Use the address you signed up with."
+              [error]="fieldError(f.email())"
+            >
               <div class="relative">
                 <ng-icon
                   name="lucideMail"
@@ -70,10 +83,8 @@ import { Field } from '../../shared/field';
                 <input
                   hlmInput
                   type="email"
-                  name="email"
-                  required
                   class="w-full pl-9"
-                  [(ngModel)]="email"
+                  [formField]="f.email"
                   placeholder="mika@foundry.app"
                   autocomplete="email"
                 />
@@ -88,7 +99,7 @@ import { Field } from '../../shared/field';
               hlmBtn
               type="submit"
               class="w-full shadow-[var(--shadow-glow)]"
-              [disabled]="submitting()"
+              [disabled]="submitting() || f.email().invalid()"
             >
               {{ submitting() ? 'Sending…' : 'Send reset code' }}
             </button>
@@ -102,7 +113,7 @@ import { Field } from '../../shared/field';
             </a>
           </form>
         } @else {
-          <form class="surface-card flex flex-col gap-5 p-6" (ngSubmit)="reset()">
+          <form class="surface-card flex flex-col gap-5 p-6" (submit)="$event.preventDefault(); reset()">
             <div class="flex justify-center">
               <brn-input-otp
                 hlm
@@ -125,7 +136,11 @@ import { Field } from '../../shared/field';
               </brn-input-otp>
             </div>
 
-            <app-field label="New password" hint="At least 8 characters.">
+            <app-field
+              label="New password"
+              hint="At least 8 characters."
+              [error]="fieldError(f.newPassword())"
+            >
               <div class="relative">
                 <ng-icon
                   name="lucideLock"
@@ -135,10 +150,8 @@ import { Field } from '../../shared/field';
                 <input
                   hlmInput
                   type="password"
-                  name="newPassword"
-                  required
                   class="w-full pl-9"
-                  [(ngModel)]="newPassword"
+                  [formField]="f.newPassword"
                   placeholder="••••••••"
                   autocomplete="new-password"
                 />
@@ -153,7 +166,7 @@ import { Field } from '../../shared/field';
               hlmBtn
               type="submit"
               class="w-full shadow-[var(--shadow-glow)]"
-              [disabled]="code.length < 6 || !newPassword || submitting()"
+              [disabled]="code.length < 6 || f.newPassword().invalid() || submitting()"
             >
               {{ submitting() ? 'Resetting…' : 'Reset password' }}
             </button>
@@ -186,21 +199,25 @@ export class ResetPassword {
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
 
-  protected email = '';
   protected code = '';
-  protected newPassword = '';
   protected readonly step = signal<'email' | 'reset'>('email');
   protected readonly submitting = signal(false);
   protected readonly error = signal('');
 
+  protected readonly model = signal({ email: '', newPassword: '' });
+  protected readonly f = form(this.model, (p) => {
+    required(p.email, { message: 'Email is required' });
+    emailValidator(p.email, { message: 'Enter a valid email address' });
+    required(p.newPassword, { message: 'Password is required' });
+    minLength(p.newPassword, 8, { message: 'Use at least 8 characters' });
+  });
+  protected readonly fieldError = fieldError;
+
   protected sendCode(): void {
-    if (!this.email.trim() || !this.email.includes('@')) {
-      this.error.set('Enter a valid email address.');
-      return;
-    }
+    if (this.f.email().invalid()) return;
     this.error.set('');
     this.submitting.set(true);
-    this.api.forgotPassword({ email: this.email.trim() }).subscribe({
+    this.api.forgotPassword({ email: this.model().email.trim() }).subscribe({
       next: (res) => {
         this.submitting.set(false);
         this.step.set('reset');
@@ -214,14 +231,15 @@ export class ResetPassword {
   }
 
   protected reset(): void {
-    if (this.code.length < 6 || !this.newPassword) return;
+    if (this.code.length < 6 || this.f.newPassword().invalid()) return;
+    const v = this.model();
     this.error.set('');
     this.submitting.set(true);
     this.api
       .resetPassword({
-        email: this.email.trim(),
+        email: v.email.trim(),
         otp: this.code,
-        newPassword: this.newPassword,
+        newPassword: v.newPassword,
       })
       .subscribe({
         next: () => {

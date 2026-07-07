@@ -7,12 +7,12 @@ import {
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormField, form, min, minLength, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideReceipt, lucideSearch } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
+import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { apiErrorMessage } from '../../core/http';
@@ -28,6 +28,7 @@ import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
 import { Field } from '../../shared/field';
+import { fieldError } from '../../shared/field-error';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
 
@@ -68,12 +69,12 @@ export const catLabels: Record<ExpenseCategory, string> = {
   selector: 'app-expenses',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    FormsModule,
+    FormField,
     NgIcon,
     HlmButton,
     HlmInput,
     HlmTextarea,
-    HlmNativeSelectImports,
+    HlmSelectImports,
     HlmSwitchImports,
     DateField,
     EntitySheet,
@@ -98,12 +99,26 @@ export class Expenses {
   protected readonly sheetOpen = signal(false);
   protected readonly saving = signal(false);
   protected isNew = true;
-  protected form: ExpenseForm = emptyExpense();
+
+  protected readonly model = signal<ExpenseForm>(emptyExpense());
+  protected readonly f = form(this.model, (p) => {
+    required(p.vendor, { message: 'Vendor is required' });
+    minLength(p.vendor, 2, { message: 'Use at least 2 characters' });
+    min(p.amount, 0.01, { message: 'Amount must be greater than 0' });
+  });
+  protected readonly fieldError = fieldError;
 
   protected readonly catOptions = Object.entries(catLabels) as [
     ExpenseCategory,
     string,
   ][];
+
+  protected readonly catFilterLabel = (v: string) =>
+    v === 'all' ? 'All categories' : (catLabels[v as ExpenseCategory] ?? v);
+  protected readonly catLabel = (v: string) =>
+    catLabels[v as ExpenseCategory] ?? v;
+  protected readonly projectLabel = (v: string) =>
+    v ? (this.projects().find((p) => p.id === v)?.name ?? v) : 'Not linked';
 
   constructor() {
     if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
@@ -150,13 +165,13 @@ export class Expenses {
   );
 
   protected openNew(): void {
-    this.form = emptyExpense();
+    this.model.set(emptyExpense());
     this.isNew = true;
     this.sheetOpen.set(true);
   }
 
   protected openEdit(e: Expense): void {
-    this.form = {
+    this.model.set({
       id: e.id,
       vendor: e.vendor,
       category: e.category,
@@ -166,27 +181,28 @@ export class Expenses {
       projectId: e.projectId ?? '',
       billable: e.billable,
       notes: e.notes ?? '',
-    };
+    });
     this.isNew = false;
     this.sheetOpen.set(true);
   }
 
   protected save(): void {
-    if (!this.form.vendor.trim() || this.form.amount <= 0 || this.saving()) return;
+    if (this.f().invalid() || this.saving()) return;
+    const v = this.model();
     const body: CreateExpenseRequest = {
-      vendor: this.form.vendor.trim(),
-      category: this.form.category,
-      amount: num(this.form.amount),
-      currency: this.form.currency,
-      date: toApiDate(this.form.date),
-      billable: this.form.billable,
-      projectId: this.form.projectId || undefined,
-      notes: this.form.notes.trim() || undefined,
+      vendor: v.vendor.trim(),
+      category: v.category,
+      amount: num(v.amount),
+      currency: v.currency,
+      date: toApiDate(v.date),
+      billable: v.billable,
+      projectId: v.projectId || undefined,
+      notes: v.notes.trim() || undefined,
     };
     this.saving.set(true);
     const request = this.isNew
       ? this.expensesApi.create(body)
-      : this.expensesApi.update(this.form.id, body);
+      : this.expensesApi.update(v.id, body);
     request.subscribe({
       next: (expense) => {
         this.saving.set(false);
@@ -207,7 +223,7 @@ export class Expenses {
   }
 
   protected removeCurrent(): void {
-    const id = this.form.id;
+    const id = this.model().id;
     this.expensesApi.delete(id).subscribe({
       next: () => {
         this.expenses.update((list) => list.filter((e) => e.id !== id));

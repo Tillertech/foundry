@@ -7,12 +7,12 @@ import {
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormField, form, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideSearch } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
+import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { apiErrorMessage } from '../../core/http';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
@@ -36,6 +36,7 @@ import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
 import { Field } from '../../shared/field';
+import { fieldError } from '../../shared/field-error';
 import { LineItemDraft, LineItemsEditor } from '../../shared/line-items-editor';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
@@ -71,12 +72,12 @@ const emptyQuote = (): QuoteForm => ({
   selector: 'app-quotes',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    FormsModule,
+    FormField,
     NgIcon,
     HlmButton,
     HlmInput,
     HlmTextarea,
-    HlmNativeSelectImports,
+    HlmSelectImports,
     DateField,
     EntitySheet,
     Field,
@@ -102,7 +103,12 @@ export class Quotes {
   protected readonly sheetOpen = signal(false);
   protected readonly saving = signal(false);
   protected isNew = true;
-  protected form: QuoteForm = emptyQuote();
+
+  protected readonly model = signal<QuoteForm>(emptyQuote());
+  protected readonly f = form(this.model, (p) => {
+    required(p.clientId, { message: 'Select a client' });
+  });
+  protected readonly fieldError = fieldError;
 
   constructor() {
     if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
@@ -129,6 +135,21 @@ export class Quotes {
     Object.fromEntries(this.clients().map((c) => [c.id, c])),
   );
 
+  private readonly statusLabels: Record<string, string> = {
+    draft: 'Draft',
+    sent: 'Sent',
+    accepted: 'Accepted',
+    declined: 'Declined',
+    expired: 'Expired',
+  };
+  protected readonly statusLabel = (v: string) => this.statusLabels[v] ?? v;
+  protected readonly statusFilterLabel = (v: string) =>
+    v === 'all' ? 'All statuses' : this.statusLabel(v);
+  protected readonly clientLabel = (v: string) => {
+    const c = this.clientMap()[v];
+    return c ? c.company || c.name : v;
+  };
+
   protected readonly filtered = computed(() => {
     const term = this.query().toLowerCase();
     const status = this.statusFilter();
@@ -148,23 +169,23 @@ export class Quotes {
   });
 
   protected get totals() {
-    return quoteTotal(this.form);
+    return quoteTotal(this.model());
   }
 
   protected openNew(): void {
     const c = this.clients()[0];
-    this.form = {
+    this.model.set({
       ...emptyQuote(),
       clientId: c?.id ?? '',
       currency: c?.currency ?? 'USD',
       items: [{ id: newId(), description: '', quantity: 1, rate: 0 }],
-    };
+    });
     this.isNew = true;
     this.sheetOpen.set(true);
   }
 
   protected openEdit(q: Quote): void {
-    this.form = {
+    this.model.set({
       id: q.id,
       number: q.number,
       clientId: q.clientId,
@@ -180,22 +201,23 @@ export class Quotes {
       })),
       taxRate: num(q.taxRate),
       notes: q.notes ?? '',
-    };
+    });
     this.isNew = false;
     this.sheetOpen.set(true);
   }
 
   protected save(): void {
-    if (!this.form.clientId || this.form.items.length === 0 || this.saving()) return;
+    const v = this.model();
+    if (this.f().invalid() || v.items.length === 0 || this.saving()) return;
     const common: UpdateQuoteRequest = {
-      number: this.form.number.trim() || undefined,
-      status: this.form.status,
-      issueDate: toApiDate(this.form.issueDate),
-      validUntil: toApiDate(this.form.validUntil),
-      currency: this.form.currency,
-      taxRate: num(this.form.taxRate),
-      notes: this.form.notes.trim() || undefined,
-      items: this.form.items.map(({ description, quantity, rate }) => ({
+      number: v.number.trim() || undefined,
+      status: v.status,
+      issueDate: toApiDate(v.issueDate),
+      validUntil: toApiDate(v.validUntil),
+      currency: v.currency,
+      taxRate: num(v.taxRate),
+      notes: v.notes.trim() || undefined,
+      items: v.items.map(({ description, quantity, rate }) => ({
         description,
         quantity,
         rate,
@@ -205,9 +227,9 @@ export class Quotes {
     const request = this.isNew
       ? this.quotesApi.create({
           ...common,
-          clientId: this.form.clientId,
+          clientId: v.clientId,
         } as CreateQuoteRequest)
-      : this.quotesApi.update(this.form.id, common);
+      : this.quotesApi.update(v.id, common);
     request.subscribe({
       next: (quote) => {
         this.saving.set(false);
@@ -228,7 +250,7 @@ export class Quotes {
   }
 
   protected removeCurrent(): void {
-    const id = this.form.id;
+    const id = this.model().id;
     this.quotesApi.delete(id).subscribe({
       next: () => {
         this.quotes.update((list) => list.filter((q) => q.id !== id));
@@ -242,12 +264,15 @@ export class Quotes {
 
   protected onClientChange(clientId: string): void {
     const c = this.clients().find((x) => x.id === clientId);
-    this.form.clientId = clientId;
-    if (c) this.form.currency = c.currency;
+    this.model.update((m) => ({
+      ...m,
+      clientId,
+      currency: c?.currency ?? m.currency,
+    }));
   }
 
   protected onItemsChange(items: LineItemDraft[]): void {
-    this.form.items = items;
+    this.model.update((m) => ({ ...m, items }));
   }
 
   protected total(q: Quote): number {

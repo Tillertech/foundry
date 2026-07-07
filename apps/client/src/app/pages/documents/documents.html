@@ -18,25 +18,31 @@
         class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
       />
       <input
+        #search
         hlmInput
         type="text"
         placeholder="Search documents…"
         class="h-9 w-full pl-9"
-        [ngModel]="query()"
-        (ngModelChange)="query.set($event)"
+        [value]="query()"
+        (input)="query.set(search.value)"
       />
     </div>
-    <hlm-native-select
+    <hlm-select
       class="w-[170px]"
-      selectClass="h-9"
-      [ngModel]="typeFilter()"
-      (ngModelChange)="typeFilter.set($event)"
+      [value]="typeFilter()"
+      (valueChange)="typeFilter.set($event ?? 'all')"
+      [itemToString]="typeFilterLabel"
     >
-      <option hlmNativeSelectOption value="all">All types</option>
-      @for (t of typeOptions; track t[0]) {
-        <option hlmNativeSelectOption [value]="t[0]">{{ t[1].label }}</option>
-      }
-    </hlm-native-select>
+      <hlm-select-trigger class="h-9 w-full">
+        <hlm-select-value />
+      </hlm-select-trigger>
+      <hlm-select-content *hlmSelectPortal>
+        <hlm-select-item value="all">All types</hlm-select-item>
+        @for (t of typeOptions; track t[0]) {
+          <hlm-select-item [value]="t[0]">{{ t[1].label }}</hlm-select-item>
+        }
+      </hlm-select-content>
+    </hlm-select>
   </div>
 
   @if (loading()) {
@@ -83,7 +89,7 @@
 
   <app-entity-sheet
     [(open)]="sheetOpen"
-    [title]="isNew ? 'Upload document' : 'Edit ' + form.name"
+    [title]="isNew ? 'Upload document' : 'Edit ' + model().name"
     [canSave]="canSave()"
     [saveLabel]="isNew ? 'Upload' : 'Save'"
     [showDelete]="!isNew"
@@ -106,36 +112,51 @@
           </label>
         </app-field>
       }
-      <app-field label="Name" hint="Defaults to the file name.">
-        <input hlmInput class="w-full" [(ngModel)]="form.name" placeholder="Contract.pdf" />
+      <app-field label="Name" hint="Defaults to the file name." [error]="fieldError(f.name())">
+        <input hlmInput class="w-full" [formField]="f.name" placeholder="Contract.pdf" />
       </app-field>
       <app-field label="Type">
-        <hlm-native-select class="w-full" [(ngModel)]="form.type">
-          @for (t of typeOptions; track t[0]) {
-            <option hlmNativeSelectOption [value]="t[0]">{{ t[1].label }}</option>
-          }
-        </hlm-native-select>
+        <hlm-select class="w-full" [formField]="f.type" [itemToString]="typeLabel">
+          <hlm-select-trigger class="w-full">
+            <hlm-select-value />
+          </hlm-select-trigger>
+          <hlm-select-content *hlmSelectPortal>
+            @for (t of typeOptions; track t[0]) {
+              <hlm-select-item [value]="t[0]">{{ t[1].label }}</hlm-select-item>
+            }
+          </hlm-select-content>
+        </hlm-select>
       </app-field>
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Client">
-          <hlm-native-select class="w-full" [(ngModel)]="form.clientId">
-            <option hlmNativeSelectOption value="">Not linked</option>
-            @for (c of clients(); track c.id) {
-              <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
-            }
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.clientId" [itemToString]="clientLabel">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value placeholder="Not linked" />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-item value="">Not linked</hlm-select-item>
+              @for (c of clients(); track c.id) {
+                <hlm-select-item [value]="c.id">{{ c.company || c.name }}</hlm-select-item>
+              }
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
         <app-field label="Project">
-          <hlm-native-select class="w-full" [(ngModel)]="form.projectId">
-            <option hlmNativeSelectOption value="">Not linked</option>
-            @for (p of projects(); track p.id) {
-              <option hlmNativeSelectOption [value]="p.id">{{ p.name }}</option>
-            }
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.projectId" [itemToString]="projectLabel">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value placeholder="Not linked" />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-item value="">Not linked</hlm-select-item>
+              @for (p of projects(); track p.id) {
+                <hlm-select-item [value]="p.id">{{ p.name }}</hlm-select-item>
+              }
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
       </div>
       <app-field label="Notes">
-        <textarea hlmTextarea rows="3" class="w-full" [(ngModel)]="form.notes"></textarea>
+        <textarea hlmTextarea rows="3" class="w-full" [formField]="f.notes"></textarea>
       </app-field>
     </div>
   </app-entity-sheet>

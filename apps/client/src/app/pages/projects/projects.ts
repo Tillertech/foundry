@@ -7,12 +7,12 @@ import {
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormField, form, minLength, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideSearch } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
+import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { apiErrorMessage } from '../../core/http';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
@@ -28,6 +28,7 @@ import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
 import { Field } from '../../shared/field';
+import { fieldError } from '../../shared/field-error';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
 import { StatusBadge } from '../../shared/status-badge';
@@ -60,12 +61,12 @@ const emptyProject = (): ProjectForm => ({
   selector: 'app-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    FormsModule,
+    FormField,
     NgIcon,
     HlmButton,
     HlmInput,
     HlmTextarea,
-    HlmNativeSelectImports,
+    HlmSelectImports,
     DateField,
     EntitySheet,
     Field,
@@ -91,7 +92,14 @@ export class Projects {
   protected readonly sheetOpen = signal(false);
   protected readonly saving = signal(false);
   protected isNew = true;
-  protected form: ProjectForm = emptyProject();
+
+  protected readonly model = signal<ProjectForm>(emptyProject());
+  protected readonly f = form(this.model, (p) => {
+    required(p.name, { message: 'Project name is required' });
+    minLength(p.name, 2, { message: 'Use at least 2 characters' });
+    required(p.clientId, { message: 'Select a client' });
+  });
+  protected readonly fieldError = fieldError;
 
   constructor() {
     if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
@@ -118,6 +126,22 @@ export class Projects {
     Object.fromEntries(this.clients().map((c) => [c.id, c])),
   );
 
+  private readonly statusLabels: Record<string, string> = {
+    planning: 'Planning',
+    active: 'Active',
+    on_hold: 'On hold',
+    completed: 'Completed',
+  };
+  protected readonly clientLabel = (v: string) => {
+    const c = this.clientMap()[v];
+    return c ? c.company || c.name : v;
+  };
+  protected readonly clientFilterLabel = (v: string) =>
+    v === 'all' ? 'All clients' : this.clientLabel(v);
+  protected readonly statusLabel = (v: string) => this.statusLabels[v] ?? v;
+  protected readonly statusFilterLabel = (v: string) =>
+    v === 'all' ? 'All statuses' : this.statusLabel(v);
+
   protected readonly filtered = computed(() => {
     const term = this.query().toLowerCase();
     const status = this.statusFilter();
@@ -131,13 +155,13 @@ export class Projects {
   });
 
   protected openNew(): void {
-    this.form = { ...emptyProject(), clientId: this.clients()[0]?.id ?? '' };
+    this.model.set({ ...emptyProject(), clientId: this.clients()[0]?.id ?? '' });
     this.isNew = true;
     this.sheetOpen.set(true);
   }
 
   protected openEdit(p: Project): void {
-    this.form = {
+    this.model.set({
       id: p.id,
       name: p.name,
       clientId: p.clientId,
@@ -147,29 +171,30 @@ export class Projects {
       startDate: isoDay(p.startDate),
       endDate: isoDay(p.endDate),
       description: p.description ?? '',
-    };
+    });
     this.isNew = false;
     this.sheetOpen.set(true);
   }
 
   protected save(): void {
-    if (!this.form.name.trim() || !this.form.clientId || this.saving()) return;
+    if (this.f().invalid() || this.saving()) return;
+    const v = this.model();
     const common: UpdateProjectRequest = {
-      name: this.form.name.trim(),
-      status: this.form.status,
-      budget: num(this.form.budget),
-      hourlyRate: num(this.form.hourlyRate),
-      startDate: toApiDate(this.form.startDate),
-      endDate: this.form.endDate ? toApiDate(this.form.endDate) : undefined,
-      description: this.form.description.trim() || undefined,
+      name: v.name.trim(),
+      status: v.status,
+      budget: num(v.budget),
+      hourlyRate: num(v.hourlyRate),
+      startDate: toApiDate(v.startDate),
+      endDate: v.endDate ? toApiDate(v.endDate) : undefined,
+      description: v.description.trim() || undefined,
     };
     this.saving.set(true);
     const request = this.isNew
       ? this.projectsApi.create({
           ...common,
-          clientId: this.form.clientId,
+          clientId: v.clientId,
         } as CreateProjectRequest)
-      : this.projectsApi.update(this.form.id, common);
+      : this.projectsApi.update(v.id, common);
     request.subscribe({
       next: (project) => {
         this.saving.set(false);
@@ -190,7 +215,7 @@ export class Projects {
   }
 
   protected removeCurrent(): void {
-    const id = this.form.id;
+    const id = this.model().id;
     this.projectsApi.delete(id).subscribe({
       next: () => {
         this.projects.update((list) => list.filter((p) => p.id !== id));

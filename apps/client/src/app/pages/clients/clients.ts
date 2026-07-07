@@ -7,12 +7,19 @@ import {
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import {
+  FormField,
+  email,
+  form,
+  minLength,
+  required,
+} from '@angular/forms/signals';
+import { fieldError } from '../../shared/field-error';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMail, lucidePlus, lucideSearch } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
+import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { apiErrorMessage } from '../../core/http';
 import {
@@ -62,12 +69,12 @@ const emptyClient = (): ClientForm => ({
   selector: 'app-clients',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    FormsModule,
+    FormField,
     NgIcon,
     HlmButton,
     HlmInput,
     HlmTextarea,
-    HlmNativeSelectImports,
+    HlmSelectImports,
     EntitySheet,
     Field,
     ListSkeleton,
@@ -91,7 +98,35 @@ export class Clients {
   protected readonly sheetOpen = signal(false);
   protected readonly saving = signal(false);
   protected isNew = true;
-  protected form: ClientForm = emptyClient();
+
+  // Status filter options + a label resolver so the trigger shows the label,
+  // not the raw value, once a value is selected.
+  public readonly items = [
+    { label: 'All statuses', value: 'all' },
+    { label: 'Active', value: 'active' },
+    { label: 'Lead', value: 'lead' },
+    { label: 'Archived', value: 'archived' },
+  ];
+  public readonly itemToString = (value: string) =>
+    this.items.find((item) => item.value === value)?.label || '';
+
+  protected readonly currencyLabel = (v: string) =>
+    ({
+      USD: 'USD - US Dollar',
+      EUR: 'EUR - Euro',
+      GBP: 'GBP - British Pound',
+      KES: 'KES - Kenyan Shilling',
+    })[v] ?? v;
+  protected readonly statusLabel = (v: string) =>
+    ({ active: 'Active', lead: 'Lead', archived: 'Archived' })[v] ?? v;
+
+  protected readonly model = signal<ClientForm>(emptyClient());
+  protected readonly f = form(this.model, (p) => {
+    required(p.name, { message: 'Contact name is required' });
+    minLength(p.name, 2, { message: 'Use at least 2 characters' });
+    email(p.email, { message: 'Enter a valid email address' });
+  });
+  protected readonly fieldError = fieldError;
 
   constructor() {
     if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
@@ -137,13 +172,13 @@ export class Clients {
   });
 
   protected openNew(): void {
-    this.form = emptyClient();
+    this.model.set(emptyClient());
     this.isNew = true;
     this.sheetOpen.set(true);
   }
 
   protected openEdit(c: ApiClient): void {
-    this.form = {
+    this.model.set({
       id: c.id,
       name: c.name,
       email: c.email,
@@ -153,27 +188,28 @@ export class Clients {
       taxId: c.taxId ?? '',
       address: c.address ?? '',
       notes: c.notes ?? '',
-    };
+    });
     this.isNew = false;
     this.sheetOpen.set(true);
   }
 
   protected save(): void {
-    if (!this.form.name.trim() || this.saving()) return;
+    if (this.f().invalid() || this.saving()) return;
+    const v = this.model();
     const body: CreateClientRequest = {
-      name: this.form.name.trim(),
-      email: this.form.email.trim(),
-      company: this.form.company.trim() || undefined,
-      currency: this.form.currency,
-      status: this.form.status,
-      taxId: this.form.taxId.trim() || undefined,
-      address: this.form.address.trim() || undefined,
-      notes: this.form.notes.trim() || undefined,
+      name: v.name.trim(),
+      email: v.email.trim(),
+      company: v.company.trim() || undefined,
+      currency: v.currency,
+      status: v.status,
+      taxId: v.taxId.trim() || undefined,
+      address: v.address.trim() || undefined,
+      notes: v.notes.trim() || undefined,
     };
     this.saving.set(true);
     const request = this.isNew
       ? this.clientsApi.create(body)
-      : this.clientsApi.update(this.form.id, body);
+      : this.clientsApi.update(v.id, body);
     request.subscribe({
       next: (client) => {
         this.saving.set(false);
@@ -194,7 +230,7 @@ export class Clients {
   }
 
   protected removeCurrent(): void {
-    const id = this.form.id;
+    const id = this.model().id;
     this.clientsApi.delete(id).subscribe({
       next: () => {
         this.clients.update((list) => list.filter((c) => c.id !== id));

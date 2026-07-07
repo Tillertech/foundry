@@ -7,12 +7,12 @@ import {
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormField, form, min, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideSearch, lucideWallet } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
+import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { apiErrorMessage } from '../../core/http';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
@@ -29,6 +29,7 @@ import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
 import { Field } from '../../shared/field';
+import { fieldError } from '../../shared/field-error';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
 
@@ -70,12 +71,12 @@ export const methodLabels: Record<PaymentMethod, string> = {
   selector: 'app-payments',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    FormsModule,
+    FormField,
     NgIcon,
     HlmButton,
     HlmInput,
     HlmTextarea,
-    HlmNativeSelectImports,
+    HlmSelectImports,
     DateField,
     EntitySheet,
     Field,
@@ -101,12 +102,29 @@ export class Payments {
   protected readonly sheetOpen = signal(false);
   protected readonly saving = signal(false);
   protected isNew = true;
-  protected form: PaymentForm = emptyPayment();
+
+  protected readonly model = signal<PaymentForm>(emptyPayment());
+  protected readonly f = form(this.model, (p) => {
+    required(p.clientId, { message: 'Select a client' });
+    min(p.amount, 0.01, { message: 'Amount must be greater than 0' });
+  });
+  protected readonly fieldError = fieldError;
 
   protected readonly methodOptions = Object.entries(methodLabels) as [
     PaymentMethod,
     string,
   ][];
+
+  protected readonly methodFilterLabel = (v: string) =>
+    v === 'all' ? 'All methods' : (methodLabels[v as PaymentMethod] ?? v);
+  protected readonly methodLabel = (v: string) =>
+    methodLabels[v as PaymentMethod] ?? v;
+  protected readonly clientLabel = (v: string) => {
+    const c = this.clients().find((x) => x.id === v);
+    return c ? c.company || c.name : v;
+  };
+  protected readonly invoiceLabel = (v: string) =>
+    v ? (this.invoices().find((i) => i.id === v)?.number ?? v) : 'Unlinked';
 
   constructor() {
     if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
@@ -159,19 +177,18 @@ export class Payments {
   );
 
   protected get clientInvoices() {
-    return this.invoices().filter(
-      (i) => !this.form.clientId || i.clientId === this.form.clientId,
-    );
+    const cid = this.model().clientId;
+    return this.invoices().filter((i) => !cid || i.clientId === cid);
   }
 
   protected openNew(): void {
-    this.form = { ...emptyPayment(), clientId: this.clients()[0]?.id ?? '' };
+    this.model.set({ ...emptyPayment(), clientId: this.clients()[0]?.id ?? '' });
     this.isNew = true;
     this.sheetOpen.set(true);
   }
 
   protected openEdit(p: Payment): void {
-    this.form = {
+    this.model.set({
       id: p.id,
       clientId: p.clientId,
       invoiceId: p.invoiceId ?? '',
@@ -181,29 +198,30 @@ export class Payments {
       reference: p.reference ?? '',
       date: isoDay(p.date),
       notes: p.notes ?? '',
-    };
+    });
     this.isNew = false;
     this.sheetOpen.set(true);
   }
 
   protected save(): void {
-    if (!this.form.clientId || this.form.amount <= 0 || this.saving()) return;
+    if (this.f().invalid() || this.saving()) return;
+    const v = this.model();
     const common: UpdatePaymentRequest = {
-      invoiceId: this.form.invoiceId || undefined,
-      amount: num(this.form.amount),
-      currency: this.form.currency,
-      method: this.form.method,
-      reference: this.form.reference.trim() || undefined,
-      date: toApiDate(this.form.date),
-      notes: this.form.notes.trim() || undefined,
+      invoiceId: v.invoiceId || undefined,
+      amount: num(v.amount),
+      currency: v.currency,
+      method: v.method,
+      reference: v.reference.trim() || undefined,
+      date: toApiDate(v.date),
+      notes: v.notes.trim() || undefined,
     };
     this.saving.set(true);
     const request = this.isNew
       ? this.paymentsApi.create({
           ...common,
-          clientId: this.form.clientId,
+          clientId: v.clientId,
         } as CreatePaymentRequest)
-      : this.paymentsApi.update(this.form.id, common);
+      : this.paymentsApi.update(v.id, common);
     request.subscribe({
       next: (payment) => {
         this.saving.set(false);
@@ -224,7 +242,7 @@ export class Payments {
   }
 
   protected removeCurrent(): void {
-    const id = this.form.id;
+    const id = this.model().id;
     this.paymentsApi.delete(id).subscribe({
       next: () => {
         this.payments.update((list) => list.filter((p) => p.id !== id));
@@ -237,8 +255,7 @@ export class Payments {
   }
 
   protected onClientChange(clientId: string): void {
-    this.form.clientId = clientId;
-    this.form.invoiceId = '';
+    this.model.update((m) => ({ ...m, clientId, invoiceId: '' }));
   }
 
   protected invoiceNumber(id: string | null | undefined): string {

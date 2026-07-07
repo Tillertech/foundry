@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormField, form, minLength } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChartColumn,
@@ -21,7 +21,7 @@ import {
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
+import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { apiErrorMessage } from '../../core/http';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
@@ -36,6 +36,7 @@ import { isoDay } from '../../domains/shared';
 import { ToastService } from '../../core/toast.service';
 import { EntitySheet } from '../../shared/entity-sheet';
 import { Field } from '../../shared/field';
+import { fieldError } from '../../shared/field-error';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
 
@@ -69,12 +70,12 @@ const typeLabels: Record<DocumentType, { label: string; icon: string }> = {
   selector: 'app-documents',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    FormsModule,
+    FormField,
     NgIcon,
     HlmButton,
     HlmInput,
     HlmTextarea,
-    HlmNativeSelectImports,
+    HlmSelectImports,
     EntitySheet,
     Field,
     ListSkeleton,
@@ -111,12 +112,29 @@ export class Documents {
   protected readonly saving = signal(false);
   protected readonly selectedFile = signal<File | null>(null);
   protected isNew = true;
-  protected form: DocumentForm = emptyDoc();
+
+  protected readonly model = signal<DocumentForm>(emptyDoc());
+  protected readonly f = form(this.model, (p) => {
+    minLength(p.name, 2, { message: 'Use at least 2 characters' });
+  });
+  protected readonly fieldError = fieldError;
 
   protected readonly typeOptions = Object.entries(typeLabels) as [
     DocumentType,
     { label: string; icon: string },
   ][];
+
+  protected readonly typeLabel = (v: string) =>
+    typeLabels[v as DocumentType]?.label ?? v;
+  protected readonly typeFilterLabel = (v: string) =>
+    v === 'all' ? 'All types' : this.typeLabel(v);
+  protected readonly clientLabel = (v: string) => {
+    if (!v) return 'Not linked';
+    const c = this.clients().find((x) => x.id === v);
+    return c ? c.company || c.name : v;
+  };
+  protected readonly projectLabel = (v: string) =>
+    v ? (this.projects().find((p) => p.id === v)?.name ?? v) : 'Not linked';
 
   constructor() {
     if (isPlatformBrowser(inject(PLATFORM_ID))) this.refresh();
@@ -157,21 +175,21 @@ export class Documents {
   });
 
   protected openNew(): void {
-    this.form = emptyDoc();
+    this.model.set(emptyDoc());
     this.selectedFile.set(null);
     this.isNew = true;
     this.sheetOpen.set(true);
   }
 
   protected openEdit(d: ApiDocument): void {
-    this.form = {
+    this.model.set({
       id: d.id,
       name: d.name,
       type: d.type,
       clientId: d.clientId ?? '',
       projectId: d.projectId ?? '',
       notes: d.notes ?? '',
-    };
+    });
     this.selectedFile.set(null);
     this.isNew = false;
     this.sheetOpen.set(true);
@@ -180,28 +198,33 @@ export class Documents {
   protected onFileChange(event: Event): void {
     const file = (event.target as HTMLInputElement).files?.[0] ?? null;
     this.selectedFile.set(file);
-    if (file && !this.form.name.trim()) this.form.name = file.name;
+    if (file && !this.model().name.trim()) {
+      this.model.update((m) => ({ ...m, name: file.name }));
+    }
   }
 
   protected canSave(): boolean {
-    if (this.saving()) return false;
-    return this.isNew ? this.selectedFile() !== null : !!this.form.name.trim();
+    if (this.saving() || this.f().invalid()) return false;
+    return this.isNew
+      ? this.selectedFile() !== null
+      : !!this.model().name.trim();
   }
 
   protected save(): void {
     if (!this.canSave()) return;
+    const v = this.model();
     const meta: CreateDocumentRequest = {
-      name: this.form.name.trim() || undefined,
-      type: this.form.type,
-      clientId: this.form.clientId || undefined,
-      projectId: this.form.projectId || undefined,
-      notes: this.form.notes.trim() || undefined,
+      name: v.name.trim() || undefined,
+      type: v.type,
+      clientId: v.clientId || undefined,
+      projectId: v.projectId || undefined,
+      notes: v.notes.trim() || undefined,
     };
     this.saving.set(true);
     const request = this.isNew
       ? // Single multipart call: the file plus its metadata.
         this.documentsApi.create(this.selectedFile() as File, meta)
-      : this.documentsApi.update(this.form.id, meta);
+      : this.documentsApi.update(v.id, meta);
     request.subscribe({
       next: (doc) => {
         this.saving.set(false);
@@ -222,7 +245,7 @@ export class Documents {
   }
 
   protected removeCurrent(): void {
-    const id = this.form.id;
+    const id = this.model().id;
     this.documentsApi.delete(id).subscribe({
       next: () => {
         this.documents.update((list) => list.filter((d) => d.id !== id));

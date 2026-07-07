@@ -24,25 +24,29 @@
         class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
       />
       <input
+        #search
         hlmInput
         type="text"
         placeholder="Search clients…"
         class="h-9 w-full pl-9"
-        [ngModel]="query()"
-        (ngModelChange)="query.set($event)"
+        [value]="query()"
+        (input)="query.set(search.value)"
       />
     </div>
-    <hlm-native-select
-      class="w-[150px]"
-      selectClass="h-9"
-      [ngModel]="statusFilter()"
-      (ngModelChange)="statusFilter.set($event)"
+    <hlm-select
+      [value]="statusFilter()"
+      (valueChange)="statusFilter.set($event ?? 'all')"
+      [itemToString]="itemToString"
     >
-      <option hlmNativeSelectOption value="all">All statuses</option>
-      <option hlmNativeSelectOption value="active">Active</option>
-      <option hlmNativeSelectOption value="lead">Lead</option>
-      <option hlmNativeSelectOption value="archived">Archived</option>
-    </hlm-native-select>
+      <hlm-select-trigger class="h-9 w-[150px]">
+        <hlm-select-value placeholder="Filter" />
+      </hlm-select-trigger>
+      <hlm-select-content *hlmSelectPortal>
+        @for (item of items; track item.value) {
+        <hlm-select-item [value]="item.value">{{ item.label }}</hlm-select-item>
+        }
+      </hlm-select-content>
+    </hlm-select>
   </div>
 
   @if (loading()) {
@@ -116,20 +120,20 @@
 
   <app-entity-sheet
     [(open)]="sheetOpen"
-    [title]="isNew ? 'New client' : 'Edit ' + form.name"
+    [title]="isNew ? 'New client' : 'Edit ' + model().name"
     description="Companies and contacts you invoice."
-    [canSave]="!!form.name.trim()"
+    [canSave]="f().valid()"
     [showDelete]="!isNew"
     (saved)="save()"
     (deleted)="removeCurrent()"
   >
     <div class="grid gap-4">
       <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Contact name">
+        <app-field label="Contact name" [error]="fieldError(f.name())">
           <input
             hlmInput
             class="w-full"
-            [(ngModel)]="form.name"
+            [formField]="f.name"
             placeholder="Jane Doe"
           />
         </app-field>
@@ -137,12 +141,12 @@
           <input
             hlmInput
             class="w-full"
-            [(ngModel)]="form.company"
+            [formField]="f.company"
             placeholder="Acme Inc."
           />
         </app-field>
       </div>
-      <app-field label="Email">
+      <app-field label="Email" [error]="fieldError(f.email())">
         <div class="relative">
           <ng-icon
             name="lucideMail"
@@ -153,30 +157,36 @@
             hlmInput
             type="email"
             class="w-full pl-9"
-            [(ngModel)]="form.email"
+            [formField]="f.email"
             placeholder="hello@acme.com"
           />
         </div>
       </app-field>
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Currency">
-          <hlm-native-select class="w-full" [(ngModel)]="form.currency">
-            <option hlmNativeSelectOption value="USD">USD - US Dollar</option>
-            <option hlmNativeSelectOption value="EUR">EUR - Euro</option>
-            <option hlmNativeSelectOption value="GBP">
-              GBP - British Pound
-            </option>
-            <option hlmNativeSelectOption value="KES">
-              KES - Kenyan Shilling
-            </option>
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.currency" [itemToString]="currencyLabel">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-item value="USD">USD - US Dollar</hlm-select-item>
+              <hlm-select-item value="EUR">EUR - Euro</hlm-select-item>
+              <hlm-select-item value="GBP">GBP - British Pound</hlm-select-item>
+              <hlm-select-item value="KES">KES - Kenyan Shilling</hlm-select-item>
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
         <app-field label="Status">
-          <hlm-native-select class="w-full" [(ngModel)]="form.status">
-            <option hlmNativeSelectOption value="active">Active</option>
-            <option hlmNativeSelectOption value="lead">Lead</option>
-            <option hlmNativeSelectOption value="archived">Archived</option>
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.status" [itemToString]="statusLabel">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-item value="active">Active</hlm-select-item>
+              <hlm-select-item value="lead">Lead</hlm-select-item>
+              <hlm-select-item value="archived">Archived</hlm-select-item>
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
@@ -184,7 +194,7 @@
           <input
             hlmInput
             class="w-full"
-            [(ngModel)]="form.taxId"
+            [formField]="f.taxId"
             placeholder="Optional"
           />
         </app-field>
@@ -192,7 +202,7 @@
           <input
             hlmInput
             class="w-full"
-            [(ngModel)]="form.address"
+            [formField]="f.address"
             placeholder="Optional"
           />
         </app-field>
@@ -202,7 +212,7 @@
           hlmTextarea
           rows="3"
           class="w-full"
-          [(ngModel)]="form.notes"
+          [formField]="f.notes"
           placeholder="Internal notes about this client…"
         ></textarea>
       </app-field>

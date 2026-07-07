@@ -15,37 +15,48 @@
         class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
       />
       <input
+        #search
         hlmInput
         type="text"
         placeholder="Search projects…"
         class="h-9 w-full pl-9"
-        [ngModel]="query()"
-        (ngModelChange)="query.set($event)"
+        [value]="query()"
+        (input)="query.set(search.value)"
       />
     </div>
-    <hlm-native-select
+    <hlm-select
       class="w-[180px]"
-      selectClass="h-9"
-      [ngModel]="clientFilter()"
-      (ngModelChange)="clientFilter.set($event)"
+      [value]="clientFilter()"
+      (valueChange)="clientFilter.set($event ?? 'all')"
+      [itemToString]="clientFilterLabel"
     >
-      <option hlmNativeSelectOption value="all">All clients</option>
-      @for (c of clients(); track c.id) {
-        <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
-      }
-    </hlm-native-select>
-    <hlm-native-select
+      <hlm-select-trigger class="h-9 w-full">
+        <hlm-select-value />
+      </hlm-select-trigger>
+      <hlm-select-content *hlmSelectPortal>
+        <hlm-select-item value="all">All clients</hlm-select-item>
+        @for (c of clients(); track c.id) {
+          <hlm-select-item [value]="c.id">{{ c.company || c.name }}</hlm-select-item>
+        }
+      </hlm-select-content>
+    </hlm-select>
+    <hlm-select
       class="w-[150px]"
-      selectClass="h-9"
-      [ngModel]="statusFilter()"
-      (ngModelChange)="statusFilter.set($event)"
+      [value]="statusFilter()"
+      (valueChange)="statusFilter.set($event ?? 'all')"
+      [itemToString]="statusFilterLabel"
     >
-      <option hlmNativeSelectOption value="all">All statuses</option>
-      <option hlmNativeSelectOption value="planning">Planning</option>
-      <option hlmNativeSelectOption value="active">Active</option>
-      <option hlmNativeSelectOption value="on_hold">On hold</option>
-      <option hlmNativeSelectOption value="completed">Completed</option>
-    </hlm-native-select>
+      <hlm-select-trigger class="h-9 w-full">
+        <hlm-select-value />
+      </hlm-select-trigger>
+      <hlm-select-content *hlmSelectPortal>
+        <hlm-select-item value="all">All statuses</hlm-select-item>
+        <hlm-select-item value="planning">Planning</hlm-select-item>
+        <hlm-select-item value="active">Active</hlm-select-item>
+        <hlm-select-item value="on_hold">On hold</hlm-select-item>
+        <hlm-select-item value="completed">Completed</hlm-select-item>
+      </hlm-select-content>
+    </hlm-select>
   </div>
 
   @if (loading()) {
@@ -113,51 +124,67 @@
 
   <app-entity-sheet
     [(open)]="sheetOpen"
-    [title]="isNew ? 'New project' : 'Edit ' + form.name"
-    [canSave]="!!form.name.trim() && !!form.clientId"
+    [title]="isNew ? 'New project' : 'Edit ' + model().name"
+    [canSave]="f().valid()"
     [showDelete]="!isNew"
     (saved)="save()"
     (deleted)="removeCurrent()"
   >
     <div class="grid gap-4">
-      <app-field label="Project name">
-        <input hlmInput class="w-full" [(ngModel)]="form.name" placeholder="Marketing site redesign" />
+      <app-field label="Project name" [error]="fieldError(f.name())">
+        <input hlmInput class="w-full" [formField]="f.name" placeholder="Marketing site redesign" />
       </app-field>
       <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Client">
-          <hlm-native-select class="w-full" [(ngModel)]="form.clientId">
-            @for (c of clients(); track c.id) {
-              <option hlmNativeSelectOption [value]="c.id">{{ c.company || c.name }}</option>
-            }
-          </hlm-native-select>
+        <app-field label="Client" [error]="fieldError(f.clientId())">
+          <hlm-select class="w-full" [formField]="f.clientId" [itemToString]="clientLabel">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value placeholder="Select a client" />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              @for (c of clients(); track c.id) {
+                <hlm-select-item [value]="c.id">{{ c.company || c.name }}</hlm-select-item>
+              }
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
         <app-field label="Status">
-          <hlm-native-select class="w-full" [(ngModel)]="form.status">
-            <option hlmNativeSelectOption value="planning">Planning</option>
-            <option hlmNativeSelectOption value="active">Active</option>
-            <option hlmNativeSelectOption value="on_hold">On hold</option>
-            <option hlmNativeSelectOption value="completed">Completed</option>
-          </hlm-native-select>
+          <hlm-select class="w-full" [formField]="f.status" [itemToString]="statusLabel">
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-item value="planning">Planning</hlm-select-item>
+              <hlm-select-item value="active">Active</hlm-select-item>
+              <hlm-select-item value="on_hold">On hold</hlm-select-item>
+              <hlm-select-item value="completed">Completed</hlm-select-item>
+            </hlm-select-content>
+          </hlm-select>
         </app-field>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Budget">
-          <input hlmInput type="number" min="0" class="w-full" [(ngModel)]="form.budget" />
+          <input hlmInput type="number" class="w-full" [formField]="f.budget" />
         </app-field>
         <app-field label="Hourly rate">
-          <input hlmInput type="number" min="0" class="w-full" [(ngModel)]="form.hourlyRate" />
+          <input hlmInput type="number" class="w-full" [formField]="f.hourlyRate" />
         </app-field>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Start date">
-          <app-date-field [(value)]="form.startDate" />
+          <app-date-field
+            [value]="f.startDate().value()"
+            (valueChange)="f.startDate().value.set($event ?? '')"
+          />
         </app-field>
         <app-field label="End date">
-          <app-date-field [(value)]="form.endDate" />
+          <app-date-field
+            [value]="f.endDate().value()"
+            (valueChange)="f.endDate().value.set($event ?? '')"
+          />
         </app-field>
       </div>
       <app-field label="Description">
-        <textarea hlmTextarea rows="3" class="w-full" [(ngModel)]="form.description"></textarea>
+        <textarea hlmTextarea rows="3" class="w-full" [formField]="f.description"></textarea>
       </app-field>
     </div>
   </app-entity-sheet>

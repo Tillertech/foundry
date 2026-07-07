@@ -4,7 +4,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormField, email, form, required } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -19,11 +19,12 @@ import { apiErrorMessage } from '../../core/http';
 import { AuthService } from '../../domains/auth';
 import { ToastService } from '../../core/toast.service';
 import { Field } from '../../shared/field';
+import { fieldError } from '../../shared/field-error';
 
 @Component({
   selector: 'app-login',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, NgIcon, HlmButton, HlmInput, Field],
+  imports: [FormField, RouterLink, NgIcon, HlmButton, HlmInput, Field],
   providers: [
     provideIcons({ lucideEye, lucideEyeOff, lucideLock, lucideMail }),
   ],
@@ -46,8 +47,8 @@ import { Field } from '../../shared/field';
           </p>
         </div>
 
-        <form class="surface-card space-y-4 p-6" (ngSubmit)="submit()">
-          <app-field label="Email">
+        <form class="surface-card space-y-4 p-6" (submit)="$event.preventDefault(); submit()">
+          <app-field label="Email" [error]="fieldError(f.email())">
             <div class="relative">
               <ng-icon
                 name="lucideMail"
@@ -57,17 +58,15 @@ import { Field } from '../../shared/field';
               <input
                 hlmInput
                 type="email"
-                name="email"
-                required
                 class="w-full pl-9"
-                [(ngModel)]="email"
+                [formField]="f.email"
                 placeholder="mika@foundry.app"
                 autocomplete="email"
               />
             </div>
           </app-field>
 
-          <app-field label="Password">
+          <app-field label="Password" [error]="fieldError(f.password())">
             <div class="relative">
               <ng-icon
                 name="lucideLock"
@@ -77,10 +76,8 @@ import { Field } from '../../shared/field';
               <input
                 hlmInput
                 [type]="showPassword() ? 'text' : 'password'"
-                name="password"
-                required
                 class="w-full pl-9 pr-10"
-                [(ngModel)]="password"
+                [formField]="f.password"
                 placeholder="••••••••"
                 autocomplete="current-password"
               />
@@ -117,7 +114,7 @@ import { Field } from '../../shared/field';
             hlmBtn
             type="submit"
             class="w-full shadow-[var(--shadow-glow)]"
-            [disabled]="submitting()"
+            [disabled]="submitting() || f().invalid()"
           >
             {{ submitting() ? 'Signing in…' : 'Sign in' }}
           </button>
@@ -141,21 +138,25 @@ export class Login {
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
 
-  protected email = '';
-  protected password = '';
   protected readonly showPassword = signal(false);
   protected readonly submitting = signal(false);
   protected readonly error = signal('');
 
+  protected readonly model = signal({ email: '', password: '' });
+  protected readonly f = form(this.model, (p) => {
+    required(p.email, { message: 'Email is required' });
+    email(p.email, { message: 'Enter a valid email address' });
+    required(p.password, { message: 'Password is required' });
+  });
+  protected readonly fieldError = fieldError;
+
   protected submit(): void {
-    if (!this.email.trim() || !this.password) {
-      this.error.set('Enter your email and password.');
-      return;
-    }
+    if (this.f().invalid() || this.submitting()) return;
+    const v = this.model();
     this.error.set('');
     this.submitting.set(true);
     this.auth
-      .login({ email: this.email.trim(), password: this.password })
+      .login({ email: v.email.trim(), password: v.password })
       .subscribe({
         next: (res) => {
           this.toast.success('Welcome back', `Signed in as ${res.user.name}.`);
