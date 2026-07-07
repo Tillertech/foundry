@@ -54,4 +54,6 @@ vitest.config.*.timestamp*
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs
-instructions.md
+docs
+apps/api/src/generated
+uploads

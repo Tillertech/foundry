@@ -1,0 +1,33 @@
+FROM node:lts-slim AS builder
+
+WORKDIR /foundry
+
+RUN apt-get update && \
+    apt-get install -y python3 make g++ && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+
+RUN npm ci --legacy-peer-deps
+
+COPY . .
+
+ENV NX_DAEMON=false
+
+RUN npx nx build client --configuration=production
+
+
+FROM node:lts-slim AS runner
+
+LABEL maintainer="hello@tillertech.io"
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=4000
+
+COPY --from=builder /foundry/dist/apps/client ./
+
+EXPOSE 4000
+
+CMD ["node", "server/server.mjs"]

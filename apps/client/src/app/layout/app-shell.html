@@ -1,0 +1,215 @@
+<div class="flex min-h-screen w-full bg-background text-foreground">
+  <!-- Sidebar -->
+  <aside
+    class="sticky top-0 hidden h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 md:flex"
+    [class]="collapsed() ? 'w-[68px]' : 'w-[240px]'"
+  >
+    <div class="flex h-14 items-center gap-2 px-3">
+      <div
+        class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
+      >
+        <span class="font-mono text-sm font-bold">F</span>
+      </div>
+      @if (!collapsed()) {
+      <div class="flex min-w-0 flex-col">
+        <span class="truncate text-sm font-semibold tracking-tight"
+          >Foundry</span
+        >
+        <span class="truncate text-[11px] text-muted-foreground"
+          >Studio workspace</span
+        >
+      </div>
+      }
+    </div>
+
+    <nav class="flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
+      @for (item of nav; track item.path) {
+      <a
+        [routerLink]="item.path"
+        routerLinkActive
+        #rla="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+        class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        [class.bg-sidebar-accent]="rla.isActive"
+        [class.text-sidebar-accent-foreground]="rla.isActive"
+        [title]="collapsed() ? item.label : ''"
+      >
+        <ng-icon
+          [name]="item.icon"
+          size="18"
+          class="shrink-0 transition-colors"
+          [class]="rla.isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'"
+        />
+        @if (!collapsed()) {
+        <span class="truncate">{{ item.label }}</span>
+        @if (rla.isActive) {
+        <span class="ml-auto h-1.5 w-1.5 rounded-full bg-primary"></span>
+        } }
+      </a>
+      }
+    </nav>
+
+    @if (!collapsed()) {
+    <div class="border-t border-sidebar-border px-2 py-3">
+      <p
+        class="mb-2 px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+      >
+        Recent clients
+      </p>
+      <div class="space-y-0.5">
+        @for (c of recentClients(); track c.id) {
+        <a
+          routerLink="/clients"
+          class="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+        >
+          <div
+            class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-muted text-[10px] font-semibold"
+          >
+            {{ c.initials }}
+          </div>
+          <span class="truncate">{{ c.name }}</span>
+        </a>
+        }
+      </div>
+    </div>
+    }
+
+    <div class="border-t border-sidebar-border p-2">
+      @if (!collapsed()) {
+      <div class="mb-1 flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+        <div
+          class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-[10px] font-semibold text-primary-foreground"
+        >
+          {{ auth.initials() || 'MK' }}
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-xs font-medium">
+            {{ auth.user()?.name || 'Mika' }}
+          </p>
+          <p class="truncate text-[10px] text-muted-foreground">
+            {{ auth.user()?.email || 'mika@foundry.app' }}
+          </p>
+        </div>
+        <button
+          type="button"
+          (click)="auth.logout()"
+          class="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          title="Log out"
+          aria-label="Log out"
+        >
+          <ng-icon name="lucideLogOut" size="15" />
+        </button>
+      </div>
+      } @else {
+      <button
+        type="button"
+        (click)="auth.logout()"
+        class="mb-1 flex w-full items-center justify-center rounded-lg px-2.5 py-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        title="Log out"
+        aria-label="Log out"
+      >
+        <ng-icon name="lucideLogOut" size="18" />
+      </button>
+      }
+      <button
+        type="button"
+        (click)="toggleCollapsed()"
+        class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+      >
+        @if (collapsed()) {
+        <ng-icon name="lucidePanelLeftOpen" size="18" />
+        } @else {
+        <ng-icon name="lucidePanelLeftClose" size="18" />
+        <span>Collapse</span>
+        }
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex min-w-0 flex-1 flex-col">
+    <!-- Topbar -->
+    <header
+      class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-md md:px-6"
+    >
+      <!-- Placeholder: opens the command palette in the reference design -->
+      <button
+        type="button"
+        class="group flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground md:max-w-md"
+      >
+        <ng-icon name="lucideSearch" size="16" class="shrink-0" />
+        <span class="truncate">Search or type a command…</span>
+        <kbd
+          class="ml-auto hidden shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline-block"
+        >
+          ⌘K
+        </kbd>
+      </button>
+
+      <div class="ml-auto flex items-center gap-1">
+        <button
+          hlmBtn
+          variant="ghost"
+          size="icon"
+          class="h-9 w-9"
+          aria-label="Notifications"
+        >
+          <ng-icon name="lucideBell" size="18" />
+        </button>
+        <button
+          hlmBtn
+          variant="ghost"
+          size="icon"
+          class="h-9 w-9"
+          (click)="theme.toggle()"
+          aria-label="Toggle theme"
+        >
+          @if (theme.dark()) {
+          <ng-icon name="lucideSun" size="18" />
+          } @else {
+          <ng-icon name="lucideMoon" size="18" />
+          }
+        </button>
+        <div class="mx-1 hidden h-6 w-px bg-border sm:block"></div>
+        <button
+          hlmBtn
+          size="sm"
+          class="h-9 gap-1.5 shadow-[var(--shadow-glow)]"
+        >
+          <ng-icon name="lucidePlus" size="16" />
+          <span class="hidden sm:inline">New invoice</span>
+        </button>
+        <div
+          class="ml-1 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-xs font-semibold text-primary-foreground"
+          [title]="auth.user()?.name || 'Mika'"
+        >
+          {{ auth.initials() || 'MK' }}
+        </div>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1">
+      <router-outlet />
+    </main>
+
+    <!-- Mobile bottom nav -->
+    <nav
+      class="sticky bottom-0 z-20 grid grid-cols-5 border-t border-border bg-background/95 backdrop-blur md:hidden"
+    >
+      @for (item of nav.slice(0, 5); track item.path) {
+      <a
+        [routerLink]="item.path"
+        routerLinkActive
+        #mrla="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+        class="flex flex-col items-center gap-0.5 py-2 text-[10px]"
+        [class.text-primary]="mrla.isActive"
+        [class.text-muted-foreground]="!mrla.isActive"
+      >
+        <ng-icon [name]="item.icon" size="20" />
+        {{ item.label }}
+      </a>
+      }
+    </nav>
+  </div>
+</div>

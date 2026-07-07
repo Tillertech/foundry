@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: foundrydb
+    env_file:
+      - ./.env.production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - foundry
+
+  redis:
+    container_name: foundrycache
+    image: redis
+    volumes:
+      - redis:/data
+    restart: always
+    networks:
+      - foundry
+
+  foundryapi:
+    container_name: foundry-api
+    build:
+      context: .
+      dockerfile: Dockerfile.api.production
+    environment:
+      NODE_ENV: production
+      REDIS_HOST: redis
+      UPLOADS_DIR: /app/uploads
+    env_file:
+      - ./.env.production
+    ports:
+      - '3000:3000'
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+    restart: always
+    networks:
+      - foundry
+
+  foundryclient:
+    container_name: foundry-client
+    build:
+      context: .
+      dockerfile: Dockerfile.client.production
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+    env_file:
+      - ./.env.production
+    ports:
+      - '4000:4000'
+    depends_on:
+      foundryapi:
+        condition: service_started
+    restart: always
+    networks:
+      - foundry
+
+volumes:
+  postgres_data:
+  redis:
+  uploads:
+
+networks:
+  foundry:
+    name: foundry

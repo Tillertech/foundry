@@ -56,22 +56,75 @@ services:
     container_name: foundrydb-api
     build:
       context: .
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile.api.local
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: 'true'
       WATCHPACK_POLLING: 'true'
+      REDIS_HOST: foundrycache
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
     env_file:
       - ./.env.docker
     ports:
       - '3000:3000'
     volumes:
       - .:/foundry
-
+      - /foundry/node_modules
+    # .nx holds nx's running-task registry (PID-keyed); sharing it with the
+    # host or across restarts makes nx wait on phantom "other" processes.
+    # bane of existence
+    tmpfs:
+      - /foundry/.nx
     depends_on:
       db:
         condition: service_started
+      redis:
+        condition: service_started
     restart: on-failure
+    networks:
+      - foundry
+
+  foundryclient:
+    container_name: foundry-client
+    build:
+      context: .
+      dockerfile: Dockerfile.client.local
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: 'true'
+    ports:
+      - '4200:4200'
+    volumes:
+      - .:/foundry
+      - /foundry/node_modules
+    tmpfs:
+      - /foundry/.nx
+    depends_on:
+      foundryapi:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - foundry
+
+  studio:
+    container_name: foundry-studio
+    build:
+      context: .
+      dockerfile: Dockerfile.api.local
+    command: sh -c "npx prisma studio --config=apps/api/prisma.config.ts --port 5555 --browser none"
+    env_file:
+      - ./.env.docker
+    ports:
+      - '5555:5555'
+    volumes:
+      - .:/foundry
+      - /foundry/node_modules
+    depends_on:
+      db:
+        condition: service_started
+    profiles:
+      - tools
     networks:
       - foundry
 

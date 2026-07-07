@@ -1,0 +1,48 @@
+FROM node:lts-slim AS builder
+
+WORKDIR /foundry
+
+RUN apt-get update && \
+    apt-get install -y python3 make g++ openssl && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+
+RUN npm cache clean --force
+RUN npm ci --legacy-peer-deps
+
+COPY . .
+
+ENV NX_DAEMON=false
+
+RUN npx prisma generate --config=apps/api/prisma.config.ts && \
+    npx nx build api --configuration=production
+
+
+FROM node:lts-slim AS runner
+
+LABEL maintainer="hello@tillertech.io"
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+RUN apt-get update && \
+    apt-get install -y python3 make g++ openssl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Webpack bundle + generated package.json/lock listing only runtime deps.
+COPY --from=builder /foundry/dist/apps/api ./
+
+RUN npm ci --omit=dev --legacy-peer-deps && \
+    npm install --no-save --legacy-peer-deps prisma@^7.8.0
+
+# Prisma schema/migrations for `migrate deploy`, and mail templates which the
+# mailer resolves relative to the bundle directory in production.
+COPY --from=builder /foundry/apps/api/prisma ./prisma
+COPY --from=builder /foundry/apps/api/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /foundry/apps/api/src/notification/mail/templates ./mail/templates
+
+EXPOSE 3000
+
+CMD ["sh", "-c", "npx prisma migrate deploy --config=prisma.config.ts && node main.js"]

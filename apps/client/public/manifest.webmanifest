@@ -1,0 +1,57 @@
+{
+  "name": "Foundry - Studio workspace",
+  "short_name": "Foundry",
+  "description": "Run your studio: clients, projects, invoices, quotes, payments and expenses in one workspace.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f1116",
+  "theme_color": "#f97316",
+  "categories": ["business", "finance", "productivity"],
+  "dir": "ltr",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Projects",
+      "short_name": "Projects",
+      "description": "Jump straight to your projects",
+      "url": "/projects",
+      "icons": [
+        {
+          "src": "icons/shortcut-projects.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Clients",
+      "short_name": "Clients",
+      "description": "Jump straight to your clients",
+      "url": "/clients",
+      "icons": [
+        {
+          "src": "icons/shortcut-clients.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

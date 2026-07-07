@@ -1,0 +1,282 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "cjs"
+  generatedFileExtension = "ts"
+  importFileExtension    = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Currency {
+  USD
+  EUR
+  GBP
+  KES
+}
+
+enum ClientStatus {
+  active
+  lead
+  archived
+}
+
+enum ProjectStatus {
+  planning
+  active
+  on_hold
+  completed
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  viewed
+  paid
+  overdue
+  cancelled
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  accepted
+  declined
+  expired
+}
+
+enum PaymentMethod {
+  card
+  bank_transfer
+  stripe
+  paypal
+  cash
+  mobile_money
+  other
+}
+
+enum ExpenseCategory {
+  software
+  travel
+  meals
+  office
+  marketing
+  other
+}
+
+enum DocumentType {
+  contract
+  nda
+  receipt
+  report
+  other
+}
+
+model User {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String      @unique
+  name         String
+  passwordHash String
+  otpSecret    String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  workspaces   Workspace[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String       @db.VarChar(500)
+  slug      String       @db.VarChar(500)
+  currency  Currency     @default(USD)
+  status    ClientStatus @default(active)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  ownerId String   @db.Uuid
+  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  clients Client[]
+
+  @@map("workspace")
+}
+
+model Client {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  email     String
+  company   String?
+  currency  Currency     @default(USD)
+  status    ClientStatus @default(active)
+  phone     String?      @db.VarChar(250)
+  taxId     String?
+  address   String?
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  workspaceId String    @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  projects  Project[]
+  invoices  Invoice[]
+  quotes    Quote[]
+  payments  Payment[]
+  documents Document[]
+
+  @@map("clients")
+}
+
+model Project {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  status      ProjectStatus @default(planning)
+  budget      Decimal       @default(0) @db.Decimal(12, 2)
+  hourlyRate  Decimal?      @db.Decimal(9, 2)
+  startDate   DateTime
+  endDate     DateTime?
+  description String?
+
+  clientId String @db.Uuid
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  invoices  Invoice[]
+  expenses  Expense[]
+  documents Document[]
+
+  @@index([clientId])
+  @@map("projects")
+}
+
+model Invoice {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number    String        @unique
+  status    InvoiceStatus @default(draft)
+  issueDate DateTime
+  dueDate   DateTime
+  currency  Currency      @default(USD)
+  taxRate   Decimal       @default(0) @db.Decimal(5, 2)
+  discount  Decimal       @default(0) @db.Decimal(12, 2)
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  clientId  String   @db.Uuid
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId String?  @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@index([clientId])
+  @@index([status])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  description String
+  quantity    Decimal @default(1) @db.Decimal(12, 2)
+  rate        Decimal @default(0) @db.Decimal(12, 2)
+
+  invoiceId String  @db.Uuid
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Quote {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number     String      @unique
+  status     QuoteStatus @default(draft)
+  issueDate  DateTime
+  validUntil DateTime
+  currency   Currency    @default(USD)
+  taxRate    Decimal     @default(0) @db.Decimal(5, 2)
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  clientId String @db.Uuid
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  items QuoteItem[]
+
+  @@index([clientId])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  description String
+  quantity    Decimal @default(1) @db.Decimal(12, 2)
+  rate        Decimal @default(0) @db.Decimal(12, 2)
+
+  quoteId String @db.Uuid
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@map("quote_items")
+}
+
+model Payment {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  amount    Decimal       @db.Decimal(12, 2)
+  currency  Currency      @default(USD)
+  method    PaymentMethod @default(bank_transfer)
+  reference String?
+  date      DateTime
+  notes     String?
+  createdAt DateTime      @default(now())
+
+  clientId  String   @db.Uuid
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  invoiceId String?  @db.Uuid
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@map("payments")
+}
+
+model Expense {
+  id       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendor   String
+  category ExpenseCategory @default(other)
+  amount   Decimal         @db.Decimal(12, 2)
+  currency Currency        @default(USD)
+  date     DateTime
+  billable Boolean         @default(false)
+  notes    String?
+
+  projectId String?  @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@map("expenses")
+}
+
+model Document {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  type       DocumentType @default(other)
+  /// Storage key: local path in dev, S3 object key in prod.
+  storageKey String
+  size       Int          @default(0)
+  mimeType   String?
+  notes      String?
+  uploadedAt DateTime     @default(now())
+
+  clientId  String?  @db.Uuid
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId String?  @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([projectId])
+  @@map("documents")
+}

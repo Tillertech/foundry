@@ -1,0 +1,24 @@
+FROM node:lts-slim
+
+LABEL maintainer="hello@tillertech.io"
+
+WORKDIR /foundry
+
+RUN apt-get update && \
+    apt-get install -y python3 make g++ procps && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+
+RUN npm cache clean --force
+RUN npm ci --legacy-peer-deps
+
+COPY . .
+
+EXPOSE 4200
+
+ENV NX_DAEMON=false
+
+# excludeTaskDependencies: client:serve dependsOn api:serve, but the API runs
+# in its own container.
+CMD ["sh", "-c", "npx nx serve client --configuration=development --host=0.0.0.0 --port=4200 --excludeTaskDependencies --proxyConfig=apps/client/proxy.conf.docker.json"]

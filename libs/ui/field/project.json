@@ -4,7 +4,9 @@
   "sourceRoot": "libs/ui/field/src",
   "prefix": "hlm",
   "projectType": "library",
-  "tags": [],
+  "tags": [
+    "scope:shared"
+  ],
   "targets": {
     "build": {
       "executor": "@nx/angular:ng-packagr-lite",

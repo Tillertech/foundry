@@ -1,6 +1,7 @@
 # Foundry
-🚀 If you haven't connected to Nx Cloud yet, [complete your setup here](https://cloud.nx.app/get-started). Get faster builds with remote caching, distributed task execution, and self-healing CI. [See how your workspace can benefit](#nx-cloud).
-## 📦 Project Overview
+> The modern workspace for independent consultants
+
+##  Project Overview
 
 This repository demonstrates a production-ready Angular monorepo with:
 
@@ -21,7 +22,7 @@ This repository demonstrates a production-ready Angular monorepo with:
 - **E2E Testing**
   - `client-e2e` - Playwright tests for the client application
 
-## 🚀 Quick Start
+##  Quick Start
 
 ```bash
 # Clone the repository
@@ -58,11 +59,11 @@ npx nx run-many -t lint test build e2e --parallel=3
 npx nx graph
 ```
 
-## ⭐ Featured Nx Capabilities
+##  Featured Nx Capabilities
 
 This repository showcases several powerful Nx features:
 
-### 1. 🔒 Module Boundaries
+### 1.  Module Boundaries
 
 Enforces architectural constraints using tags. Each project has specific dependencies it can use:
 
@@ -85,7 +86,7 @@ npx nx show project client --web
 
 [Learn more about module boundaries →](https://nx.dev/docs/features/enforce-module-boundaries)
 
-### 2. 🐳 Docker Integration
+### 2. Docker Integration
 
 The API project includes Docker support with automated targets and release management:
 
@@ -104,7 +105,7 @@ npx nx release
 
 [Learn more about Docker integration →](https://nx.dev/docs/guides/nx-release/release-docker-images)
 
-### 3. 🎭 Playwright E2E Testing
+### 3. Playwright E2E Testing
 
 End-to-end testing with Playwright is pre-configured:
 
@@ -132,7 +133,7 @@ npx nx run-many -t test
 
 [Learn more about Vite testing →](https://nx.dev/docs/technologies/build-tools/vite)
 
-### 5. 🔧 Self-Healing CI
+### 5.  Self-Healing CI
 
 The CI pipeline includes `nx fix-ci` which automatically identifies and suggests fixes for common issues:
 
@@ -150,7 +151,7 @@ This feature helps maintain a healthy CI pipeline by automatically detecting and
 
 [Learn more about self-healing CI →](https://nx.dev/docs/features/ci-features/self-healing-ci)
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 ├── apps/
@@ -172,7 +173,7 @@ This feature helps maintain a healthy CI pipeline by automatically detecting and
 └── eslint.config.mjs   - ESLint with module boundary rules
 ```
 
-## 🏷️ Understanding Tags
+##  Understanding Tags
 
 This repository uses tags to enforce module boundaries:
 
@@ -184,7 +185,7 @@ This repository uses tags to enforce module boundaries:
 | `data`             | `scope:client`, `type:data`    | `scope:shared`               |
 | `models`           | `scope:shared`, `type:data`  | Nothing (base library)       |
 
-## 📚 Useful Commands
+##  Useful Commands
 
 ```bash
 # Project exploration
@@ -213,7 +214,7 @@ npx nx run api:docker:build                        # Build Docker image
 npx nx run api:docker:run                          # Run Docker container
 ```
 
-## 🎯 Adding New Features
+##  Adding New Features
 
 ### Generate a new Angular application:
 
@@ -240,39 +241,3 @@ npx nx g @nx/node:lib my-api-lib
 ```
 
 You can use `npx nx list` to see all available plugins and `npx nx list <plugin-name>` to see all generators for a specific plugin.
-
-## Nx Cloud
-
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/docs/features/ci-features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/docs/features/ci-features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/docs/features/ci-features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/docs/features/ci-features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/docs/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## 🔗 Learn More
-
-- [Nx Documentation](https://nx.dev/docs)
-- [Angular Monorepo Tutorial](https://nx.dev/docs/getting-started/tutorials/angular-monorepo-tutorial)
-- [Module Boundaries](https://nx.dev/docs/features/enforce-module-boundaries)
-- [Docker Integration](https://nx.dev/docs/guides/nx-release/release-docker-images)
-- [Playwright Testing](https://nx.dev/docs/technologies/test-tools/playwright)
-- [Vite with Angular](https://nx.dev/docs/technologies/build-tools/vite)
-- [Nx Cloud](https://nx.dev/nx-cloud)
-- [Releasing Packages](https://nx.dev/docs/features/manage-releases)
-
-## 💬 Community
-
-Join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [X (Twitter)](https://twitter.com/nxdevtools)
-- [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [YouTube](https://www.youtube.com/@nxdevtools)
-- [Blog](https://nx.dev/blog)
