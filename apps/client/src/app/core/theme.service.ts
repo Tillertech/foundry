@@ -1,7 +1,7 @@
 import { DOCUMENT, Injectable, effect, inject, signal } from '@angular/core';
 
-const MODE_KEY = 'ledger-theme';
-const ACCENT_KEY = 'ledger-accent';
+const MODE_KEY = 'f-theme';
+const ACCENT_KEY = 'f-accent';
 
 export type Accent = 'orange' | 'blue' | 'emerald' | 'purple' | 'slate';
 

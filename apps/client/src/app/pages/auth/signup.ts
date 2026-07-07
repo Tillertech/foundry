@@ -24,7 +24,7 @@ import {
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { apiErrorMessage } from '../../core/http';
-import { AuthService } from '../../domains/auth';
+import { AuthService, setPendingVerification } from '../../domains/auth';
 import { ToastService } from '../../core/toast.service';
 import { Field } from '../../shared/field';
 import { fieldError } from '../../shared/field-error';
@@ -214,8 +214,11 @@ export class Signup {
       })
       .subscribe({
         next: (res) => {
-          this.toast.success('Account created', `Welcome, ${res.user.name}.`);
-          void this.router.navigateByUrl('/');
+          setPendingVerification(res.email);
+          this.toast.info('Check your email', res.message);
+          void this.router.navigate(['/auth/verify'], {
+            queryParams: { email: res.email },
+          });
         },
         error: (err) => {
           this.submitting.set(false);

@@ -192,11 +192,11 @@
       <router-outlet />
     </main>
 
-    <!-- Mobile bottom nav -->
+    <!-- Mobile bottom nav: four primary items + a "More" drawer trigger -->
     <nav
       class="sticky bottom-0 z-20 grid grid-cols-5 border-t border-border bg-background/95 backdrop-blur md:hidden"
     >
-      @for (item of nav.slice(0, 5); track item.path) {
+      @for (item of primaryNav; track item.path) {
       <a
         [routerLink]="item.path"
         routerLinkActive
@@ -210,6 +210,69 @@
         {{ item.label }}
       </a>
       }
+      <button
+        type="button"
+        (click)="toggleMore()"
+        class="flex flex-col items-center gap-0.5 py-2 text-[10px]"
+        [class.text-primary]="moreOpen()"
+        [class.text-muted-foreground]="!moreOpen()"
+        [attr.aria-expanded]="moreOpen()"
+        aria-label="More"
+      >
+        <ng-icon name="lucideEllipsis" size="20" />
+        More
+      </button>
     </nav>
+
+    <!-- More drawer (bottom sheet), mobile only -->
+    @if (moreOpen()) {
+    <div class="fixed inset-0 z-40 md:hidden">
+      <button
+        type="button"
+        (click)="closeMore()"
+        class="absolute inset-0 h-full w-full bg-black/40 backdrop-blur-sm"
+        aria-label="Close menu"
+      ></button>
+      <div
+        class="absolute inset-x-0 bottom-0 flex max-h-[80vh] flex-col rounded-t-2xl border-t border-border bg-background/80 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-xl"
+      >
+        <div class="pb-1 pt-3">
+          <div class="mx-auto h-1 w-9 rounded-full bg-muted"></div>
+        </div>
+        <div class="flex items-center justify-between px-4 pb-2">
+          <span class="text-sm font-semibold">More</span>
+          <button
+            type="button"
+            (click)="closeMore()"
+            class="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Close"
+          >
+            <ng-icon name="lucideX" size="18" />
+          </button>
+        </div>
+        <div class="flex flex-col overflow-y-auto px-2 pb-3">
+          @for (item of moreNav; track item.path) {
+          <a
+            [routerLink]="item.path"
+            routerLinkActive
+            #drla="routerLinkActive"
+            [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+            (click)="closeMore()"
+            class="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors"
+            [class.bg-sidebar-accent]="drla.isActive"
+            [class.text-primary]="drla.isActive"
+            [class.text-muted-foreground]="!drla.isActive"
+          >
+            <ng-icon [name]="item.icon" size="20" class="shrink-0" />
+            <span class="truncate">{{ item.label }}</span>
+            @if (drla.isActive) {
+            <span class="ml-auto h-1.5 w-1.5 rounded-full bg-primary"></span>
+            }
+          </a>
+          }
+        </div>
+      </div>
+    </div>
+    }
   </div>
 </div>

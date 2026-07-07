@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClientsService } from '../clients/clients.service';
+import { PaymentEvents } from '../common/events';
 import {
   PaginationRes,
   PaginationService,
@@ -37,7 +38,7 @@ export class PaymentsService {
       });
     }
 
-    this.events.emit('payment.received', payment);
+    this.events.emit(PaymentEvents.RECEIVED, payment);
     return payment;
   }
 

@@ -76,14 +76,15 @@ enum DocumentType {
 }
 
 model User {
-  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email        String      @unique
-  name         String
-  passwordHash String
-  otpSecret    String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  workspaces   Workspace[]
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String      @unique
+  name            String
+  passwordHash    String
+  otpSecret       String?
+  emailVerifiedAt DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  workspaces      Workspace[]
 
   @@map("users")
 }

@@ -26,6 +26,31 @@ export interface MeResponse extends AuthUser {
   workspaces: unknown[];
 }
 
+export interface SignupResponse {
+  email: string;
+  message: string;
+}
+
+/** Returned by POST /auth/login — credentials ok, a sign-in code was emailed. */
+export interface LoginChallenge {
+  email: string;
+  message: string;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyLoginRequest {
+  email: string;
+  otp: string;
+}
+
+export interface ResendVerificationRequest {
+  email: string;
+}
+
 export interface ForgotPasswordRequest {
   email: string;
 }

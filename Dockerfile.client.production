@@ -16,10 +16,6 @@ ENV NX_DAEMON=false
 
 RUN npx nx build client --configuration=production
 
-
-# The client is a client-side-rendered SPA (no SSR). nginx serves the static
-# bundle, falls back to index.html for client routes, and reverse-proxies the
-# API so the browser keeps calling same-origin /api and /uploads.
 FROM nginx:alpine AS runner
 
 LABEL maintainer="hello@tillertech.io"

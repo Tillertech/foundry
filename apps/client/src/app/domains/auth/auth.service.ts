@@ -7,12 +7,15 @@ import { AuthApiService } from './auth-api.service';
 import {
   AuthResponse,
   AuthUser,
+  LoginChallenge,
   LoginRequest,
   SignupRequest,
+  SignupResponse,
+  VerifyEmailRequest,
+  VerifyLoginRequest,
 } from './auth.models';
 
-const USER_KEY = 'foundry.user.v2';
-const LEGACY_USER_KEY = 'foundry.user.v1';
+const USER_KEY = 'foundry.u';
 
 /**
  * Session state on top of the Foundry auth API: the JWT lives in
@@ -42,7 +45,6 @@ export class AuthService {
 
   /** Hydrates token + cached user from encrypted storage (app initializer). */
   async restore(): Promise<void> {
-    this.storage.removeItem(LEGACY_USER_KEY);
     await this.tokenStore.restore();
     if (!this.authenticated()) return;
     const raw = await this.storage.getItem(USER_KEY);
@@ -55,12 +57,24 @@ export class AuthService {
     }
   }
 
-  login(body: LoginRequest): Observable<AuthResponse> {
-    return this.api.login(body).pipe(tap((res) => this.setUser(res.user)));
+  /** Step one of login: verifies credentials and triggers a sign-in code. */
+  login(body: LoginRequest): Observable<LoginChallenge> {
+    return this.api.login(body);
   }
 
-  signup(body: SignupRequest): Observable<AuthResponse> {
-    return this.api.signup(body).pipe(tap((res) => this.setUser(res.user)));
+  /** Step two of login: confirms the emailed code and establishes the session. */
+  verifyLogin(body: VerifyLoginRequest): Observable<AuthResponse> {
+    return this.api.verifyLogin(body).pipe(tap((res) => this.setUser(res.user)));
+  }
+
+  /** Registers the account; returns the pending email (no session yet). */
+  signup(body: SignupRequest): Observable<SignupResponse> {
+    return this.api.signup(body);
+  }
+
+  /** Confirms the emailed code and establishes the session. */
+  verifyEmail(body: VerifyEmailRequest): Observable<AuthResponse> {
+    return this.api.verifyEmail(body).pipe(tap((res) => this.setUser(res.user)));
   }
 
   /** Re-syncs the cached user with the API; drops the session on 401. */

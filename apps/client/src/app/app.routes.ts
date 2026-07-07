@@ -22,6 +22,16 @@ export const appRoutes: Route[] = [
         title: 'Reset password - Foundry',
         loadComponent: () => import('./pages/auth/reset-password').then((m) => m.ResetPassword),
       },
+      {
+        path: 'verify',
+        title: 'Confirm your email - Foundry',
+        loadComponent: () => import('./pages/auth/verify-email').then((m) => m.VerifyEmail),
+      },
+      {
+        path: 'verify-login',
+        title: 'Enter your sign-in code - Foundry',
+        loadComponent: () => import('./pages/auth/verify-login').then((m) => m.VerifyLogin),
+      },
       { path: '', pathMatch: 'full', redirectTo: 'login' },
     ],
   },
