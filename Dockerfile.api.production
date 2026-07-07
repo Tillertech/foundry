@@ -3,12 +3,11 @@ FROM node:lts-slim AS builder
 WORKDIR /foundry
 
 RUN apt-get update && \
-    apt-get install -y python3 make g++ openssl && \
+    apt-get install -y --no-install-recommends python3 make g++ openssl && \
     rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 
-RUN npm cache clean --force
 RUN npm ci --legacy-peer-deps
 
 COPY . .
@@ -19,6 +18,25 @@ RUN npx prisma generate --config=apps/api/prisma.config.ts && \
     npx nx build api --configuration=production
 
 
+# Runtime dependencies are installed (and native addons like bcrypt compiled) in
+# an isolated stage so the C/C++ toolchain never lands in the final image.
+FROM node:lts-slim AS deps
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 make g++ openssl && \
+    rm -rf /var/lib/apt/lists/*
+
+# nx emits a package.json listing only runtime deps for the webpack bundle.
+COPY --from=builder /foundry/dist/apps/api/package.json ./package.json
+
+# @prisma/client ships the query-compiler runtime the bundled client requires;
+# prisma CLI is used by `migrate deploy` at container start.
+RUN npm install --omit=dev --legacy-peer-deps && \
+    npm install --no-save --legacy-peer-deps prisma@^7.8.0 @prisma/client@^7.8.0 && \
+    npm cache clean --force
+
 FROM node:lts-slim AS runner
 
 LABEL maintainer="hello@tillertech.io"
@@ -28,14 +46,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 RUN apt-get update && \
-    apt-get install -y python3 make g++ openssl && \
+    apt-get install -y --no-install-recommends openssl && \
     rm -rf /var/lib/apt/lists/*
 
-# Webpack bundle + generated package.json/lock listing only runtime deps.
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /foundry/dist/apps/api ./
-
-RUN npm install --omit=dev --legacy-peer-deps && \
-    npm install --no-save --legacy-peer-deps prisma@^7.8.0 @prisma/client@^7.8.0
 
 # Prisma schema/migrations for `migrate deploy`, and mail templates which the
 # mailer resolves relative to the bundle directory in production.
