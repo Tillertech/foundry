@@ -15,8 +15,13 @@ import {
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
+import { HttpErrorResponse } from '@angular/common/http';
 import { apiErrorMessage } from '../../core/http';
-import { AuthService } from '../../domains/auth';
+import {
+  AuthService,
+  setPendingLogin,
+  setPendingVerification,
+} from '../../domains/auth';
 import { ToastService } from '../../core/toast.service';
 import { Field } from '../../shared/field';
 import { fieldError } from '../../shared/field-error';
@@ -47,7 +52,10 @@ import { fieldError } from '../../shared/field-error';
           </p>
         </div>
 
-        <form class="surface-card space-y-4 p-6" (submit)="$event.preventDefault(); submit()">
+        <form
+          class="surface-card space-y-4 p-6"
+          (submit)="$event.preventDefault(); submit()"
+        >
           <app-field label="Email" [error]="fieldError(f.email())">
             <div class="relative">
               <ng-icon
@@ -155,17 +163,31 @@ export class Login {
     const v = this.model();
     this.error.set('');
     this.submitting.set(true);
-    this.auth
-      .login({ email: v.email.trim(), password: v.password })
-      .subscribe({
-        next: (res) => {
-          this.toast.success('Welcome back', `Signed in as ${res.user.name}.`);
-          void this.router.navigateByUrl('/');
-        },
-        error: (err) => {
-          this.submitting.set(false);
-          this.error.set(apiErrorMessage(err, 'Invalid email or password.'));
-        },
-      });
+    const email = this.model().email.trim();
+    this.auth.login({ email, password: v.password }).subscribe({
+      next: (res) => {
+        // Credentials ok — a sign-in code was emailed. Persist the email so the
+        // code screen survives a reload, then hand off to it.
+        setPendingLogin(res.email);
+        this.toast.info('Check your email', res.message);
+        void this.router.navigate(['/auth/verify-login'], {
+          queryParams: { email: res.email },
+        });
+      },
+      error: (err) => {
+        this.submitting.set(false);
+        // Valid credentials on an unconfirmed account: the API re-sends a
+        // verification code and returns 403 - send them to confirm the email.
+        if (err instanceof HttpErrorResponse && err.status === 403) {
+          setPendingVerification(email);
+          this.toast.info('Confirm your email', 'We sent you a new code.');
+          void this.router.navigate(['/auth/verify'], {
+            queryParams: { email },
+          });
+          return;
+        }
+        this.error.set(apiErrorMessage(err, 'Invalid email or password.'));
+      },
+    });
   }
 }

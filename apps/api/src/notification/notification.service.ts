@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { InvoiceSentEvent } from '../invoices/invoices.service';
+import type { InvoiceSentEvent } from '../common/events';
 import type { PaymentModel as Payment } from '../generated/prisma/models';
 import { PdfGeneratorService } from '../invoices/pdf-generator.service';
 import { PrismaService } from '../prisma/prisma.service';

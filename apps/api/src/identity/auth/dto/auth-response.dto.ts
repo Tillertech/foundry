@@ -38,3 +38,27 @@ export class MessageResponseDto {
   @ApiProperty()
   message: string;
 }
+
+export class SignupResponseDto {
+  @ApiProperty({
+    description: 'The address a verification code was sent to',
+    example: 'ada@example.com',
+  })
+  email: string;
+
+  @ApiProperty({
+    example: 'We sent a 6-digit verification code to your email.',
+  })
+  message: string;
+}
+
+export class LoginChallengeDto {
+  @ApiProperty({
+    description: 'The address a sign-in code was sent to',
+    example: 'ada@example.com',
+  })
+  email: string;
+
+  @ApiProperty({ example: 'We sent a 6-digit sign-in code to your email.' })
+  message: string;
+}

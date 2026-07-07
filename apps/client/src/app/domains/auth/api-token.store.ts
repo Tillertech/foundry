@@ -1,9 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { SecureStorageService } from '../../core/storage/secure-storage.service';
 
-const TOKEN_KEY = 'foundry.token.v2';
-/** Pre-encryption keys; purged on restore so no plaintext session survives. */
-const LEGACY_KEYS = ['foundry.token.v1', 'ledger.auth.v1', 'ledger.store.v1'];
+const TOKEN_KEY = 'foundry.t';
 
 /**
  * Holds the JWT used by the auth interceptor. Persisted AES-GCM-encrypted;
@@ -27,7 +25,6 @@ export class ApiTokenStore {
   }
 
   async restore(): Promise<void> {
-    for (const key of LEGACY_KEYS) this.storage.removeItem(key);
     const token = await this.storage.getItem(TOKEN_KEY);
     if (token) this.token.set(token);
   }

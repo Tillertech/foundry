@@ -11,6 +11,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBell,
   lucideChartColumn,
+  lucideEllipsis,
   lucideFileSignature,
   lucideFileText,
   lucideFolderKanban,
@@ -27,6 +28,7 @@ import {
   lucideSun,
   lucideUsers,
   lucideWallet,
+  lucideX,
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../domains/auth';
@@ -48,6 +50,7 @@ interface NavItem {
     provideIcons({
       lucideBell,
       lucideChartColumn,
+      lucideEllipsis,
       lucideFileSignature,
       lucideFileText,
       lucideFolderKanban,
@@ -64,6 +67,7 @@ interface NavItem {
       lucideSun,
       lucideUsers,
       lucideWallet,
+      lucideX,
     }),
   ],
   templateUrl: './app-shell.html',
@@ -114,7 +118,21 @@ export class AppShell {
     { path: '/settings', label: 'Settings', icon: 'lucideSettings' },
   ];
 
+  /** Bottom nav shows the first four; the rest live behind the "More" drawer. */
+  protected readonly primaryNav = this.nav.slice(0, 4);
+  protected readonly moreNav = this.nav.slice(4);
+
+  protected readonly moreOpen = signal(false);
+
   protected toggleCollapsed(): void {
     this.collapsed.update((v) => !v);
+  }
+
+  protected toggleMore(): void {
+    this.moreOpen.update((v) => !v);
+  }
+
+  protected closeMore(): void {
+    this.moreOpen.set(false);
   }
 }

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
 
 export interface InvoiceMailLineItem {
@@ -33,7 +34,43 @@ interface Attachment {
 export class MailService {
   private readonly logger = new Logger(MailService.name);
 
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(
+    private readonly mailerService: MailerService,
+    private readonly config: ConfigService,
+  ) {}
+
+  async sendEmailVerificationOtp(to: string, name: string, otp: string) {
+    // Deep link back to the verification screen with the address prefilled, so
+    // a mobile user who left to read the code can tap straight back into the
+    // right page. The code itself is never in the URL.
+    const appUrl = this.config.get<string>('APP_URL')?.replace(/\/+$/, '');
+    const verifyUrl = appUrl
+      ? `${appUrl}/auth/verify?email=${encodeURIComponent(to)}`
+      : '';
+
+    await this.send(to, 'Confirm your email for Foundry', 'email-verification-otp', {
+      name,
+      otp,
+      email: to,
+      verifyUrl,
+    });
+  }
+
+  async sendLoginOtp(to: string, name: string, otp: string) {
+    // Deep link back to the sign-in code screen with the address prefilled, so
+    // a mobile user who left to read the code can tap straight back in.
+    const appUrl = this.config.get<string>('APP_URL')?.replace(/\/+$/, '');
+    const verifyUrl = appUrl
+      ? `${appUrl}/auth/verify-login?email=${encodeURIComponent(to)}`
+      : '';
+
+    await this.send(to, 'Your Foundry sign-in code', 'login-otp', {
+      name,
+      otp,
+      email: to,
+      verifyUrl,
+    });
+  }
 
   async sendPasswordResetOtp(to: string, name: string, otp: string) {
     await this.send(

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClientsService } from '../clients/clients.service';
+import { FileEvents } from '../common/events';
 import {
   PaginationRes,
   PaginationService,
@@ -43,7 +44,7 @@ export class DocumentsService {
     if (dto.clientId) await this.clients.findOne(ownerId, dto.clientId);
     if (dto.projectId) await this.projects.findOne(ownerId, dto.projectId);
     const stored = await this.storage.upload(file);
-    this.events.emit('file.uploaded', stored);
+    this.events.emit(FileEvents.UPLOADED, stored);
     return this.prisma.document.create({
       data: {
         ...dto,

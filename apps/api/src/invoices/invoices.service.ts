@@ -5,9 +5,9 @@ import {
   PaginationRes,
   PaginationService,
 } from '../common/pagination/pagination.service';
+import { InvoiceEvents } from '../common/events';
 import { InvoiceStatus } from '../generated/prisma/enums';
 import type {
-  ClientModel as Client,
   InvoiceModel as Invoice,
   InvoiceItemModel as InvoiceItem,
 } from '../generated/prisma/models';
@@ -18,11 +18,6 @@ import { ListInvoicesQueryDto } from './dto/list-invoices-query.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 
 export type InvoiceWithItems = Invoice & { items: InvoiceItem[] };
-
-export interface InvoiceSentEvent {
-  invoice: InvoiceWithItems;
-  client: Client;
-}
 
 @Injectable()
 export class InvoicesService {
@@ -117,10 +112,10 @@ export class InvoicesService {
       include: { items: true, client: true },
     });
     const { client, ...rest } = invoice;
-    this.events.emit('invoice.sent', {
+    this.events.emit(InvoiceEvents.SENT, {
       invoice: rest,
       client,
-    } satisfies InvoiceSentEvent);
+    });
     return rest;
   }
 
