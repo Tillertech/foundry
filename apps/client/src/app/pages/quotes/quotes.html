@@ -193,6 +193,21 @@
         </div>
       </div>
 
+      @if (!isNew) {
+      <button
+        hlmBtn
+        type="button"
+        variant="outline"
+        size="sm"
+        class="gap-1.5 self-start"
+        [disabled]="sending()"
+        (click)="sendCurrent()"
+      >
+        <ng-icon name="lucideSend" size="14" />
+        {{ sending() ? 'Sending…' : 'Email quote to client' }}
+      </button>
+      }
+
       <app-field label="Notes">
         <textarea hlmTextarea rows="3" class="w-full" [formField]="f.notes"></textarea>
       </app-field>

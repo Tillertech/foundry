@@ -5,8 +5,10 @@ import { API_BASE, toParams } from '../../core/http/api-base';
 import { PaginatedResponse } from '../../core/http/api.types';
 import {
   CreateInvoiceRequest,
+  ExchangeRates,
   Invoice,
   ListInvoicesQuery,
+  ReconciliationEntry,
   UpdateInvoiceRequest,
 } from './invoice.models';
 
@@ -41,5 +43,24 @@ export class InvoicesApiService {
   /** Marks the invoice sent and emails it (with PDF) to the client. */
   send(id: string): Observable<Invoice> {
     return this.http.post<Invoice>(`${this.base}/${id}/send`, {});
+  }
+
+  /**
+   * Payment reconciliation timeline for the invoice; includeProject widens
+   * it to the linked project's other entries (combined view).
+   */
+  timeline(
+    id: string,
+    query?: { includeProject?: boolean; take?: number },
+  ): Observable<PaginatedResponse<ReconciliationEntry>> {
+    return this.http.get<PaginatedResponse<ReconciliationEntry>>(
+      `${this.base}/${id}/timeline`,
+      { params: toParams(query as Record<string, unknown>) },
+    );
+  }
+
+  /** Conversion rates from every currency into the workspace currency. */
+  exchangeRates(): Observable<ExchangeRates> {
+    return this.http.get<ExchangeRates>(`${this.base}/exchange-rates`);
   }
 }

@@ -93,6 +93,39 @@
             </hlm-select>
           </app-field>
         </div>
+        <div class="border-t border-border pt-4">
+          <div class="mb-3 flex items-center gap-2">
+            <ng-icon name="lucideBellRing" size="14" class="text-primary" />
+            <p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Invoice reminders
+            </p>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3">
+              <div>
+                <p class="text-sm font-medium">Email reminders</p>
+                <p class="text-xs text-muted-foreground">
+                  Nudge clients when invoices come due.
+                </p>
+              </div>
+              <hlm-switch
+                [formField]="f.remindersEnabled"
+                aria-label="Send invoice reminder emails"
+              />
+            </div>
+            <app-field
+              label="Days before due date"
+              hint="Reminders start this many days ahead and repeat at the same interval while unpaid."
+            >
+              <input
+                hlmInput
+                type="number"
+                class="w-full"
+                [formField]="f.reminderDaysBefore"
+              />
+            </app-field>
+          </div>
+        </div>
         <div class="flex items-center justify-between">
           <p class="text-xs text-muted-foreground">
             Slug: <span class="font-mono">{{ ws.slug }}</span>

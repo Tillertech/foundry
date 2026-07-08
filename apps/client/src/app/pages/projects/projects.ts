@@ -1,12 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
 import { FormField, form, minLength, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideSearch } from '@ng-icons/lucide';
@@ -31,6 +29,7 @@ import { Field } from '../../shared/field';
 import { fieldError } from '../../shared/field-error';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
+import { ReconciliationTimeline } from '../../shared/reconciliation-timeline';
 import { StatusBadge } from '../../shared/status-badge';
 
 interface ProjectForm {
@@ -72,6 +71,7 @@ const emptyProject = (): ProjectForm => ({
     Field,
     ListSkeleton,
     PageHeader,
+    ReconciliationTimeline,
     StatusBadge,
   ],
   providers: [provideIcons({ lucidePlus, lucideSearch })],
@@ -155,7 +155,10 @@ export class Projects {
   });
 
   protected openNew(): void {
-    this.model.set({ ...emptyProject(), clientId: this.clients()[0]?.id ?? '' });
+    this.model.set({
+      ...emptyProject(),
+      clientId: this.clients()[0]?.id ?? '',
+    });
     this.isNew = true;
     this.sheetOpen.set(true);
   }

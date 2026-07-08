@@ -37,4 +37,9 @@ export class QuotesApiService {
   delete(id: string): Observable<Quote> {
     return this.http.delete<Quote>(`${this.base}/${id}`);
   }
+
+  /** Marks the quote sent and emails it (with PDF) to the client. */
+  send(id: string): Observable<Quote> {
+    return this.http.post<Quote>(`${this.base}/${id}/send`, {});
+  }
 }

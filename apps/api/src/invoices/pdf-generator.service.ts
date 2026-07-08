@@ -26,6 +26,30 @@ export interface InvoicePdfData {
   notes?: string;
 }
 
+export interface QuotePdfData {
+  number: string;
+  client: string;
+  issueDate: string;
+  validUntil: string;
+  currency: string;
+  items: { description: string; quantity: number; rate: number }[];
+  taxRate: number;
+  notes?: string;
+}
+
+/** Shared invoice/quote layout: only the document label and dates differ. */
+interface DocumentPdfData {
+  docType: 'INVOICE' | 'QUOTE';
+  number: string;
+  client: string;
+  dates: { label: string; value: string }[];
+  currency: string;
+  items: { description: string; quantity: number; rate: number }[];
+  taxRate: number;
+  discount: number;
+  notes?: string;
+}
+
 const INK = '#111827'; // primary text
 const HEADER_BG = '#1f2937'; // table header fill
 const MUTED = '#6b7280'; // secondary text / labels
@@ -53,7 +77,32 @@ export class PdfGeneratorService {
     });
   }
 
-  async invoicePdf(data: InvoicePdfData): Promise<Buffer> {
+  invoicePdf(data: InvoicePdfData): Promise<Buffer> {
+    const { issueDate, dueDate, ...rest } = data;
+    return this.documentPdf({
+      ...rest,
+      docType: 'INVOICE',
+      dates: [
+        { label: 'Issued', value: issueDate },
+        { label: 'Due', value: dueDate },
+      ],
+    });
+  }
+
+  quotePdf(data: QuotePdfData): Promise<Buffer> {
+    const { issueDate, validUntil, ...rest } = data;
+    return this.documentPdf({
+      ...rest,
+      docType: 'QUOTE',
+      discount: 0,
+      dates: [
+        { label: 'Issued', value: issueDate },
+        { label: 'Valid until', value: validUntil },
+      ],
+    });
+  }
+
+  private async documentPdf(data: DocumentPdfData): Promise<Buffer> {
     const discount = Math.max(0, data.discount || 0);
     const taxRate = data.taxRate || 0;
     const subtotal = data.items.reduce((s, it) => s + it.quantity * it.rate, 0);
@@ -143,7 +192,7 @@ export class PdfGeneratorService {
           {
             width: 'auto',
             stack: [
-              { text: 'INVOICE', style: 'docType' },
+              { text: data.docType, style: 'docType' },
               { text: data.number, style: 'docNumber' },
             ],
           },
@@ -179,20 +228,19 @@ export class PdfGeneratorService {
           {
             width: TOTALS_WIDTH,
             stack: [
-              { text: 'INVOICE DETAILS', style: 'eyebrow' },
-              {
+              { text: `${data.docType} DETAILS`, style: 'eyebrow' },
+              ...data.dates.map((date, index) => ({
                 columns: [
-                  { text: 'Issued', style: 'metaLabel', width: 55 },
-                  { text: data.issueDate, style: 'metaValue' },
+                  { text: date.label, style: 'metaLabel', width: 55 },
+                  { text: date.value, style: 'metaValue' },
                 ],
-                margin: [0, 5, 0, 3],
-              },
-              {
-                columns: [
-                  { text: 'Due', style: 'metaLabel', width: 55 },
-                  { text: data.dueDate, style: 'metaValue' },
+                margin: [0, index === 0 ? 5 : 0, 0, 3] as [
+                  number,
+                  number,
+                  number,
+                  number,
                 ],
-              },
+              })),
             ],
           },
         ],

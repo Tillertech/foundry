@@ -4,30 +4,58 @@
     <div class="min-w-0">
       <p class="text-[13px] font-medium text-muted-foreground">{{ today }}</p>
       <h1 class="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-        Good morning, {{ firstName() }}
+        {{ greeting }}, {{ firstName() }}
       </h1>
       <p class="mt-1 text-sm text-muted-foreground">
         You have
-        <span class="font-medium text-foreground">{{ dueThisWeek() }} {{ dueThisWeek() === 1 ? 'invoice' : 'invoices' }}</span>
+        <span class="font-medium text-foreground"
+          >{{ dueThisWeek() }} {{ dueThisWeek() === 1 ? 'invoice' : 'invoices'
+          }}</span
+        >
         due this week and
-        <span class="font-medium text-destructive">{{ overdueCount() }} overdue</span>.
+        <span class="font-medium text-destructive"
+          >{{ overdueCount() }} overdue</span
+        >.
       </p>
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <a hlmBtn variant="outline" size="sm" class="h-9 gap-1.5" routerLink="/clients">
+      <a
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="h-9 gap-1.5"
+        routerLink="/clients"
+      >
         <ng-icon name="lucideUserPlus" size="16" />
         New client
       </a>
-      <a hlmBtn variant="outline" size="sm" class="h-9 gap-1.5" routerLink="/quotes">
+      <a
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="h-9 gap-1.5"
+        routerLink="/quotes"
+      >
         <ng-icon name="lucideFilePlus2" size="16" />
         New quote
       </a>
-      <a hlmBtn variant="outline" size="sm" class="h-9 gap-1.5" routerLink="/payments">
+      <a
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="h-9 gap-1.5"
+        routerLink="/payments"
+      >
         <ng-icon name="lucideCircleDollarSign" size="16" />
         Record payment
       </a>
-      <a hlmBtn size="sm" class="h-9 gap-1.5 shadow-[var(--shadow-glow)]" routerLink="/invoices">
+      <a
+        hlmBtn
+        size="sm"
+        class="h-9 gap-1.5 shadow-[var(--shadow-glow)]"
+        routerLink="/invoices"
+      >
         <ng-icon name="lucidePlus" size="16" />
         New invoice
       </a>
@@ -37,30 +65,33 @@
   <!-- KPIs -->
   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
     @for (kpi of kpis(); track kpi.label) {
-      <div class="surface-card hover-lift p-5">
-        <div class="flex items-center justify-between">
-          <p class="text-[13px] font-medium text-muted-foreground">{{ kpi.label }}</p>
-          <span
-            class="inline-flex items-center gap-0.5 text-[11px] font-medium"
-            [class]="
+    <div class="surface-card hover-lift p-5">
+      <div class="flex items-center justify-between">
+        <p class="text-[13px] font-medium text-muted-foreground">
+          {{ kpi.label }}
+        </p>
+        <span
+          class="inline-flex items-center gap-0.5 text-[11px] font-medium"
+          [class]="
               kpi.trend === 'down'
                 ? 'text-destructive'
                 : kpi.trend === 'up'
                   ? 'text-success'
                   : 'text-muted-foreground'
             "
-          >
-            @if (kpi.trend === 'down') {
-              <ng-icon name="lucideArrowDownRight" size="12" />
-            } @else {
-              <ng-icon name="lucideArrowUpRight" size="12" />
-            }
-            {{ kpi.delta }}
-          </span>
-        </div>
-        <p class="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{{ kpi.value }}</p>
-        <p class="mt-1 text-xs text-muted-foreground">{{ kpi.hint }}</p>
+        >
+          @if (kpi.trend === 'down') {
+          <ng-icon name="lucideArrowDownRight" size="12" />
+          } @else {
+          <ng-icon name="lucideArrowUpRight" size="12" />
+          } {{ kpi.delta }}
+        </span>
       </div>
+      <p class="mt-2 text-2xl font-semibold tracking-tight tabular-nums">
+        {{ kpi.value }}
+      </p>
+      <p class="mt-1 text-xs text-muted-foreground">{{ kpi.hint }}</p>
+    </div>
     }
   </div>
 
@@ -89,18 +120,24 @@
       </div>
       <div class="space-y-1">
         @for (inv of upcomingInvoices(); track inv.id) {
-          <div class="group flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/60">
-            <div
-              class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted font-mono text-[10px] font-semibold text-muted-foreground"
-            >
-              {{ initials(inv.client) }}
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">{{ inv.client }}</p>
-              <p class="truncate text-xs text-muted-foreground">{{ inv.number }} · Due {{ inv.due }}</p>
-            </div>
-            <p class="shrink-0 text-sm font-semibold tabular-nums">{{ inv.amount }}</p>
+        <div
+          class="group flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/60"
+        >
+          <div
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted font-mono text-[10px] font-semibold text-muted-foreground"
+          >
+            {{ initials(inv.client) }}
           </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium">{{ inv.client }}</p>
+            <p class="truncate text-xs text-muted-foreground">
+              {{ inv.number }} · Due {{ inv.due }}
+            </p>
+          </div>
+          <p class="shrink-0 text-sm font-semibold tabular-nums">
+            {{ inv.amount }}
+          </p>
+        </div>
         }
       </div>
       <a
@@ -116,51 +153,88 @@
   <!-- Recent invoices + payments -->
   <div class="mt-6 grid gap-6 lg:grid-cols-5">
     <div class="surface-card overflow-hidden lg:col-span-3">
-      <div class="flex items-center justify-between border-b border-border px-5 py-3.5">
+      <div
+        class="flex items-center justify-between border-b border-border px-5 py-3.5"
+      >
         <div>
           <h2 class="text-sm font-semibold">Recent invoices</h2>
-          <p class="text-xs text-muted-foreground">Latest activity across clients</p>
+          <p class="text-xs text-muted-foreground">
+            Latest activity across clients
+          </p>
         </div>
-        <a hlmBtn variant="ghost" size="sm" class="h-8 text-xs" routerLink="/invoices">View all</a>
+        <a
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="h-8 text-xs"
+          routerLink="/invoices"
+          >View all</a
+        >
       </div>
       <div class="divide-y divide-border">
         @for (inv of recentInvoices(); track inv.id) {
-          <div
-            class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40 sm:grid-cols-[80px_minmax(0,1fr)_100px_auto_auto]"
+        <div
+          class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40 sm:grid-cols-[80px_minmax(0,1fr)_100px_auto_auto]"
+        >
+          <span class="font-mono text-xs text-muted-foreground"
+            >{{ inv.number }}</span
           >
-            <span class="font-mono text-xs text-muted-foreground">{{ inv.number }}</span>
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium">{{ inv.client }}</p>
-              <p class="truncate text-xs text-muted-foreground sm:hidden">Due {{ inv.due }}</p>
-            </div>
-            <span class="hidden text-xs text-muted-foreground sm:inline">Due {{ inv.due }}</span>
-            <app-status-badge [status]="inv.status" />
-            <span class="text-right text-sm font-semibold tabular-nums">{{ inv.amount }}</span>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium">{{ inv.client }}</p>
+            <p class="truncate text-xs text-muted-foreground sm:hidden">
+              Due {{ inv.due}}
+            </p>
           </div>
+          <span class="hidden text-xs text-muted-foreground sm:inline"
+            >Due {{ inv.due}}</span
+          >
+
+          <app-status-badge [status]="inv.status" />
+          <span class="text-right text-sm font-semibold tabular-nums"
+            >{{ inv.amount }}</span
+          >
+        </div>
         }
       </div>
     </div>
 
     <div class="surface-card overflow-hidden lg:col-span-2">
-      <div class="flex items-center justify-between border-b border-border px-5 py-3.5">
+      <div
+        class="flex items-center justify-between border-b border-border px-5 py-3.5"
+      >
         <div>
           <h2 class="text-sm font-semibold">Recent payments</h2>
           <p class="text-xs text-muted-foreground">Last 7 days</p>
         </div>
-        <a hlmBtn variant="ghost" size="sm" class="h-8 text-xs" routerLink="/payments">View all</a>
+        <a
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="h-8 text-xs"
+          routerLink="/payments"
+          >View all</a
+        >
       </div>
       <div class="divide-y divide-border">
         @for (p of recentPayments(); track p.id) {
-          <div class="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
-            <div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/12 text-success">
-              <ng-icon name="lucideCircleDollarSign" size="16" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">{{ p.client }}</p>
-              <p class="truncate text-xs text-muted-foreground">{{ p.method }} · {{ p.when }}</p>
-            </div>
-            <p class="shrink-0 text-sm font-semibold tabular-nums text-success">+{{ p.amount }}</p>
+        <div
+          class="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40"
+        >
+          <div
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/12 text-success"
+          >
+            <ng-icon name="lucideCircleDollarSign" size="16" />
           </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium">{{ p.client }}</p>
+            <p class="truncate text-xs text-muted-foreground">
+              {{ p.method }} · {{ p.when }}
+            </p>
+          </div>
+          <p class="shrink-0 text-sm font-semibold tabular-nums text-success">
+            +{{ p.amount }}
+          </p>
+        </div>
         }
       </div>
     </div>

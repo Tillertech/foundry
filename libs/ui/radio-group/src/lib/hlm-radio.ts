@@ -1,5 +1,5 @@
 import { type BooleanInput } from '@angular/cdk/coercion';
-import { isPlatformBrowser } from '@angular/common';
+
 import {
 	booleanAttribute,
 	ChangeDetectionStrategy,

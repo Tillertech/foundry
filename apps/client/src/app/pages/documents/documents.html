@@ -62,10 +62,12 @@
   } @else {
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       @for (d of filtered(); track d.id) {
-        <button
-          type="button"
+        <div
+          role="button"
+          tabindex="0"
           (click)="openEdit(d)"
-          class="surface-card hover-lift group flex items-start gap-3 p-4 text-left"
+          (keydown.enter)="openEdit(d)"
+          class="surface-card hover-lift group flex cursor-pointer items-start gap-3 p-4 text-left"
         >
           <div class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
             <ng-icon [name]="meta(d.type).icon" size="20" />
@@ -80,8 +82,40 @@
                 {{ clientName(d.clientId) }}
               </p>
             }
+            <div class="mt-2 flex items-center gap-1">
+              <button
+                type="button"
+                (click)="previewDoc(d, $event)"
+                class="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Preview"
+                aria-label="Preview {{ d.name }}"
+              >
+                <ng-icon name="lucideEye" size="15" />
+              </button>
+              <button
+                type="button"
+                (click)="downloadDoc(d, $event)"
+                class="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Download"
+                aria-label="Download {{ d.name }}"
+              >
+                <ng-icon name="lucideDownload" size="15" />
+              </button>
+              @if (d.clientId) {
+                <button
+                  type="button"
+                  (click)="shareDoc(d, $event)"
+                  [disabled]="sharing() === d.id"
+                  class="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  title="Email to {{ clientName(d.clientId) }}"
+                  aria-label="Share {{ d.name }} with {{ clientName(d.clientId) }}"
+                >
+                  <ng-icon name="lucideSend" size="15" />
+                </button>
+              }
+            </div>
           </div>
-        </button>
+        </div>
       }
     </div>
   }

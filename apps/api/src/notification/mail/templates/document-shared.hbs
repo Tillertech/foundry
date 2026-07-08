@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f4f5;font-family:Helvetica,Arial,sans-serif;color:#18181b;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+            <tr>
+              <td style="padding:32px 40px;border-bottom:1px solid #e4e4e7;">
+                <h1 style="margin:0;font-size:20px;">{{workspaceName}}</h1>
+                <p style="margin:8px 0 0;color:#71717a;font-size:14px;">A document was shared with you</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px 40px;">
+                <p style="margin:0 0 16px;font-size:14px;">Hi {{clientName}},</p>
+                <p style="margin:0 0 24px;font-size:14px;">
+                  {{workspaceName}} shared the {{documentType}}
+                  <strong>{{documentName}}</strong> with you. You will find it
+                  attached to this email.
+                </p>
+                {{#if notes}}
+                <p style="margin:0 0 24px;font-size:13px;color:#71717a;border-left:3px solid #e4e4e7;padding-left:12px;">{{notes}}</p>
+                {{/if}}
+                <p style="margin:0;font-size:14px;">
+                  Reply to this email if you have any questions about the document.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 40px;background:#fafafa;border-top:1px solid #e4e4e7;">
+                <p style="margin:0;font-size:12px;color:#a1a1aa;">
+                  Sent by {{workspaceName}} via Foundry.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -6,10 +6,10 @@ import {
   PaginationRes,
   PaginationService,
 } from '../common/pagination/pagination.service';
-import { InvoiceStatus } from '../generated/prisma/enums';
 import type { PaymentModel as Payment } from '../generated/prisma/models';
 import { InvoicesService } from '../invoices/invoices.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReconciliationService } from '../reconciliation/reconciliation.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ListPaymentsQueryDto } from './dto/list-payments-query.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
@@ -21,6 +21,7 @@ export class PaymentsService {
     private readonly pagination: PaginationService,
     private readonly clients: ClientsService,
     private readonly invoices: InvoicesService,
+    private readonly reconciliation: ReconciliationService,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -31,12 +32,11 @@ export class PaymentsService {
     const { markInvoicePaid, ...data } = dto;
     const payment = await this.prisma.payment.create({ data });
 
-    if (markInvoicePaid && dto.invoiceId) {
-      await this.prisma.invoice.update({
-        where: { id: dto.invoiceId },
-        data: { status: InvoiceStatus.paid },
-      });
-    }
+    // Reconcile against the invoice/project balances; marks the invoice
+    // paid when it settles (or when the caller forces it).
+    await this.reconciliation.applyPayment(payment, {
+      forcePaid: markInvoicePaid,
+    });
 
     this.events.emit(PaymentEvents.RECEIVED, payment);
     return payment;
@@ -81,13 +81,26 @@ export class PaymentsService {
     id: string,
     dto: UpdatePaymentDto,
   ): Promise<Payment> {
-    await this.findOne(ownerId, id);
+    const before = await this.findOne(ownerId, id);
     if (dto.invoiceId) await this.invoices.findOne(ownerId, dto.invoiceId);
-    return this.prisma.payment.update({ where: { id }, data: dto });
+    const payment = await this.prisma.payment.update({
+      where: { id },
+      data: dto,
+    });
+    if (
+      dto.amount !== undefined ||
+      dto.invoiceId !== undefined ||
+      dto.currency !== undefined
+    ) {
+      await this.reconciliation.adjustPayment(before, payment);
+    }
+    return payment;
   }
 
   async remove(ownerId: string, id: string): Promise<Payment> {
-    await this.findOne(ownerId, id);
-    return this.prisma.payment.delete({ where: { id } });
+    const payment = await this.findOne(ownerId, id);
+    await this.prisma.payment.delete({ where: { id } });
+    await this.reconciliation.reversePayment(payment);
+    return payment;
   }
 }

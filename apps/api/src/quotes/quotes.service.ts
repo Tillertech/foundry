@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClientsService } from '../clients/clients.service';
+import { QuoteEvents } from '../common/events';
 import {
   PaginationRes,
   PaginationService,
 } from '../common/pagination/pagination.service';
+import { QuoteStatus } from '../generated/prisma/enums';
 import type {
   QuoteModel as Quote,
   QuoteItemModel as QuoteItem,
@@ -21,6 +24,7 @@ export class QuotesService {
     private readonly prisma: PrismaService,
     private readonly pagination: PaginationService,
     private readonly clients: ClientsService,
+    private readonly events: EventEmitter2,
   ) {}
 
   async create(ownerId: string, dto: CreateQuoteDto): Promise<QuoteWithItems> {
@@ -92,6 +96,22 @@ export class QuotesService {
     const quote = await this.findOne(ownerId, id);
     await this.prisma.quote.delete({ where: { id } });
     return quote;
+  }
+
+  /** Marks the quote sent and hands it to the notification pipeline. */
+  async send(ownerId: string, id: string): Promise<QuoteWithItems> {
+    await this.findOne(ownerId, id);
+    const quote = await this.prisma.quote.update({
+      where: { id },
+      data: { status: QuoteStatus.sent },
+      include: { items: true, client: true },
+    });
+    const { client, ...rest } = quote;
+    this.events.emit(QuoteEvents.SENT, {
+      quote: rest,
+      client,
+    });
+    return rest;
   }
 
   private async nextNumber(): Promise<string> {

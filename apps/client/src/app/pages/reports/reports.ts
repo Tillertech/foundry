@@ -10,26 +10,69 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowDownRight,
   lucideArrowUpRight,
+  lucideBanknote,
   lucideFileText,
   lucideReceipt,
   lucideTrendingUp,
   lucideWallet,
 } from '@ng-icons/lucide';
-import { ApiClient, ClientsApiService } from '../../domains/clients';
-import { Expense, ExpensesApiService } from '../../domains/expenses';
-import { Invoice, InvoicesApiService } from '../../domains/invoices';
-import { Payment, PaymentsApiService } from '../../domains/payments';
-import { invoiceTotal, money, num } from '../../domains/shared';
+import { HlmSelectImports } from '@spartan-ng/helm/select';
+import { apiErrorMessage } from '../../core/http';
+import { ToastService } from '../../core/toast.service';
+import { ReportSummary, ReportsApiService } from '../../domains/reports';
+import { money } from '../../domains/shared';
+import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
+import { CashflowChart } from './cashflow-chart';
+
+type PeriodId =
+  | 'this_month'
+  | 'last_3_months'
+  | 'this_year'
+  | 'last_12_months'
+  | 'all';
+
+interface Period {
+  id: PeriodId;
+  label: string;
+  from?: () => string;
+}
+
+const day = (d: Date) => d.toISOString().slice(0, 10);
+
+const PERIODS: Period[] = [
+  {
+    id: 'this_month',
+    label: 'This month',
+    from: () => day(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+  },
+  {
+    id: 'last_3_months',
+    label: 'Last 3 months',
+    from: () => day(new Date(Date.now() - 91 * 864e5)),
+  },
+  {
+    id: 'this_year',
+    label: 'This year',
+    from: () => day(new Date(new Date().getFullYear(), 0, 1)),
+  },
+  {
+    id: 'last_12_months',
+    label: 'Last 12 months',
+    from: () => day(new Date(Date.now() - 365 * 864e5)),
+  },
+  { id: 'all', label: 'All time' },
+];
 
 @Component({
   selector: 'app-reports',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgIcon, PageHeader],
+  imports: [NgIcon, PageHeader, ListSkeleton, HlmSelectImports, CashflowChart],
   providers: [
     provideIcons({
       lucideArrowDownRight,
       lucideArrowUpRight,
+      lucideBanknote,
       lucideFileText,
       lucideReceipt,
       lucideTrendingUp,
@@ -39,124 +82,138 @@ import { PageHeader } from '../../shared/page-header';
   templateUrl: './reports.html',
 })
 export class Reports {
-  private readonly invoicesApi = inject(InvoicesApiService);
-  private readonly expensesApi = inject(ExpensesApiService);
-  private readonly paymentsApi = inject(PaymentsApiService);
-  private readonly clientsApi = inject(ClientsApiService);
+  private readonly reportsApi = inject(ReportsApiService);
+  private readonly toast = inject(ToastService);
 
-  private readonly invoices = signal<Invoice[]>([]);
-  private readonly expenses = signal<Expense[]>([]);
-  private readonly payments = signal<Payment[]>([]);
-  private readonly clients = signal<ApiClient[]>([]);
+  protected readonly periods = PERIODS;
+  protected readonly period = signal<PeriodId>('this_year');
+  protected readonly loading = signal(true);
+  protected readonly summary = signal<ReportSummary | null>(null);
 
   constructor() {
-    this.invoicesApi.list({ take: 100 }).subscribe({
-      next: (r) => this.invoices.set(r.results),
-      error: () => undefined,
-    });
-    this.expensesApi.list({ take: 100 }).subscribe({
-      next: (r) => this.expenses.set(r.results),
-      error: () => undefined,
-    });
-    this.paymentsApi.list({ take: 100 }).subscribe({
-      next: (r) => this.payments.set(r.results),
-      error: () => undefined,
-    });
-    this.clientsApi.list({ take: 100 }).subscribe({
-      next: (r) => this.clients.set(r.results),
-      error: () => undefined,
-    });
+    this.load();
   }
 
-  protected readonly revenue = computed(() =>
-    this.invoices()
-      .filter((i) => i.status === 'paid')
-      .reduce((s, i) => s + invoiceTotal(i).total, 0),
-  );
+  protected onPeriodChange(id: string | null | undefined): void {
+    this.period.set((id as PeriodId) ?? 'this_year');
+    this.load();
+  }
 
-  protected readonly paidCount = computed(
-    () => this.invoices().filter((i) => i.status === 'paid').length,
-  );
+  protected readonly periodLabel = (id: string) =>
+    PERIODS.find((p) => p.id === id)?.label ?? id;
 
-  protected readonly outstanding = computed(() =>
-    this.invoices()
-      .filter((i) => ['sent', 'viewed', 'overdue'].includes(i.status))
-      .reduce((s, i) => s + invoiceTotal(i).total, 0),
-  );
-
-  protected readonly overdue = computed(() =>
-    this.invoices()
-      .filter((i) => i.status === 'overdue')
-      .reduce((s, i) => s + invoiceTotal(i).total, 0),
-  );
-
-  protected readonly spent = computed(() =>
-    this.expenses().reduce((s, e) => s + num(e.amount), 0),
-  );
-
-  protected readonly profit = computed(() => this.revenue() - this.spent());
-
-  protected readonly avgInvoice = computed(() =>
-    this.invoices().length ? this.revenue() / Math.max(1, this.paidCount()) : 0,
-  );
-
-  protected readonly collected = computed(() =>
-    this.payments().reduce((s, p) => s + num(p.amount), 0),
-  );
-
-  protected readonly paymentCount = computed(() => this.payments().length);
-
-  protected readonly kpis = computed(() => [
-    {
-      label: 'Revenue (paid)',
-      value: money(this.revenue()),
-      icon: 'lucideTrendingUp',
-      trend: `${this.paidCount()} paid invoices`,
-    },
-    {
-      label: 'Outstanding',
-      value: money(this.outstanding()),
-      icon: 'lucideFileText',
-    },
-    { label: 'Overdue', value: money(this.overdue()), icon: 'lucideWallet' },
-    { label: 'Total spent', value: money(this.spent()), icon: 'lucideReceipt' },
-  ]);
-
-  protected readonly byClient = computed(() => {
-    const map: Record<string, number> = {};
-    for (const i of this.invoices()) {
-      map[i.clientId] = (map[i.clientId] || 0) + invoiceTotal(i).total;
-    }
-    const clients = this.clients();
-    const rows = Object.entries(map)
-      .flatMap(([id, total]) => {
-        const client = clients.find((c) => c.id === id);
-        return client ? [{ client, total }] : [];
+  private load(): void {
+    const preset = PERIODS.find((p) => p.id === this.period());
+    this.loading.set(true);
+    this.reportsApi
+      .summary({
+        from: preset?.from?.(),
+        to: preset?.from ? day(new Date()) : undefined,
       })
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 6);
-    const max = rows[0]?.total || 1;
-    return rows.map((r) => ({
-      id: r.client.id,
-      name: r.client.company || r.client.name,
-      amount: money(r.total, r.client.currency),
-      pct: (r.total / max) * 100,
+      .subscribe({
+        next: (summary) => {
+          this.summary.set(summary);
+          this.loading.set(false);
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.toast.error('Could not load reports', apiErrorMessage(err));
+        },
+      });
+  }
+
+  /** Workspace currency — every headline figure is expressed in it. */
+  protected readonly currency = computed(
+    () => this.summary()?.currency ?? 'USD',
+  );
+
+  protected readonly kpis = computed(() => {
+    const s = this.summary();
+    if (!s) return [];
+    return [
+      {
+        label: 'Collected',
+        value: money(s.collected, s.currency),
+        icon: 'lucideTrendingUp',
+        trend: `${s.paymentCount} payments`,
+      },
+      {
+        label: 'Outstanding',
+        value: money(s.outstanding, s.currency),
+        icon: 'lucideFileText',
+        trend: `${s.invoiceCount} invoices in period`,
+      },
+      {
+        label: 'Overdue',
+        value: money(s.overdue, s.currency),
+        icon: 'lucideWallet',
+      },
+      {
+        label: 'Net profit',
+        value: money(s.netProfit, s.currency),
+        icon: 'lucideBanknote',
+        negative: s.netProfit < 0,
+        trend: `${money(s.expenses, s.currency)} spent`,
+      },
+    ];
+  });
+
+  protected readonly months = computed(
+    () => this.summary()?.monthly.map((m) => m.month) ?? [],
+  );
+  protected readonly monthlyCollected = computed(
+    () => this.summary()?.monthly.map((m) => m.collected) ?? [],
+  );
+  protected readonly monthlyExpenses = computed(
+    () => this.summary()?.monthly.map((m) => m.expenses) ?? [],
+  );
+
+  protected readonly topClients = computed(() => {
+    const s = this.summary();
+    if (!s) return [];
+    const max = s.topClients[0]?.invoiced || 1;
+    return s.topClients.map((c) => ({
+      ...c,
+      invoicedLabel: money(c.invoiced, s.currency),
+      collectedLabel: money(c.collected, s.currency),
+      pct: (c.invoiced / max) * 100,
     }));
   });
 
-  protected readonly expByCat = computed(() => {
-    const map: Record<string, number> = {};
-    for (const e of this.expenses()) {
-      map[e.category] = (map[e.category] || 0) + num(e.amount);
-    }
-    const rows = Object.entries(map).sort((a, b) => b[1] - a[1]);
-    const max = Math.max(1, ...rows.map(([, v]) => v));
-    return rows.map(([cat, amt]) => ({
-      cat,
-      amount: money(amt),
-      pct: (amt / max) * 100,
+  protected readonly expenseCategories = computed(() => {
+    const s = this.summary();
+    if (!s) return [];
+    const max = s.expensesByCategory[0]?.amount || 1;
+    return s.expensesByCategory.map((c) => ({
+      ...c,
+      amountLabel: money(c.amount, s.currency),
+      pct: (c.amount / max) * 100,
     }));
   });
+
+  /**
+   * Payments grouped by the currency the customer paid with; the converted
+   * workspace-currency figure leads (workspace takes precedence) and the
+   * original paid-currency amount rides along.
+   */
+  protected readonly paymentCurrencies = computed(() => {
+    const s = this.summary();
+    if (!s) return [];
+    return s.paymentsByCurrency.map((row) => ({
+      ...row,
+      convertedLabel: money(row.converted, s.currency),
+      originalLabel: money(row.amount, row.currency),
+      sameCurrency: row.currency === s.currency,
+    }));
+  });
+
+  protected readonly statusCounts = computed(
+    () => this.summary()?.invoicesByStatus ?? [],
+  );
+
+  protected statusText(status: string): string {
+    return status.replace(/_/g, ' ');
+  }
 
   protected readonly money = money;
 }

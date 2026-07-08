@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -31,6 +31,10 @@ export class LocalStorageService extends StorageService {
       mimeType: file.mimetype,
       originalName: file.originalname,
     };
+  }
+
+  read(key: string): Promise<Buffer> {
+    return readFile(join(this.root, key));
   }
 
   async remove(key: string): Promise<void> {

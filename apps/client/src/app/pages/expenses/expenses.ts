@@ -1,13 +1,18 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { FormField, form, min, minLength, required } from '@angular/forms/signals';
+
+import {
+  FormField,
+  form,
+  min,
+  minLength,
+  required,
+} from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideReceipt, lucideSearch } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';

@@ -2,13 +2,19 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   AuthEvents,
+  DocumentEvents,
   InvoiceEvents,
   PaymentEvents,
+  QuoteEvents,
+  type DocumentSharedEvent,
   type EmailVerificationRequestedEvent,
+  type InvoicePaidEvent,
+  type InvoiceReminderDueEvent,
   type InvoiceSentEvent,
   type LoginOtpRequestedEvent,
   type PasswordResetRequestedEvent,
   type PaymentReceivedEvent,
+  type QuoteSentEvent,
 } from '../common/events';
 import { MailService } from './mail/mail.service';
 import { NotificationService } from './notification.service';
@@ -32,6 +38,40 @@ export class NotificationListener {
       .onInvoiceSent(payload)
       .catch((err) =>
         this.logger.error('invoice.sent notification failed', err),
+      );
+  }
+
+  @OnEvent(InvoiceEvents.PAID, { async: true })
+  handleInvoicePaid(payload: InvoicePaidEvent) {
+    return this.notifications
+      .onInvoicePaid(payload)
+      .catch((err) =>
+        this.logger.error('invoice.paid notification failed', err),
+      );
+  }
+
+  @OnEvent(InvoiceEvents.REMINDER_DUE, { async: true })
+  handleInvoiceReminderDue(payload: InvoiceReminderDueEvent) {
+    return this.notifications
+      .onInvoiceReminderDue(payload)
+      .catch((err) =>
+        this.logger.error('invoice.reminder_due notification failed', err),
+      );
+  }
+
+  @OnEvent(QuoteEvents.SENT, { async: true })
+  handleQuoteSent(payload: QuoteSentEvent) {
+    return this.notifications
+      .onQuoteSent(payload)
+      .catch((err) => this.logger.error('quote.sent notification failed', err));
+  }
+
+  @OnEvent(DocumentEvents.SHARED, { async: true })
+  handleDocumentShared(payload: DocumentSharedEvent) {
+    return this.notifications
+      .onDocumentShared(payload)
+      .catch((err) =>
+        this.logger.error('document.shared notification failed', err),
       );
   }
 
