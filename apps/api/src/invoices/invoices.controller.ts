@@ -24,9 +24,14 @@ import { requestBaseUrl } from '../common/http/request-base-url';
 import { ApiPaginatedResponse } from '../common/swagger/api-paginated-response.decorator';
 import { CurrentUser } from '../identity/auth/decorators/current-user.decorator';
 import { JwtAuthGuard, JwtPayload } from '../identity/auth/jwt-auth.guard';
+import { ListTimelineQueryDto } from '../reconciliation/dto/list-timeline-query.dto';
+import { ReconciliationEntryEntity } from '../reconciliation/entities/reconciliation-entry.entity';
+import { ReconciliationService } from '../reconciliation/reconciliation.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
+import { ExchangeRatesQueryDto } from './dto/exchange-rates-query.dto';
 import { ListInvoicesQueryDto } from './dto/list-invoices-query.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
+import { ExchangeRatesEntity } from './entities/exchange-rates.entity';
 import { InvoiceEntity } from './entities/invoice.entity';
 import { InvoicesService } from './invoices.service';
 
@@ -35,7 +40,10 @@ import { InvoicesService } from './invoices.service';
 @UseGuards(JwtAuthGuard)
 @Controller('invoices')
 export class InvoicesController {
-  constructor(private readonly invoicesService: InvoicesService) {}
+  constructor(
+    private readonly invoicesService: InvoicesService,
+    private readonly reconciliation: ReconciliationService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create an invoice with line items' })
@@ -56,11 +64,28 @@ export class InvoicesController {
     return this.invoicesService.findAll(user.sub, query, requestBaseUrl(req));
   }
 
+  @Get('exchange-rates')
+  @ApiOperation({
+    summary: 'Conversion rates into the workspace currency',
+    description:
+      'Rates from every supported currency into the default workspace currency (or ?target=), for normalizing mixed-currency amounts.',
+  })
+  @ApiOkResponse({ type: ExchangeRatesEntity })
+  exchangeRates(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ExchangeRatesQueryDto,
+  ) {
+    return this.invoicesService.exchangeRates(user.sub, query.target);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get an invoice' })
   @ApiOkResponse({ type: InvoiceEntity })
   @ApiNotFoundResponse()
-  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.invoicesService.findOne(user.sub, id);
   }
 
@@ -80,7 +105,10 @@ export class InvoicesController {
   @ApiOperation({ summary: 'Delete an invoice' })
   @ApiOkResponse({ type: InvoiceEntity })
   @ApiNotFoundResponse()
-  remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.invoicesService.remove(user.sub, id);
   }
 
@@ -88,7 +116,38 @@ export class InvoicesController {
   @ApiOperation({ summary: 'Mark the invoice sent and email it to the client' })
   @ApiOkResponse({ type: InvoiceEntity })
   @ApiNotFoundResponse()
-  send(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  send(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.invoicesService.send(user.sub, id);
+  }
+
+  @Get(':id/timeline')
+  @ApiOperation({
+    summary: 'Reconciliation timeline for the invoice (cursor paginated)',
+    description:
+      'Every payment applied, adjusted or reversed against this invoice, with the balances after each entry. Pass includeProject=true to also include entries from the rest of the linked project.',
+  })
+  @ApiPaginatedResponse(ReconciliationEntryEntity)
+  @ApiNotFoundResponse()
+  async timeline(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ListTimelineQueryDto,
+    @Req() req: Request,
+  ) {
+    const invoice = await this.invoicesService.findOne(user.sub, id);
+    return this.reconciliation.timeline(
+      user.sub,
+      {
+        invoiceId: id,
+        ...(query.includeProject && invoice.projectId
+          ? { projectId: invoice.projectId }
+          : {}),
+      },
+      query,
+      requestBaseUrl(req),
+    );
   }
 }

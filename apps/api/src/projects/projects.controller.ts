@@ -24,6 +24,9 @@ import { requestBaseUrl } from '../common/http/request-base-url';
 import { ApiPaginatedResponse } from '../common/swagger/api-paginated-response.decorator';
 import { CurrentUser } from '../identity/auth/decorators/current-user.decorator';
 import { JwtAuthGuard, JwtPayload } from '../identity/auth/jwt-auth.guard';
+import { ListTimelineQueryDto } from '../reconciliation/dto/list-timeline-query.dto';
+import { ReconciliationEntryEntity } from '../reconciliation/entities/reconciliation-entry.entity';
+import { ReconciliationService } from '../reconciliation/reconciliation.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects-query.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -35,7 +38,10 @@ import { ProjectsService } from './projects.service';
 @UseGuards(JwtAuthGuard)
 @Controller('projects')
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly reconciliation: ReconciliationService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a project for a client' })
@@ -60,7 +66,10 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Get a project' })
   @ApiOkResponse({ type: ProjectEntity })
   @ApiNotFoundResponse()
-  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.projectsService.findOne(user.sub, id);
   }
 
@@ -80,7 +89,33 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Delete a project' })
   @ApiOkResponse({ type: ProjectEntity })
   @ApiNotFoundResponse()
-  remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.projectsService.remove(user.sub, id);
+  }
+
+  @Get(':id/timeline')
+  @ApiOperation({
+    summary: 'Reconciliation timeline for the project (cursor paginated)',
+    description:
+      'Every payment applied, adjusted or reversed across the project invoices, with invoice and project balances after each entry.',
+  })
+  @ApiPaginatedResponse(ReconciliationEntryEntity)
+  @ApiNotFoundResponse()
+  async timeline(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ListTimelineQueryDto,
+    @Req() req: Request,
+  ) {
+    await this.projectsService.findOne(user.sub, id);
+    return this.reconciliation.timeline(
+      user.sub,
+      { projectId: id },
+      query,
+      requestBaseUrl(req),
+    );
   }
 }

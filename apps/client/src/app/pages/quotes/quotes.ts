@@ -6,10 +6,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+
 import { FormField, form, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus, lucideSearch } from '@ng-icons/lucide';
+import { lucidePlus, lucideSearch, lucideSend } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
@@ -86,7 +86,7 @@ const emptyQuote = (): QuoteForm => ({
     PageHeader,
     StatusBadge,
   ],
-  providers: [provideIcons({ lucidePlus, lucideSearch })],
+  providers: [provideIcons({ lucidePlus, lucideSearch, lucideSend })],
   templateUrl: './quotes.html',
 })
 export class Quotes {
@@ -102,6 +102,7 @@ export class Quotes {
   protected readonly statusFilter = signal('all');
   protected readonly sheetOpen = signal(false);
   protected readonly saving = signal(false);
+  protected readonly sending = signal(false);
   protected isNew = true;
 
   protected readonly model = signal<QuoteForm>(emptyQuote());
@@ -245,6 +246,29 @@ export class Quotes {
       error: (err) => {
         this.saving.set(false);
         this.toast.error('Could not save quote', apiErrorMessage(err));
+      },
+    });
+  }
+
+  /** Emails the quote (with PDF) to the client and marks it sent. */
+  protected sendCurrent(): void {
+    if (this.isNew || this.sending()) return;
+    this.sending.set(true);
+    this.quotesApi.send(this.model().id).subscribe({
+      next: (quote) => {
+        this.sending.set(false);
+        this.quotes.update((list) =>
+          list.map((q) => (q.id === quote.id ? quote : q)),
+        );
+        this.sheetOpen.set(false);
+        this.toast.success(
+          'Quote sent',
+          `${quote.number} was emailed to the client.`,
+        );
+      },
+      error: (err) => {
+        this.sending.set(false);
+        this.toast.error('Could not send quote', apiErrorMessage(err));
       },
     });
   }

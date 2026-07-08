@@ -35,7 +35,9 @@ enum InvoiceStatus {
   draft
   sent
   viewed
+  partially_paid
   paid
+  overpaid
   overdue
   cancelled
 }
@@ -75,6 +77,19 @@ enum DocumentType {
   other
 }
 
+enum ReconciliationKind {
+  payment_applied
+  payment_reversed
+}
+
+enum NotificationKind {
+  invoice_sent
+  invoice_paid
+  invoice_reminder
+  quote_sent
+  document_shared
+}
+
 model User {
   id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email           String      @unique
@@ -82,21 +97,45 @@ model User {
   passwordHash    String
   otpSecret       String?
   emailVerifiedAt DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   workspaces      Workspace[]
+  notifications   Notification[]
 
   @@map("users")
 }
 
+/// In-app notification shown behind the header bell; created when an email
+/// (invoice, quote, reminder, shared document) is successfully delivered.
+model Notification {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind       NotificationKind @default(invoice_sent)
+  title      String
+  body       String
+  /// Id of the entity the notification points at (invoice, quote or document).
+  resourceId String?          @db.Uuid
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
 model Workspace {
-  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String       @db.VarChar(500)
-  slug      String       @db.VarChar(500)
-  currency  Currency     @default(USD)
-  status    ClientStatus @default(active)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String       @db.VarChar(500)
+  slug               String       @db.VarChar(500)
+  currency           Currency     @default(USD)
+  status             ClientStatus @default(active)
+  /// Invoice due-date reminder emails on/off for this workspace.
+  remindersEnabled   Boolean      @default(false)
+  /// How many days before the due date reminders start (also the re-send throttle).
+  reminderDaysBefore Int          @default(3)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   ownerId String   @db.Uuid
   owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -144,34 +183,38 @@ model Project {
   clientId String @db.Uuid
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  invoices  Invoice[]
-  expenses  Expense[]
-  documents Document[]
+  invoices        Invoice[]
+  expenses        Expense[]
+  documents       Document[]
+  reconciliations ReconciliationEntry[]
 
   @@index([clientId])
   @@map("projects")
 }
 
 model Invoice {
-  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  number    String        @unique
-  status    InvoiceStatus @default(draft)
-  issueDate DateTime
-  dueDate   DateTime
-  currency  Currency      @default(USD)
-  taxRate   Decimal       @default(0) @db.Decimal(5, 2)
-  discount  Decimal       @default(0) @db.Decimal(12, 2)
-  notes     String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number         String        @unique
+  status         InvoiceStatus @default(draft)
+  issueDate      DateTime
+  dueDate        DateTime
+  currency       Currency      @default(USD)
+  taxRate        Decimal       @default(0) @db.Decimal(5, 2)
+  discount       Decimal       @default(0) @db.Decimal(12, 2)
+  notes          String?
+  /// Last time a due/overdue reminder email went out (reminder throttle).
+  lastRemindedAt DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   clientId  String   @db.Uuid
   client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   projectId String?  @db.Uuid
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  items    InvoiceItem[]
-  payments Payment[]
+  items           InvoiceItem[]
+  payments        Payment[]
+  reconciliations ReconciliationEntry[]
 
   @@index([clientId])
   @@index([status])
@@ -240,8 +283,38 @@ model Payment {
   invoiceId String?  @db.Uuid
   invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
+  reconciliations ReconciliationEntry[]
+
   @@index([clientId])
   @@map("payments")
+}
+
+/// Immutable ledger of how payments settle invoice and project balances.
+/// An entry keeps both links so the same timeline is viewable from the
+/// invoice, the project, or both.
+model ReconciliationEntry {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind           ReconciliationKind @default(payment_applied)
+  /// Payment amount applied (positive) or reversed (negative).
+  amount         Decimal            @db.Decimal(12, 2)
+  currency       Currency           @default(USD)
+  /// Amount still owed on the invoice after this entry.
+  invoiceBalance Decimal?           @db.Decimal(12, 2)
+  /// Project budget remaining after this entry (budget - payments received).
+  projectBalance Decimal?           @db.Decimal(12, 2)
+  note           String?
+  createdAt      DateTime           @default(now())
+
+  paymentId String?  @db.Uuid
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  invoiceId String?  @db.Uuid
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  projectId String?  @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([projectId])
+  @@map("reconciliation_entries")
 }
 
 model Expense {

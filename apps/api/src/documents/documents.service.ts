@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClientsService } from '../clients/clients.service';
-import { FileEvents } from '../common/events';
+import { DocumentEvents, FileEvents } from '../common/events';
 import {
   PaginationRes,
   PaginationService,
@@ -103,6 +107,32 @@ export class DocumentsService {
     if (dto.clientId) await this.clients.findOne(ownerId, dto.clientId);
     if (dto.projectId) await this.projects.findOne(ownerId, dto.projectId);
     return this.prisma.document.update({ where: { id }, data: dto });
+  }
+
+  /** The document plus its stored bytes, for downloads and previews. */
+  async download(
+    ownerId: string,
+    id: string,
+  ): Promise<{ document: Document; content: Buffer }> {
+    const document = await this.findOne(ownerId, id);
+    const content = await this.storage.read(document.storageKey);
+    return { document, content };
+  }
+
+  /**
+   * Emails the document to the client it belongs to (attachment); the
+   * notification pipeline sends the mail and records the in-app notice.
+   */
+  async share(ownerId: string, id: string): Promise<Document> {
+    const document = await this.findOne(ownerId, id);
+    if (!document.clientId) {
+      throw new BadRequestException(
+        'Document is not linked to a client — link it before sharing',
+      );
+    }
+    const client = await this.clients.findOne(ownerId, document.clientId);
+    this.events.emit(DocumentEvents.SHARED, { document, client });
+    return document;
   }
 
   /** Deletes the metadata record and the stored file. */

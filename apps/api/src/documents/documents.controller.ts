@@ -4,18 +4,22 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
@@ -24,10 +28,11 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { requestBaseUrl } from '../common/http/request-base-url';
 import { ApiPaginatedResponse } from '../common/swagger/api-paginated-response.decorator';
 import { CurrentUser } from '../identity/auth/decorators/current-user.decorator';
@@ -110,5 +115,62 @@ export class DocumentsController {
   @ApiNotFoundResponse()
   remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.documentsService.remove(user.sub, id);
+  }
+
+  @Get(':id/download')
+  @ApiOperation({ summary: 'Download the stored file' })
+  @ApiProduces('application/octet-stream')
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  @ApiNotFoundResponse()
+  async downloadFile(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.file(user.sub, id, res, 'attachment');
+  }
+
+  @Get(':id/preview')
+  @ApiOperation({
+    summary: 'Preview the stored file inline (browser viewer for PDFs/images)',
+  })
+  @ApiProduces('application/octet-stream')
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  @ApiNotFoundResponse()
+  @Header('Cache-Control', 'private, max-age=60')
+  async previewFile(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.file(user.sub, id, res, 'inline');
+  }
+
+  @Post(':id/share')
+  @ApiOperation({
+    summary: "Email the document to its client as an attachment",
+  })
+  @ApiOkResponse({ type: DocumentEntity })
+  @ApiBadRequestResponse({ description: 'Document has no linked client' })
+  @ApiNotFoundResponse()
+  share(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.documentsService.share(user.sub, id);
+  }
+
+  private async file(
+    ownerId: string,
+    id: string,
+    res: Response,
+    disposition: 'attachment' | 'inline',
+  ): Promise<StreamableFile> {
+    const { document, content } = await this.documentsService.download(
+      ownerId,
+      id,
+    );
+    res.set({
+      'Content-Type': document.mimeType ?? 'application/octet-stream',
+      'Content-Disposition': `${disposition}; filename="${encodeURIComponent(document.name)}"`,
+    });
+    return new StreamableFile(content);
   }
 }

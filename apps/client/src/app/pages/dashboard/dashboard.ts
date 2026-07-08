@@ -21,9 +21,21 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../../domains/auth';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
 import { Expense, ExpensesApiService } from '../../domains/expenses';
-import { Invoice, InvoicesApiService } from '../../domains/invoices';
+import {
+  ExchangeRates,
+  Invoice,
+  InvoicesApiService,
+} from '../../domains/invoices';
 import { Payment, PaymentsApiService } from '../../domains/payments';
-import { invoiceTotal, isoDay, money, num } from '../../domains/shared';
+import { DatePipe } from '@angular/common';
+import {
+  Currency,
+  invoiceTotal,
+  isoDay,
+  money,
+  num,
+} from '../../domains/shared';
+import { Workspace, WorkspacesApiService } from '../../domains/workspaces';
 import { StatusBadge } from '../../shared/status-badge';
 import { RevenueChart } from './revenue-chart';
 
@@ -42,7 +54,7 @@ const OPEN_STATUSES = ['sent', 'viewed', 'overdue'];
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgIcon, HlmButton, RouterLink, StatusBadge, RevenueChart],
+  imports: [NgIcon, DatePipe, HlmButton, RouterLink, StatusBadge, RevenueChart],
   providers: [
     provideIcons({
       lucideArrowDownRight,
@@ -62,13 +74,24 @@ export class Dashboard {
   private readonly paymentsApi = inject(PaymentsApiService);
   private readonly clientsApi = inject(ClientsApiService);
   private readonly expensesApi = inject(ExpensesApiService);
+  private readonly workspacesApi = inject(WorkspacesApiService);
 
   private readonly invoices = signal<Invoice[]>([]);
   private readonly payments = signal<Payment[]>([]);
   private readonly clients = signal<ApiClient[]>([]);
   private readonly expenses = signal<Expense[]>([]);
+  private readonly workspace = signal<Workspace | null>(null);
+  private readonly rates = signal<ExchangeRates | null>(null);
 
   constructor() {
+    this.workspacesApi.getDefault().subscribe({
+      next: (ws) => this.workspace.set(ws),
+      error: () => undefined,
+    });
+    this.invoicesApi.exchangeRates().subscribe({
+      next: (rates) => this.rates.set(rates),
+      error: () => undefined,
+    });
     this.invoicesApi.list({ take: 100 }).subscribe({
       next: (r) => this.invoices.set(r.results),
       error: () => undefined,
@@ -93,9 +116,34 @@ export class Dashboard {
     day: 'numeric',
   });
 
+  protected readonly greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  })();
+
   protected readonly firstName = computed(
     () => (this.auth.user()?.name || 'there').split(' ')[0],
   );
+
+  /** Display currency: the workspace default. */
+  private readonly wsCurrency = computed<Currency>(
+    () => this.workspace()?.currency ?? 'USD',
+  );
+
+  /**
+   * Converts an amount into the workspace currency; falls back to the raw
+   * amount until the rates arrive (or if the rate service is down).
+   */
+  private toWs(amount: number, currency: Currency): number {
+    const rates = this.rates();
+    return amount * (rates?.rates?.[currency] ?? 1);
+  }
+
+  private invoiceTotalWs(inv: Invoice): number {
+    return this.toWs(invoiceTotal(inv).total, inv.currency);
+  }
 
   protected readonly dueThisWeek = computed(() => {
     const now = Date.now();
@@ -113,35 +161,48 @@ export class Dashboard {
 
   protected readonly kpis = computed(() => {
     const invoices = this.invoices();
+    const currency = this.wsCurrency();
     const open = invoices.filter((i) => OPEN_STATUSES.includes(i.status));
     const overdue = invoices.filter((i) => i.status === 'overdue');
     const paid = invoices.filter((i) => i.status === 'paid');
-    const collected = this.payments().reduce((s, p) => s + num(p.amount), 0);
+    const collected = this.payments().reduce(
+      (s, p) => s + this.toWs(num(p.amount), p.currency),
+      0,
+    );
     return [
       {
         label: 'Revenue (paid)',
-        value: money(paid.reduce((s, i) => s + invoiceTotal(i).total, 0)),
+        value: money(
+          paid.reduce((s, i) => s + this.invoiceTotalWs(i), 0),
+          currency,
+        ),
         delta: `${paid.length} invoices`,
         trend: 'up' as const,
         hint: 'All time',
       },
       {
         label: 'Outstanding',
-        value: money(open.reduce((s, i) => s + invoiceTotal(i).total, 0)),
+        value: money(
+          open.reduce((s, i) => s + this.invoiceTotalWs(i), 0),
+          currency,
+        ),
         delta: `${open.length} invoices`,
         trend: 'neutral' as const,
         hint: 'Awaiting payment',
       },
       {
         label: 'Overdue',
-        value: money(overdue.reduce((s, i) => s + invoiceTotal(i).total, 0)),
+        value: money(
+          overdue.reduce((s, i) => s + this.invoiceTotalWs(i), 0),
+          currency,
+        ),
         delta: `${overdue.length} invoices`,
         trend: overdue.length ? ('down' as const) : ('neutral' as const),
         hint: 'Needs follow-up',
       },
       {
         label: 'Collected',
-        value: money(collected),
+        value: money(collected, currency),
         delta: `${this.payments().length} payments`,
         trend: 'up' as const,
         hint: 'All time',
@@ -165,12 +226,18 @@ export class Dashboard {
     for (const p of this.payments()) {
       const key = isoDay(p.date).slice(0, 7);
       if (revenue.has(key))
-        revenue.set(key, (revenue.get(key) || 0) + num(p.amount));
+        revenue.set(
+          key,
+          (revenue.get(key) || 0) + this.toWs(num(p.amount), p.currency),
+        );
     }
     for (const e of this.expenses()) {
       const key = isoDay(e.date).slice(0, 7);
       if (expenses.has(key))
-        expenses.set(key, (expenses.get(key) || 0) + num(e.amount));
+        expenses.set(
+          key,
+          (expenses.get(key) || 0) + this.toWs(num(e.amount), e.currency),
+        );
     }
     return {
       months: months.map((m) => m.label),

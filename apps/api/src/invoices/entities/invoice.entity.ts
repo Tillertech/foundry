@@ -35,6 +35,13 @@ export class InvoiceEntity {
   @ApiPropertyOptional({ nullable: true, type: String })
   notes: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    type: Date,
+    description: 'Last time a due/overdue reminder email went out',
+  })
+  lastRemindedAt: Date | null;
+
   @ApiProperty({ format: 'uuid' })
   clientId: string;
 

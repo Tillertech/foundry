@@ -6,16 +6,19 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+
 import { FormField, form, minLength } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChartColumn,
+  lucideDownload,
+  lucideEye,
   lucideFileText,
   lucideFolderOpen,
   lucidePlus,
   lucideReceiptText,
   lucideSearch,
+  lucideSend,
   lucideShieldCheck,
   lucideUpload,
 } from '@ng-icons/lucide';
@@ -84,11 +87,14 @@ const typeLabels: Record<DocumentType, { label: string; icon: string }> = {
   providers: [
     provideIcons({
       lucideChartColumn,
+      lucideDownload,
+      lucideEye,
       lucideFileText,
       lucideFolderOpen,
       lucidePlus,
       lucideReceiptText,
       lucideSearch,
+      lucideSend,
       lucideShieldCheck,
       lucideUpload,
     }),
@@ -111,6 +117,8 @@ export class Documents {
   protected readonly sheetOpen = signal(false);
   protected readonly saving = signal(false);
   protected readonly selectedFile = signal<File | null>(null);
+  /** Id of the document currently being shared, for per-card button state. */
+  protected readonly sharing = signal<string | null>(null);
   protected isNew = true;
 
   protected readonly model = signal<DocumentForm>(emptyDoc());
@@ -254,6 +262,63 @@ export class Documents {
       },
       error: (err) =>
         this.toast.error('Could not delete document', apiErrorMessage(err)),
+    });
+  }
+
+  /** Opens the file inline in a new tab (browser viewer for PDFs/images). */
+  protected previewDoc(d: ApiDocument, event: Event): void {
+    event.stopPropagation();
+    this.documentsApi.preview(d.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: (err) =>
+        this.toast.error('Could not preview document', apiErrorMessage(err)),
+    });
+  }
+
+  protected downloadDoc(d: ApiDocument, event: Event): void {
+    event.stopPropagation();
+    this.documentsApi.download(d.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = d.name;
+        anchor.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err) =>
+        this.toast.error('Could not download document', apiErrorMessage(err)),
+    });
+  }
+
+  /** Emails the document to its linked client as an attachment. */
+  protected shareDoc(d: ApiDocument, event: Event): void {
+    event.stopPropagation();
+    if (!d.clientId) {
+      this.toast.error(
+        'No client linked',
+        'Link the document to a client before sharing it.',
+      );
+      return;
+    }
+    if (this.sharing()) return;
+    this.sharing.set(d.id);
+    this.documentsApi.share(d.id).subscribe({
+      next: () => {
+        this.sharing.set(null);
+        this.toast.success(
+          'Document shared',
+          `${d.name} was emailed to ${this.clientName(d.clientId)}.`,
+        );
+      },
+      error: (err) => {
+        this.sharing.set(null);
+        this.toast.error('Could not share document', apiErrorMessage(err));
+      },
     });
   }
 

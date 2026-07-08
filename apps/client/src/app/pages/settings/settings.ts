@@ -7,6 +7,7 @@ import {
 import { FormField, form, minLength, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideBellRing,
   lucideBuilding2,
   lucideCheck,
   lucideMonitor,
@@ -17,6 +18,7 @@ import {
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
+import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { apiErrorMessage } from '../../core/http';
 import { Currency } from '../../domains/shared';
 import { Workspace, WorkspacesApiService } from '../../domains/workspaces';
@@ -36,9 +38,18 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
 @Component({
   selector: 'app-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormField, NgIcon, HlmButton, HlmInput, HlmSelectImports, Field],
+  imports: [
+    FormField,
+    NgIcon,
+    HlmButton,
+    HlmInput,
+    HlmSelectImports,
+    HlmSwitchImports,
+    Field,
+  ],
   providers: [
     provideIcons({
+      lucideBellRing,
       lucideBuilding2,
       lucideCheck,
       lucideMonitor,
@@ -59,9 +70,16 @@ export class Settings {
   protected readonly workspace = signal<Workspace | null>(null);
   protected readonly savingWorkspace = signal(false);
 
-  protected readonly model = signal<{ name: string; currency: Currency }>({
+  protected readonly model = signal<{
+    name: string;
+    currency: Currency;
+    remindersEnabled: boolean;
+    reminderDaysBefore: number;
+  }>({
     name: '',
     currency: 'USD',
+    remindersEnabled: false,
+    reminderDaysBefore: 3,
   });
   protected readonly f = form(this.model, (p) => {
     required(p.name, { message: 'Workspace name is required' });
@@ -81,7 +99,12 @@ export class Settings {
     this.workspacesApi.getDefault().subscribe({
       next: (ws) => {
         this.workspace.set(ws);
-        this.model.set({ name: ws.name, currency: ws.currency });
+        this.model.set({
+          name: ws.name,
+          currency: ws.currency,
+          remindersEnabled: ws.remindersEnabled,
+          reminderDaysBefore: ws.reminderDaysBefore,
+        });
       },
       error: () => undefined,
     });
@@ -96,6 +119,12 @@ export class Settings {
       .update(ws.id, {
         name: v.name.trim(),
         currency: v.currency,
+        remindersEnabled: v.remindersEnabled,
+        // API accepts 1–30 days; clamp what the number input lets through.
+        reminderDaysBefore: Math.min(
+          30,
+          Math.max(1, Math.round(v.reminderDaysBefore) || 3),
+        ),
       })
       .subscribe({
         next: (updated) => {

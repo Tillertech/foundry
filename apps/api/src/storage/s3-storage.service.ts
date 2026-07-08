@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { extname } from 'node:path';
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -47,6 +48,14 @@ export class S3StorageService extends StorageService {
       mimeType: file.mimetype,
       originalName: file.originalname,
     };
+  }
+
+  async read(key: string): Promise<Buffer> {
+    const result = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    const bytes = await result.Body?.transformToByteArray();
+    return Buffer.from(bytes ?? []);
   }
 
   async remove(key: string): Promise<void> {

@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE, toParams } from '../../core/http/api-base';
 import { PaginatedResponse } from '../../core/http/api.types';
+import { ReconciliationEntry } from '../shared/models';
 import {
   CreateProjectRequest,
   ListProjectsQuery,
@@ -35,5 +36,16 @@ export class ProjectsApiService {
 
   delete(id: string): Observable<Project> {
     return this.http.delete<Project>(`${this.base}/${id}`);
+  }
+
+  /** Payment reconciliation timeline across all the project's invoices. */
+  timeline(
+    id: string,
+    query?: { take?: number },
+  ): Observable<PaginatedResponse<ReconciliationEntry>> {
+    return this.http.get<PaginatedResponse<ReconciliationEntry>>(
+      `${this.base}/${id}/timeline`,
+      { params: toParams(query as Record<string, unknown>) },
+    );
   }
 }

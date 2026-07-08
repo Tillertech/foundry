@@ -1,5 +1,5 @@
 import { CursorService } from './cursor.service';
-import { PaginationService } from './pagination.service.spec';
+import { PaginationService } from './pagination.service';
 
 describe('PaginationService', () => {
   let service: PaginationService;

@@ -10,5 +10,7 @@ export interface StoredFile {
 
 export abstract class StorageService {
   abstract upload(file: Express.Multer.File): Promise<StoredFile>;
+  /** Contents of a stored file, for downloads and mail attachments. */
+  abstract read(key: string): Promise<Buffer>;
   abstract remove(key: string): Promise<void>;
 }

@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 
 const tones: Record<string, string> = {
   paid: 'bg-success/12 text-success ring-success/20',
+  overpaid: 'bg-success/12 text-success ring-success/20',
+  partially_paid: 'bg-warning/12 text-warning ring-warning/20',
   accepted: 'bg-success/12 text-success ring-success/20',
   active: 'bg-success/12 text-success ring-success/20',
   completed: 'bg-success/12 text-success ring-success/20',

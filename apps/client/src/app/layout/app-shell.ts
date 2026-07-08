@@ -5,7 +5,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -32,6 +32,7 @@ import {
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { AuthService } from '../domains/auth';
+import { NotificationsMenu } from './notifications-menu';
 import { ApiClient, ClientsApiService } from '../domains/clients';
 import { ThemeService } from '../core/theme.service';
 
@@ -45,7 +46,14 @@ interface NavItem {
 @Component({
   selector: 'app-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, NgIcon, HlmButton],
+  imports: [
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    NgIcon,
+    HlmButton,
+    NotificationsMenu,
+  ],
   providers: [
     provideIcons({
       lucideBell,
@@ -119,6 +127,7 @@ export class AppShell {
   ];
 
   /** Bottom nav shows the first four; the rest live behind the "More" drawer. */
+  // todo: add logout
   protected readonly primaryNav = this.nav.slice(0, 4);
   protected readonly moreNav = this.nav.slice(4);
 

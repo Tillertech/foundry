@@ -186,6 +186,15 @@
       <app-field label="Description">
         <textarea hlmTextarea rows="3" class="w-full" [formField]="f.description"></textarea>
       </app-field>
+
+      @if (!isNew) {
+        <div class="rounded-lg border border-border p-4">
+          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Payment timeline
+          </p>
+          <app-reconciliation-timeline [projectId]="model().id" />
+        </div>
+      }
     </div>
   </app-entity-sheet>
 </div>

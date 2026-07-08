@@ -83,4 +83,12 @@ export class QuotesController {
   remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.quotesService.remove(user.sub, id);
   }
+
+  @Post(':id/send')
+  @ApiOperation({ summary: 'Mark the quote sent and email it to the client' })
+  @ApiOkResponse({ type: QuoteEntity })
+  @ApiNotFoundResponse()
+  send(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.quotesService.send(user.sub, id);
+  }
 }

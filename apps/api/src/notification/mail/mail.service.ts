@@ -23,6 +23,33 @@ export interface InvoiceMailContext {
   tax: string;
   total: string;
   notes: string;
+  /** Total actually received against the invoice (settlement mails). */
+  amountPaid: string;
+  /** Amount received beyond the total; empty string when not overpaid. */
+  overpaidBy: string;
+}
+
+export interface QuoteMailContext {
+  clientName: string;
+  workspaceName: string;
+  number: string;
+  issueDate: string;
+  validUntil: string;
+  currency: string;
+  items: InvoiceMailLineItem[];
+  subtotal: string;
+  taxRate: string;
+  tax: string;
+  total: string;
+  notes: string;
+}
+
+export interface DocumentMailContext {
+  clientName: string;
+  workspaceName: string;
+  documentName: string;
+  documentType: string;
+  notes: string;
 }
 
 interface Attachment {
@@ -85,8 +112,12 @@ export class MailService {
     );
   }
 
-  async sendInvoice(to: string, context: InvoiceMailContext, pdf?: Buffer) {
-    await this.send(
+  sendInvoice(
+    to: string,
+    context: InvoiceMailContext,
+    pdf?: Buffer,
+  ): Promise<boolean> {
+    return this.send(
       to,
       `Invoice ${context.number} from ${context.workspaceName}`,
       'invoice-sent',
@@ -95,8 +126,8 @@ export class MailService {
     );
   }
 
-  async sendInvoicePaid(to: string, context: InvoiceMailContext) {
-    await this.send(
+  sendInvoicePaid(to: string, context: InvoiceMailContext): Promise<boolean> {
+    return this.send(
       to,
       `Payment received for invoice ${context.number}`,
       'invoice-paid',
@@ -104,8 +135,11 @@ export class MailService {
     );
   }
 
-  async sendInvoiceReminder(to: string, context: InvoiceMailContext) {
-    await this.send(
+  sendInvoiceReminder(
+    to: string,
+    context: InvoiceMailContext,
+  ): Promise<boolean> {
+    return this.send(
       to,
       `Reminder: invoice ${context.number} is due`,
       'invoice-reminder',
@@ -113,13 +147,42 @@ export class MailService {
     );
   }
 
+  sendQuote(
+    to: string,
+    context: QuoteMailContext,
+    pdf?: Buffer,
+  ): Promise<boolean> {
+    return this.send(
+      to,
+      `Quote ${context.number} from ${context.workspaceName}`,
+      'quote-sent',
+      { ...context },
+      pdf ? [{ filename: `${context.number}.pdf`, content: pdf }] : undefined,
+    );
+  }
+
+  sendDocument(
+    to: string,
+    context: DocumentMailContext,
+    attachment: Attachment,
+  ): Promise<boolean> {
+    return this.send(
+      to,
+      `${context.documentName} from ${context.workspaceName}`,
+      'document-shared',
+      { ...context },
+      [attachment],
+    );
+  }
+
+  /** Resolves true when the transport accepted the mail, false otherwise. */
   private async send(
     to: string,
     subject: string,
     template: string,
     context: Record<string, unknown>,
     attachments?: Attachment[],
-  ) {
+  ): Promise<boolean> {
     try {
       await this.mailerService.sendMail({
         to,
@@ -129,10 +192,12 @@ export class MailService {
         attachments,
       });
       this.logger.log(`Email sent  ${to} | ${subject}`);
+      return true;
     } catch (err) {
       this.logger.error(
         `Email failed  ${to} | ${subject} | ${(err as Error).message}`,
       );
+      return false;
     }
   }
 }

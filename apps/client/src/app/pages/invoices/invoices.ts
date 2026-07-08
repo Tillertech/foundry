@@ -1,12 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
 import { FormField, form, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideSearch, lucideSend } from '@ng-icons/lucide';
@@ -24,6 +22,7 @@ import {
   UpdateInvoiceRequest,
 } from '../../domains/invoices';
 import { Project, ProjectsApiService } from '../../domains/projects';
+import { Workspace, WorkspacesApiService } from '../../domains/workspaces';
 import {
   Currency,
   invoiceTotal,
@@ -41,6 +40,7 @@ import { fieldError } from '../../shared/field-error';
 import { LineItemDraft, LineItemsEditor } from '../../shared/line-items-editor';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
+import { ReconciliationTimeline } from '../../shared/reconciliation-timeline';
 import { StatusBadge } from '../../shared/status-badge';
 
 interface InvoiceForm {
@@ -89,6 +89,7 @@ const emptyInvoice = (): InvoiceForm => ({
     LineItemsEditor,
     ListSkeleton,
     PageHeader,
+    ReconciliationTimeline,
     StatusBadge,
   ],
   providers: [provideIcons({ lucidePlus, lucideSearch, lucideSend })],
@@ -98,12 +99,15 @@ export class Invoices {
   private readonly invoicesApi = inject(InvoicesApiService);
   private readonly clientsApi = inject(ClientsApiService);
   private readonly projectsApi = inject(ProjectsApiService);
+  private readonly workspacesApi = inject(WorkspacesApiService);
   private readonly toast = inject(ToastService);
 
   protected readonly loading = signal(true);
   protected readonly invoices = signal<Invoice[]>([]);
   protected readonly clients = signal<ApiClient[]>([]);
   private readonly projects = signal<Project[]>([]);
+  /** Default workspace: reminder cadence for the reminder column. */
+  protected readonly workspace = signal<Workspace | null>(null);
 
   protected readonly query = signal('');
   protected readonly statusFilter = signal('all');
@@ -142,6 +146,10 @@ export class Invoices {
       next: (res) => this.projects.set(res.results),
       error: () => undefined,
     });
+    this.workspacesApi.getDefault().subscribe({
+      next: (ws) => this.workspace.set(ws),
+      error: () => undefined,
+    });
   }
 
   protected readonly clientMap = computed(() =>
@@ -152,7 +160,9 @@ export class Invoices {
     draft: 'Draft',
     sent: 'Sent',
     viewed: 'Viewed',
+    partially_paid: 'Partially paid',
     paid: 'Paid',
+    overpaid: 'Overpaid',
     overdue: 'Overdue',
     cancelled: 'Cancelled',
   };
@@ -181,7 +191,9 @@ export class Invoices {
           (!term ||
             i.number.toLowerCase().includes(term) ||
             (clientMap[i.clientId]?.name || '').toLowerCase().includes(term) ||
-            (clientMap[i.clientId]?.company || '').toLowerCase().includes(term)),
+            (clientMap[i.clientId]?.company || '')
+              .toLowerCase()
+              .includes(term)),
       )
       .slice()
       .sort((a, b) => (a.issueDate < b.issueDate ? 1 : -1));
@@ -189,7 +201,12 @@ export class Invoices {
 
   protected readonly totalOutstanding = computed(() =>
     this.filtered()
-      .filter((i) => i.status === 'sent' || i.status === 'viewed' || i.status === 'overdue')
+      .filter(
+        (i) =>
+          i.status === 'sent' ||
+          i.status === 'viewed' ||
+          i.status === 'overdue',
+      )
       .reduce((s, i) => s + invoiceTotal(i).total, 0),
   );
 
@@ -294,7 +311,10 @@ export class Invoices {
           list.map((i) => (i.id === invoice.id ? invoice : i)),
         );
         this.sheetOpen.set(false);
-        this.toast.success('Invoice sent', `${invoice.number} was emailed to the client.`);
+        this.toast.success(
+          'Invoice sent',
+          `${invoice.number} was emailed to the client.`,
+        );
       },
       error: (err) => {
         this.sending.set(false);
@@ -337,6 +357,28 @@ export class Invoices {
 
   protected total(i: Invoice): number {
     return invoiceTotal(i).total;
+  }
+
+  /**
+   * Next reminder the daily schedule will send for the invoice, mirroring the
+   * API rules: reminders start reminderDaysBefore days ahead of the due date
+   * and repeat on the same cadence; '' when reminders are off or the invoice
+   * no longer owes anything.
+   */
+  protected nextReminder(i: Invoice): string {
+    const ws = this.workspace();
+    if (!ws?.remindersEnabled) return '';
+    const open = ['sent', 'viewed', 'partially_paid', 'overdue'];
+    if (!open.includes(i.status)) return '';
+    const days = Math.max(1, ws.reminderDaysBefore) * 864e5;
+    const next = i.lastRemindedAt
+      ? new Date(i.lastRemindedAt).getTime() + days
+      : new Date(i.dueDate).getTime() - days;
+    return isoDay(new Date(Math.max(next, Date.now())).toISOString());
+  }
+
+  protected lastReminded(i: Invoice): string {
+    return i.lastRemindedAt ? isoDay(i.lastRemindedAt) : '';
   }
 
   protected readonly money = money;

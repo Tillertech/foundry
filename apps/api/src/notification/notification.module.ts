@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MailService } from './mail/mail.service';
+import { NotificationController } from './notification.controller';
 import { NotificationGateway } from './notification.gateway';
 import { NotificationListener } from './notification.listener';
 import { NotificationService } from './notification.service';
@@ -64,6 +65,7 @@ const TEMPLATE_DIR =
       }),
     }),
   ],
+  controllers: [NotificationController],
   providers: [
     NotificationService,
     MailService,

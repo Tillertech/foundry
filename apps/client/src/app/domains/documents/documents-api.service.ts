@@ -45,4 +45,22 @@ export class DocumentsApiService {
   delete(id: string): Observable<ApiDocument> {
     return this.http.delete<ApiDocument>(`${this.base}/${id}`);
   }
+
+  /** The stored file's bytes, for downloads and inline previews. */
+  download(id: string): Observable<Blob> {
+    return this.http.get(`${this.base}/${id}/download`, {
+      responseType: 'blob',
+    });
+  }
+
+  preview(id: string): Observable<Blob> {
+    return this.http.get(`${this.base}/${id}/preview`, {
+      responseType: 'blob',
+    });
+  }
+
+  /** Emails the document to its linked client as an attachment. */
+  share(id: string): Observable<ApiDocument> {
+    return this.http.post<ApiDocument>(`${this.base}/${id}/share`, {});
+  }
 }

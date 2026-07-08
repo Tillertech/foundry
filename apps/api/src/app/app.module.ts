@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CacheModule } from '@nestjs/cache-manager';
 import KeyvRedis from '@keyv/redis';
@@ -20,6 +21,7 @@ import { PaymentsModule } from '../payments/payments.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { QuotesModule } from '../quotes/quotes.module';
+import { ReportsModule } from '../reports/reports.module';
 import { StorageModule } from '../storage/storage.module';
 import { WorkspacesModule } from '../workspaces/workspaces.module';
 import { AppController } from './app.controller';
@@ -58,6 +60,7 @@ import { AppService } from './app.service';
         },
       }),
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     PaginationModule,
     StorageModule,
@@ -70,6 +73,7 @@ import { AppService } from './app.service';
     PaymentsModule,
     ExpensesModule,
     DocumentsModule,
+    ReportsModule,
     NotificationModule,
     EventsModule,
   ],

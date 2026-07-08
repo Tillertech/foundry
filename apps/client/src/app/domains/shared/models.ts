@@ -11,3 +11,26 @@ export interface LineItemRequest {
   quantity: number;
   rate: number;
 }
+
+export type ReconciliationKind = 'payment_applied' | 'payment_reversed';
+
+/**
+ * One step of the payment reconciliation timeline, shared by invoices and
+ * projects: the applied/reversed amount plus the balances after the entry.
+ */
+export interface ReconciliationEntry {
+  id: string;
+  kind: ReconciliationKind;
+  /** Negative when a payment was reversed. */
+  amount: string;
+  currency: Currency;
+  /** Amount still owed on the invoice after this entry. */
+  invoiceBalance: string | null;
+  /** Project budget remaining after this entry. */
+  projectBalance: string | null;
+  note: string | null;
+  paymentId: string | null;
+  invoiceId: string | null;
+  projectId: string | null;
+  createdAt: string;
+}

@@ -1,8 +1,20 @@
 import { PaginationQuery } from '../../core/http/api.types';
 import { Currency, LineItemRequest } from '../shared/models';
 
+export type {
+  ReconciliationEntry,
+  ReconciliationKind,
+} from '../shared/models';
+
 export type InvoiceStatus =
-  'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled';
+  | 'draft'
+  | 'sent'
+  | 'viewed'
+  | 'partially_paid'
+  | 'paid'
+  | 'overpaid'
+  | 'overdue'
+  | 'cancelled';
 
 export interface InvoiceItem {
   id: string;
@@ -22,6 +34,8 @@ export interface Invoice {
   taxRate: string;
   discount: string;
   notes: string | null;
+  /** Last time a due/overdue reminder email went out. */
+  lastRemindedAt: string | null;
   clientId: string;
   projectId: string | null;
   items: InvoiceItem[];
@@ -51,4 +65,10 @@ export interface ListInvoicesQuery extends PaginationQuery {
   clientId?: string;
   projectId?: string;
   status?: InvoiceStatus;
+}
+
+/** Multipliers from each currency into `target` (the workspace currency). */
+export interface ExchangeRates {
+  target: Currency;
+  rates: Record<Currency, number>;
 }
