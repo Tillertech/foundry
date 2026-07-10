@@ -1,7 +1,7 @@
 <div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
   <app-page-header
     title="Reports"
-    [description]="'Revenue, cash flow, and top clients — figures in ' + currency() + ' (workspace currency).'"
+    [description]="'Revenue, cash flow, and top clients - figures in ' + currency() + ' (workspace currency).'"
   >
     <hlm-select
       actions
@@ -131,9 +131,9 @@
         <div>
           <div class="mb-1 flex items-center justify-between text-sm">
             <span class="truncate">{{ row.name }}</span>
-            <span class="font-semibold tabular-nums">{{
-              row.invoicedLabel
-            }}</span>
+            <span class="font-semibold tabular-nums"
+              >{{ row.invoicedLabel }}</span
+            >
           </div>
           <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
@@ -169,9 +169,9 @@
         <div>
           <div class="mb-1 flex items-center justify-between text-sm">
             <span class="capitalize">{{ row.category }}</span>
-            <span class="font-semibold tabular-nums">{{
-              row.amountLabel
-            }}</span>
+            <span class="font-semibold tabular-nums"
+              >{{ row.amountLabel }}</span
+            >
           </div>
           <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div

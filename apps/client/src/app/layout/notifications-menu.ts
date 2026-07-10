@@ -51,7 +51,7 @@ import {
           aria-label="Close notifications"
         ></button>
         <div
-          class="absolute right-0 top-11 z-40 w-[340px] overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
+          class="fixed inset-x-3 top-16 z-40 overflow-hidden rounded-xl border border-border bg-background shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[340px]"
         >
           <div
             class="flex items-center justify-between border-b border-border px-4 py-2.5"
@@ -68,14 +68,14 @@ import {
               </button>
             }
           </div>
-          <div class="max-h-[380px] overflow-y-auto">
+          <div class="max-h-[60vh] overflow-y-auto sm:max-h-[380px]">
             @if (loading()) {
               <p class="px-4 py-6 text-center text-xs text-muted-foreground">
                 Loading…
               </p>
             } @else if (notifications().length === 0) {
               <p class="px-4 py-6 text-center text-xs text-muted-foreground">
-                Nothing yet — sent invoices, quotes and shared documents show up
+                Nothing yet - sent invoices, quotes and shared documents show up
                 here.
               </p>
             } @else {

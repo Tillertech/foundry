@@ -7,6 +7,11 @@ export class InvoiceItemEntity extends LineItemEntity {
   invoiceId: string;
 }
 
+export class InvoiceProjectEntity {
+  @ApiProperty()
+  name: string;
+}
+
 export class InvoiceEntity {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -47,6 +52,9 @@ export class InvoiceEntity {
 
   @ApiPropertyOptional({ nullable: true, type: String, format: 'uuid' })
   projectId: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: InvoiceProjectEntity })
+  project: InvoiceProjectEntity | null;
 
   @ApiProperty({ type: [InvoiceItemEntity] })
   items: InvoiceItemEntity[];
