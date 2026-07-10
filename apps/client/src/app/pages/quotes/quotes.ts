@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   computed,
   inject,
   signal,
@@ -10,12 +9,15 @@ import {
 import { FormField, form, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideSearch, lucideSend } from '@ng-icons/lucide';
+import { BrnAlertDialogContent } from '@spartan-ng/brain/alert-dialog';
+import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { apiErrorMessage } from '../../core/http';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
+import { ProjectsApiService } from '../../domains/projects';
 import {
   CreateQuoteRequest,
   Quote,
@@ -74,6 +76,8 @@ const emptyQuote = (): QuoteForm => ({
   imports: [
     FormField,
     NgIcon,
+    BrnAlertDialogContent,
+    HlmAlertDialogImports,
     HlmButton,
     HlmInput,
     HlmTextarea,
@@ -92,6 +96,7 @@ const emptyQuote = (): QuoteForm => ({
 export class Quotes {
   private readonly quotesApi = inject(QuotesApiService);
   private readonly clientsApi = inject(ClientsApiService);
+  private readonly projectsApi = inject(ProjectsApiService);
   private readonly toast = inject(ToastService);
 
   protected readonly loading = signal(true);
@@ -103,6 +108,8 @@ export class Quotes {
   protected readonly sheetOpen = signal(false);
   protected readonly saving = signal(false);
   protected readonly sending = signal(false);
+  protected readonly projectDialogOpen = signal(false);
+  protected readonly acceptedQuote = signal<Quote | null>(null);
   protected isNew = true;
 
   protected readonly model = signal<QuoteForm>(emptyQuote());
@@ -161,7 +168,11 @@ export class Quotes {
           (status === 'all' || q.status === status) &&
           (!term ||
             q.number.toLowerCase().includes(term) ||
-            (clientMap[q.clientId]?.company || clientMap[q.clientId]?.name || '')
+            (
+              clientMap[q.clientId]?.company ||
+              clientMap[q.clientId]?.name ||
+              ''
+            )
               .toLowerCase()
               .includes(term)),
       )
@@ -242,6 +253,10 @@ export class Quotes {
         this.sheetOpen.set(false);
         if (this.isNew) this.toast.created('Quote');
         else this.toast.updated('Quote');
+        if (quote.status === 'accepted') {
+          this.acceptedQuote.set(quote);
+          this.projectDialogOpen.set(true);
+        }
       },
       error: (err) => {
         this.saving.set(false);
@@ -293,6 +308,54 @@ export class Quotes {
       clientId,
       currency: c?.currency ?? m.currency,
     }));
+  }
+
+  protected skipProjectCreation(ctx: { close: () => void }): void {
+    ctx.close();
+    this.projectDialogOpen.set(false);
+    this.acceptedQuote.set(null);
+  }
+
+  /** Spins up a project for the just-accepted quote, named from its items and client. */
+  protected confirmProjectCreation(ctx: { close: () => void }): void {
+    ctx.close();
+    this.projectDialogOpen.set(false);
+    const quote = this.acceptedQuote();
+    this.acceptedQuote.set(null);
+    if (!quote) return;
+    const client = this.clientMap()[quote.clientId];
+    this.projectsApi
+      .create({
+        name: this.randomProjectName(quote, client),
+        clientId: quote.clientId,
+        startDate: toApiDate(new Date().toISOString().slice(0, 10)),
+        budget: this.total(quote),
+        description: `Created from quote ${quote.number}.`,
+      })
+      .subscribe({
+        next: (project) => {
+          this.toast.success(
+            'Project created',
+            `${project.name} is ready to go.`,
+          );
+        },
+        error: (err) => {
+          this.toast.error('Could not create project', apiErrorMessage(err));
+        },
+      });
+  }
+
+  /** Picks a random line item to riff on for the new proj name.
+   * prolly create in transaction
+   */
+  private randomProjectName(quote: Quote, client?: ApiClient): string {
+    const descriptions = quote.items.map((i) => i.description).filter(Boolean);
+    const pick =
+      descriptions.length > 0
+        ? descriptions[Math.floor(Math.random() * descriptions.length)]
+        : 'New engagement';
+    const clientName = client?.company || client?.name || 'client';
+    return `${pick} - ${clientName}`;
   }
 
   protected onItemsChange(items: LineItemDraft[]): void {

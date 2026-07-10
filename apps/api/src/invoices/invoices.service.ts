@@ -31,7 +31,10 @@ import { Decimal } from '@prisma/client/runtime/client';
 import { ConversionRate } from './dto/conversion-date.dto';
 import { ExchangeRatesEntity } from './entities/exchange-rates.entity';
 
-export type InvoiceWithItems = Invoice & { items: InvoiceItem[] };
+export type InvoiceWithItems = Invoice & {
+  items: InvoiceItem[];
+  project: { name: string } | null;
+};
 
 @Injectable()
 export class InvoicesService {
@@ -58,7 +61,7 @@ export class InvoicesService {
         number: number ?? (await this.nextNumber()),
         items: { create: items },
       },
-      include: { items: true },
+      include: { items: true, project: { select: { name: true } } },
     });
   }
 
@@ -77,7 +80,7 @@ export class InvoicesService {
           ...(projectId ? { projectId } : {}),
           ...(status ? { status } : {}),
         },
-        include: { items: true },
+        include: { items: true, project: { select: { name: true } } },
       },
       {
         cursor,
@@ -92,7 +95,7 @@ export class InvoicesService {
   async findOne(ownerId: string, id: string): Promise<InvoiceWithItems> {
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, client: { workspace: { ownerId } } },
-      include: { items: true },
+      include: { items: true, project: { select: { name: true } } },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
@@ -112,7 +115,7 @@ export class InvoicesService {
         ...data,
         ...(items ? { items: { deleteMany: {}, create: items } } : {}),
       },
-      include: { items: true },
+      include: { items: true, project: { select: { name: true } } },
     });
   }
 
@@ -128,7 +131,11 @@ export class InvoicesService {
     const invoice = await this.prisma.invoice.update({
       where: { id },
       data: { status: InvoiceStatus.sent },
-      include: { items: true, client: true },
+      include: {
+        items: true,
+        client: true,
+        project: { select: { name: true } },
+      },
     });
     const { client, ...rest } = invoice;
     this.events.emit(InvoiceEvents.SENT, {

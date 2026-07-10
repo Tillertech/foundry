@@ -213,4 +213,26 @@
       </app-field>
     </div>
   </app-entity-sheet>
+
+  <hlm-alert-dialog
+    [state]="projectDialogOpen() ? 'open' : 'closed'"
+    (closed)="projectDialogOpen.set(false)"
+  >
+    <hlm-alert-dialog-content *brnAlertDialogContent="let ctx">
+      <div hlmAlertDialogHeader>
+        <h3 hlmAlertDialogTitle>Create a project from this quote?</h3>
+        <p hlmAlertDialogDescription>
+          {{ acceptedQuote()?.number || 'This quote' }} was just accepted for
+          {{ clientLabel(acceptedQuote()?.clientId ?? '') }}. Spin up a
+          matching project now, or skip and do it later from Projects.
+        </p>
+      </div>
+      <div hlmAlertDialogFooter>
+        <button hlmAlertDialogCancel (click)="skipProjectCreation(ctx)">Skip</button>
+        <button hlmAlertDialogAction (click)="confirmProjectCreation(ctx)">
+          Create project
+        </button>
+      </div>
+    </hlm-alert-dialog-content>
+  </hlm-alert-dialog>
 </div>

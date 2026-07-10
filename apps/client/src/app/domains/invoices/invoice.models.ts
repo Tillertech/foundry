@@ -1,10 +1,7 @@
 import { PaginationQuery } from '../../core/http/api.types';
 import { Currency, LineItemRequest } from '../shared/models';
 
-export type {
-  ReconciliationEntry,
-  ReconciliationKind,
-} from '../shared/models';
+export type { ReconciliationEntry, ReconciliationKind } from '../shared/models';
 
 export type InvoiceStatus =
   | 'draft'
@@ -36,6 +33,7 @@ export interface Invoice {
   notes: string | null;
   /** Last time a due/overdue reminder email went out. */
   lastRemindedAt: string | null;
+  project: { name: string } | null;
   clientId: string;
   projectId: string | null;
   items: InvoiceItem[];

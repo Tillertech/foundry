@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   computed,
   inject,
   signal,
@@ -166,7 +165,9 @@ export class Payments {
           (!term ||
             (p.reference || '').toLowerCase().includes(term) ||
             (clientMap[p.clientId]?.name || '').toLowerCase().includes(term) ||
-            (clientMap[p.clientId]?.company || '').toLowerCase().includes(term)),
+            (clientMap[p.clientId]?.company || '')
+              .toLowerCase()
+              .includes(term)),
       )
       .slice()
       .sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -182,7 +183,10 @@ export class Payments {
   }
 
   protected openNew(): void {
-    this.model.set({ ...emptyPayment(), clientId: this.clients()[0]?.id ?? '' });
+    this.model.set({
+      ...emptyPayment(),
+      clientId: this.clients()[0]?.id ?? '',
+    });
     this.isNew = true;
     this.sheetOpen.set(true);
   }
@@ -260,7 +264,11 @@ export class Payments {
 
   protected invoiceNumber(id: string | null | undefined): string {
     if (!id) return '';
-    return this.invoices().find((i) => i.id === id)?.number ?? '';
+    const invoice = this.invoices().find((i) => i.id === id);
+    if (!invoice) return '';
+    return invoice.project
+      ? `${invoice.number} (${invoice.project.name})`
+      : invoice.number;
   }
 
   protected label(method: PaymentMethod): string {

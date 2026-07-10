@@ -3,7 +3,13 @@
     title="Payments"
     [description]="filtered().length + ' payments · ' + money(total()) + ' total'"
   >
-    <button actions hlmBtn size="sm" class="h-9 gap-1.5 shadow-[var(--shadow-glow)]" (click)="openNew()">
+    <button
+      actions
+      hlmBtn
+      size="sm"
+      class="h-9 gap-1.5 shadow-[var(--shadow-glow)]"
+      (click)="openNew()"
+    >
       <ng-icon name="lucidePlus" size="16" />
       Record payment
     </button>
@@ -39,66 +45,66 @@
       <hlm-select-content *hlmSelectPortal>
         <hlm-select-item value="all">All methods</hlm-select-item>
         @for (m of methodOptions; track m[0]) {
-          <hlm-select-item [value]="m[0]">{{ m[1] }}</hlm-select-item>
+        <hlm-select-item [value]="m[0]">{{ m[1] }}</hlm-select-item>
         }
       </hlm-select-content>
     </hlm-select>
   </div>
 
   @if (loading()) {
-    <app-list-skeleton [rows]="5" />
-  } @else {
-  @if (filtered().length === 0) {
-    <div class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center">
-      <div class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground">
-        <span class="font-mono text-lg">∅</span>
-      </div>
-      <p class="mt-4 text-sm font-semibold">No payments yet</p>
-      <button hlmBtn size="sm" class="mt-4 gap-1.5" (click)="openNew()">
-        <ng-icon name="lucidePlus" size="16" />
-        Record payment
-      </button>
+  <app-list-skeleton [rows]="5" />
+  } @else { @if (filtered().length === 0) {
+  <div
+    class="surface-card flex flex-col items-center justify-center px-6 py-16 text-center"
+  >
+    <div
+      class="grid h-12 w-12 place-items-center rounded-xl bg-muted text-muted-foreground"
+    >
+      <span class="font-mono text-lg">∅</span>
     </div>
+    <p class="mt-4 text-sm font-semibold">No payments yet</p>
+    <button hlmBtn size="sm" class="mt-4 gap-1.5" (click)="openNew()">
+      <ng-icon name="lucidePlus" size="16" />
+      Record payment
+    </button>
+  </div>
   } @else {
-    <div class="surface-card overflow-hidden">
-      <ul class="divide-y divide-border">
-        @for (p of filtered(); track p.id) {
-          <li>
-            <button
-              type="button"
-              (click)="openEdit(p)"
-              class="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40"
-            >
-              <div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/12 text-success">
-                <ng-icon name="lucideWallet" size="16" />
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-medium">
-                  {{ clientMap()[p.clientId]?.company || clientMap()[p.clientId]?.name || 'Unknown' }}
-                </p>
-                <p class="truncate text-xs text-muted-foreground">
-                  {{ label(p.method) }}
-                  @if (p.reference) {
-                    · {{ p.reference }}
-                  }
-                  @if (p.invoiceId) {
-                    · {{ invoiceNumber(p.invoiceId) }}
-                  }
-                </p>
-              </div>
-              <div class="text-right">
-                <p class="text-sm font-semibold tabular-nums text-success">
-                  +{{ money(p.amount, p.currency) }}
-                </p>
-                <p class="text-[11px] text-muted-foreground">{{ day(p.date) }}</p>
-              </div>
-            </button>
-          </li>
-        }
-      </ul>
-    </div>
-  }
-  }
+  <div class="surface-card overflow-hidden">
+    <ul class="divide-y divide-border">
+      @for (p of filtered(); track p.id) {
+      <li>
+        <button
+          type="button"
+          (click)="openEdit(p)"
+          class="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40"
+        >
+          <div
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/12 text-success"
+          >
+            <ng-icon name="lucideWallet" size="16" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium">
+              {{ clientMap()[p.clientId]?.company ||
+              clientMap()[p.clientId]?.name || 'Unknown' }}
+            </p>
+            <p class="truncate text-xs text-muted-foreground">
+              {{ label(p.method) }} @if (p.reference) { · {{ p.reference }} }
+              @if (p.invoiceId) { · {{ invoiceNumber(p.invoiceId) }} }
+            </p>
+          </div>
+          <div class="text-right">
+            <p class="text-sm font-semibold tabular-nums text-success">
+              +{{ money(p.amount, p.currency) }}
+            </p>
+            <p class="text-[11px] text-muted-foreground">{{ day(p.date) }}</p>
+          </div>
+        </button>
+      </li>
+      }
+    </ul>
+  </div>
+  } }
 
   <app-entity-sheet
     [(open)]="sheetOpen"
@@ -122,20 +128,31 @@
             </hlm-select-trigger>
             <hlm-select-content *hlmSelectPortal>
               @for (c of clients(); track c.id) {
-                <hlm-select-item [value]="c.id">{{ c.company || c.name }}</hlm-select-item>
+              <hlm-select-item [value]="c.id"
+                >{{ c.company || c.name }}</hlm-select-item
+              >
               }
             </hlm-select-content>
           </hlm-select>
         </app-field>
         <app-field label="Invoice (optional)">
-          <hlm-select class="w-full" [formField]="f.invoiceId" [itemToString]="invoiceLabel">
+          <hlm-select
+            class="w-full"
+            [formField]="f.invoiceId"
+            [itemToString]="invoiceLabel"
+          >
             <hlm-select-trigger class="w-full">
               <hlm-select-value placeholder="Unlinked" />
             </hlm-select-trigger>
             <hlm-select-content *hlmSelectPortal>
               <hlm-select-item value="">Unlinked</hlm-select-item>
               @for (i of clientInvoices; track i.id) {
-                <hlm-select-item [value]="i.id">{{ i.number }}</hlm-select-item>
+              <hlm-select-item [value]="i.id">
+                <span class="block truncate">
+                  {{ i.project ? i.number + ' (' + i.project.name + ')' :
+                  i.number }}
+                </span>
+              </hlm-select-item>
               }
             </hlm-select-content>
           </hlm-select>
@@ -143,7 +160,13 @@
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Amount" [error]="fieldError(f.amount())">
-          <input hlmInput type="number" step="0.01" class="w-full" [formField]="f.amount" />
+          <input
+            hlmInput
+            type="number"
+            step="0.01"
+            class="w-full"
+            [formField]="f.amount"
+          />
         </app-field>
         <app-field label="Currency">
           <hlm-select class="w-full" [formField]="f.currency">
@@ -161,13 +184,17 @@
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Method">
-          <hlm-select class="w-full" [formField]="f.method" [itemToString]="methodLabel">
+          <hlm-select
+            class="w-full"
+            [formField]="f.method"
+            [itemToString]="methodLabel"
+          >
             <hlm-select-trigger class="w-full">
               <hlm-select-value />
             </hlm-select-trigger>
             <hlm-select-content *hlmSelectPortal>
               @for (m of methodOptions; track m[0]) {
-                <hlm-select-item [value]="m[0]">{{ m[1] }}</hlm-select-item>
+              <hlm-select-item [value]="m[0]">{{ m[1] }}</hlm-select-item>
               }
             </hlm-select-content>
           </hlm-select>
@@ -188,7 +215,12 @@
         />
       </app-field>
       <app-field label="Notes">
-        <textarea hlmTextarea rows="3" class="w-full" [formField]="f.notes"></textarea>
+        <textarea
+          hlmTextarea
+          rows="3"
+          class="w-full"
+          [formField]="f.notes"
+        ></textarea>
       </app-field>
     </div>
   </app-entity-sheet>
