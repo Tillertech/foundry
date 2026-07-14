@@ -132,7 +132,7 @@ export class VerifyLogin implements OnInit {
     const fromQuery = this.route.snapshot.queryParamMap.get('email');
     const pending = fromQuery ?? getPendingLogin();
     if (!pending) {
-      // Nothing to verify — start over.
+      // Nothing to verify - start over.
       void this.router.navigateByUrl('/auth/login');
       return;
     }

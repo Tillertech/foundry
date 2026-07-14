@@ -15,7 +15,11 @@ import type {
   NotificationModel as Notification,
   PaymentModel as Payment,
 } from '../generated/prisma/models';
-import { PdfGeneratorService } from '../invoices/pdf-generator.service';
+import {
+  PdfBrand,
+  PdfGeneratorService,
+} from '../invoices/pdf-generator.service';
+import { logoMimeType } from '../workspaces/workspaces.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import {
@@ -44,7 +48,7 @@ export class NotificationService {
   async onInvoiceSent({ invoice, client }: InvoiceSentEvent): Promise<void> {
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: client.workspaceId },
-      select: { ownerId: true, name: true },
+      select: { ownerId: true, name: true, legalName: true, storageKey: true },
     });
 
     const context = this.invoiceContext(invoice, client.name, workspace?.name);
@@ -62,6 +66,7 @@ export class NotificationService {
       taxRate: Number(invoice.taxRate),
       discount: Number(invoice.discount),
       notes: invoice.notes ?? undefined,
+      brand: await this.pdfBrand(workspace),
     });
 
     const delivered = await this.mail.sendInvoice(client.email, context, pdf);
@@ -114,13 +119,13 @@ export class NotificationService {
         await this.notify(workspace.ownerId, {
           kind: NotificationKind.invoice_paid,
           title: `Invoice ${invoice.number} paid`,
-          body: `Invoice ${invoice.number} is ${settlement} — receipt emailed to ${client.name}.`,
+          body: `Invoice ${invoice.number} is ${settlement} - receipt emailed to ${client.name}.`,
           resourceId: invoice.id,
         });
       }
     }
     this.logger.log(
-      `Invoice ${invoice.number} paid — receipt mailed to ${client.email}`,
+      `Invoice ${invoice.number} paid - receipt mailed to ${client.email}`,
     );
   }
 
@@ -164,7 +169,7 @@ export class NotificationService {
   async onQuoteSent({ quote, client }: QuoteSentEvent): Promise<void> {
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: client.workspaceId },
-      select: { ownerId: true, name: true },
+      select: { ownerId: true, name: true, legalName: true, storageKey: true },
     });
 
     const context = this.quoteContext(quote, client.name, workspace?.name);
@@ -181,6 +186,7 @@ export class NotificationService {
       })),
       taxRate: Number(quote.taxRate),
       notes: quote.notes ?? undefined,
+      brand: await this.pdfBrand(workspace),
     });
 
     const delivered = await this.mail.sendQuote(client.email, context, pdf);
@@ -322,6 +328,31 @@ export class NotificationService {
       data: { userId, ...data },
     });
     this.gateway.emitToUser(userId, 'notification.created', notification);
+  }
+
+  private async pdfBrand(
+    workspace: {
+      name: string;
+      legalName: string | null;
+      storageKey: string | null;
+    } | null,
+  ): Promise<PdfBrand | undefined> {
+    if (!workspace) return undefined;
+    const brand: PdfBrand = {
+      name: workspace.name,
+      subName: workspace.legalName ?? undefined,
+    };
+    if (workspace.storageKey) {
+      try {
+        const logo = await this.storage.read(workspace.storageKey);
+        brand.logoDataUrl = `data:${logoMimeType(workspace.storageKey)};base64,${logo.toString('base64')}`;
+      } catch (error) {
+        this.logger.warn(
+          `Could not read workspace logo ${workspace.storageKey}: ${String(error)}`,
+        );
+      }
+    }
+    return brand;
   }
 
   private invoiceContext(

@@ -85,7 +85,7 @@
             <div class="min-w-0">
               <p class="truncate text-sm font-semibold">{{ p.name }}</p>
               <p class="mt-0.5 truncate text-xs text-muted-foreground">
-                {{ clientMap()[p.clientId]?.company || clientMap()[p.clientId]?.name || '—' }}
+                {{ clientMap()[p.clientId]?.company || clientMap()[p.clientId]?.name || '-' }}
               </p>
             </div>
             <app-status-badge [status]="p.status" />
@@ -103,7 +103,7 @@
                 @if (p.hourlyRate) {
                   {{ money(p.hourlyRate, clientMap()[p.clientId]?.currency || 'USD') }}/hr
                 } @else {
-                  —
+                  -
                 }
               </p>
             </div>

@@ -270,7 +270,7 @@ export class ReconciliationService {
     invoice: InvoiceForReconciliation,
     balance: number,
   ): string {
-    return `Payment ${action} ${invoice.number} — ${this.balanceMessage(invoice, balance)}`;
+    return `Payment ${action} ${invoice.number} - ${this.balanceMessage(invoice, balance)}`;
   }
 
   private balanceMessage(

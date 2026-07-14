@@ -11,7 +11,7 @@ import { ThemeService } from '../../core/theme.service';
 
 // Series colors validated (dataviz palette checks) for both surfaces:
 // collected keeps the brand deep orange, expenses takes a blue with real
-// chroma — slate fails the "reads gray" floor.
+// chroma - slate fails the "reads gray" floor.
 const COLLECTED = '#ea580c';
 const EXPENSES_LIGHT = '#2a78d6';
 const EXPENSES_DARK = '#3987e5';

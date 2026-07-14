@@ -264,7 +264,7 @@ export class Dashboard {
         return {
           id: i.id,
           number: i.number,
-          client: client?.company || client?.name || '—',
+          client: client?.company || client?.name || '-',
           due: isoDay(i.dueDate).slice(5),
           amount: money(invoiceTotal(i).total, i.currency),
         };
@@ -282,8 +282,8 @@ export class Dashboard {
         return {
           id: inv.id,
           number: inv.number,
-          client: client?.company || client?.name || '—',
-          due: inv.status === 'draft' ? '—' : isoDay(inv.dueDate).slice(5),
+          client: client?.company || client?.name || '-',
+          due: inv.status === 'draft' ? '-' : isoDay(inv.dueDate).slice(5),
           status: inv.status,
           amount: money(invoiceTotal(inv).total, inv.currency),
         };
@@ -300,7 +300,7 @@ export class Dashboard {
         const client = clients.find((c) => c.id === p.clientId);
         return {
           id: p.id,
-          client: client?.company || client?.name || '—',
+          client: client?.company || client?.name || '-',
           method: methodLabels[p.method] ?? p.method,
           when: isoDay(p.date),
           amount: money(num(p.amount), p.currency),

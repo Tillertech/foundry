@@ -1,6 +1,6 @@
 /**
  * Persists the email awaiting an OTP so the code screen survives a full page
- * reload — on mobile the browser tab is often discarded while the user is in
+ * reload - on mobile the browser tab is often discarded while the user is in
  * their email app reading the code, and we must not drop them back to a blank
  * form when they return. Keyed per purpose so email confirmation and the
  * sign-in code don't clobber each other.
@@ -17,7 +17,7 @@ function setPending(purpose: PendingPurpose, email: string): void {
   try {
     localStorage.setItem(KEYS[purpose], JSON.stringify({ email, ts: Date.now() }));
   } catch {
-    /* storage unavailable (private mode) — non-fatal */
+    /* storage unavailable (private mode) - non-fatal */
   }
 }
 

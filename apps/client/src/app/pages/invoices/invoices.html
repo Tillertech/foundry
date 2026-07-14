@@ -117,7 +117,7 @@
         <div class="min-w-0">
           <p class="truncate text-sm font-medium">
             {{ clientMap()[inv.clientId]?.company ||
-            clientMap()[inv.clientId]?.name || '—' }}
+            clientMap()[inv.clientId]?.name || '-' }}
           </p>
           @if (inv.projectId) {
           <p class="truncate text-xs text-muted-foreground">
@@ -139,7 +139,7 @@
             >last {{ lastReminded(inv) }}</span
           >
           } } @else {
-          <span class="text-xs text-muted-foreground">—</span>
+          <span class="text-xs text-muted-foreground">-</span>
           }
         </span>
         <span class="text-right text-sm font-semibold tabular-nums">

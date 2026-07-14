@@ -13,7 +13,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 
-// In dev the bundle runs from dist, so __dirname has no templates — read them from
+// In dev the bundle runs from dist, so __dirname has no templates - read them from
 // the source tree instead. cwd is the workspace root under nx serve (also in the
 // docker containers) but apps/api under a bare nest start, so probe both.
 const DEV_TEMPLATE_DIRS = [

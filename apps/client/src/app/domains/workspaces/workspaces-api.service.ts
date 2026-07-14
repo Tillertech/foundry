@@ -37,4 +37,18 @@ export class WorkspacesApiService {
   delete(id: string): Observable<Workspace> {
     return this.http.delete<Workspace>(`${this.base}/${id}`);
   }
+
+  uploadLogo(id: string, file: File): Observable<Workspace> {
+    const body = new FormData();
+    body.append('file', file);
+    return this.http.post<Workspace>(`${this.base}/${id}/logo`, body);
+  }
+
+  getLogo(id: string): Observable<Blob> {
+    return this.http.get(`${this.base}/${id}/logo`, { responseType: 'blob' });
+  }
+
+  deleteLogo(id: string): Observable<Workspace> {
+    return this.http.delete<Workspace>(`${this.base}/${id}/logo`);
+  }
 }

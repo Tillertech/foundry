@@ -127,8 +127,26 @@ model Notification {
 model Workspace {
   id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name               String       @db.VarChar(500)
+  /// Registered legal entity name, when it differs from the trading name.
+  legalName          String?      @db.VarChar(500)
   slug               String       @db.VarChar(500)
   currency           Currency     @default(USD)
+  city               String?      @db.VarChar(500)
+  country            String?      @db.VarChar(500)
+  email              String?      @db.VarChar(500)
+  phone              String?      @db.VarChar(500)
+  website            String?      @db.VarChar(500)
+  address            String?      @db.VarChar(500)
+  postCode           String?      @db.VarChar(500)
+  taxCode            String?      @db.VarChar(500)
+  invoicePrefix      String?
+  quotePrefix        String?
+  footerNote         String?
+  /// Default tax rate (percent) applied to new invoices and quotes.
+  taxRate            Decimal      @default(0) @db.Decimal(5, 2)
+  paymentTerms       Int          @default(7)
+  /// Storage key: local path in dev, S3 object key in prod.(logo)
+  storageKey         String?
   status             ClientStatus @default(active)
   /// Invoice due-date reminder emails on/off for this workspace.
   remindersEnabled   Boolean      @default(false)

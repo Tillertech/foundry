@@ -122,7 +122,7 @@ export class Reports {
       });
   }
 
-  /** Workspace currency — every headline figure is expressed in it. */
+  /** Workspace currency - every headline figure is expressed in it. */
   protected readonly currency = computed(
     () => this.summary()?.currency ?? 'USD',
   );

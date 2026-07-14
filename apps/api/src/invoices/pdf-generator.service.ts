@@ -14,6 +14,14 @@ import type {
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfmake = require('pdfmake') as typeof import('pdfmake');
 
+/** logo replaces the brand wordmark. */
+export interface PdfBrand {
+  name?: string;
+  subName?: string;
+  /** PNG/JPEG data URL - pdfmake renders no other image formats. */
+  logoDataUrl?: string;
+}
+
 export interface InvoicePdfData {
   number: string;
   client: string;
@@ -24,6 +32,7 @@ export interface InvoicePdfData {
   taxRate: number;
   discount: number;
   notes?: string;
+  brand?: PdfBrand;
 }
 
 export interface QuotePdfData {
@@ -35,6 +44,7 @@ export interface QuotePdfData {
   items: { description: string; quantity: number; rate: number }[];
   taxRate: number;
   notes?: string;
+  brand?: PdfBrand;
 }
 
 /** Shared invoice/quote layout: only the document label and dates differ. */
@@ -48,6 +58,7 @@ interface DocumentPdfData {
   taxRate: number;
   discount: number;
   notes?: string;
+  brand?: PdfBrand;
 }
 
 const INK = '#111827'; // primary text
@@ -178,16 +189,25 @@ export class PdfGeneratorService {
       paddingBottom: (i, node) => (i === node.table.body.length - 1 ? 9 : 5),
     };
 
+    const brandName = data.brand?.name?.trim() || 'FOUNDRY';
+    const brandSub = data.brand?.subName?.trim() || 'Studio Workspace';
+    const brandStack: Content[] = data.brand?.logoDataUrl
+      ? [
+          { image: data.brand.logoDataUrl, fit: [150, 48] },
+          { text: brandName, style: 'brandSub', margin: [0, 6, 0, 0] },
+        ]
+      : [
+          { text: brandName.toUpperCase(), style: 'brand' },
+          { text: brandSub, style: 'brandSub' },
+        ];
+
     const content: Content[] = [
       // Masthead: brand on the left, invoice identity on the right.
       {
         columns: [
           {
             width: '*',
-            stack: [
-              { text: 'FOUNDRY', style: 'brand' },
-              { text: 'Studio Workspace', style: 'brandSub' },
-            ],
+            stack: brandStack,
           },
           {
             width: 'auto',
@@ -350,7 +370,7 @@ export class PdfGeneratorService {
         margin: [40, 0, 40, 32],
         columns: [
           {
-            text: 'FOUNDRY',
+            text: brandName.toUpperCase(),
             fontSize: 8,
             bold: true,
             color: FAINT,
