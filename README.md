@@ -1,299 +1,211 @@
 <p align="center">
-  <h2 align="center"> <a href="https://foundry.tillertech.io/"> Foundry</a></h2>
-  <p align="center">The modern workspace for consultants, agencies and studios</p>
+  <h2 align="center"><a href="https://foundry.tillertech.io/">Foundry</a></h2>
+  <p align="center">The open-source workspace for consultants, agencies and studios</p>
 </p>
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPLv3-blue.svg" alt="License: AGPLv3"></a>
+  <img src="https://img.shields.io/badge/self--hosted-yes-success" alt="Self-hosted">
+  <img src="https://img.shields.io/badge/docker-ready-blue" alt="Docker ready">
+  <a href="https://foundry.tillertech.io/"><img src="https://img.shields.io/badge/website-foundry.tillertech.io-orange" alt="Website"></a>
+</p>
 
 ![Foundry](./images/preview.png)
 
-##  Project Overview
+Foundry manages the full client-to-cash lifecycle - clients, quotes, projects, invoices, payments and documents - as one workspace on your own infrastructure. No row limits, no per-seat pricing, no telemetry.
 
-[Foundry](https://foundry.tillertech.io/) is an open-source, self-hostable workspace for consultants, agencies and service businesses. Manage clients, projects, quotes, invoices, payments, documents and reporting from one place.
+---
 
+## Table of contents
 
-- [Project Overview](#project-overview)
-- [Prerequisites](#prerequisites)
-- [Deployment](#deployment)
-- [Local Development](#local-development)
-  - [Docker(Recommended)](#dockerrecommended)
-  - [Manual(Docs WIP)](#manualdocs-wip)
-- [Notes on Architecture(WIP)](#notes-on-architecturewip)
-  - [1.  Module Boundaries](#1--module-boundaries)
-  - [2. Docker Integration](#2-docker-integration)
-  - [3. Playwright E2E Testing](#3-playwright-e2e-testing)
-  - [4. Vitest for Unit Testing](#4-vitest-for-unit-testing)
-- [Project Structure(WIP)](#project-structurewip)
-- [Understanding Tags](#understanding-tags)
-- [Useful Commands](#useful-commands)
-- [Adding New Features](#adding-new-features)
-  - [Generate a new Angular application:](#generate-a-new-angular-application)
-  - [Generate a new Angular library:](#generate-a-new-angular-library)
-  - [Generate a new Angular component:](#generate-a-new-angular-component)
-  - [Generate a new API library:](#generate-a-new-api-library)
+- [Table of contents](#table-of-contents)
+- [Why Foundry](#why-foundry)
+- [Features](#features)
+- [Community, Cloud \& Enterprise](#community-cloud--enterprise)
+- [Quick start (Docker)](#quick-start-docker)
+- [Architecture](#architecture)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
+---
 
-## Prerequisites
+## Why Foundry
 
- - Docker 
- - Docker compose
+I was tired of using multiple tools and possible subscriptions to get a consulting business to work - clients, projects, invocing, payments logging, fragmented documents, reports.
 
-## Deployment
+Foundry is what you get when someone who ran into all of that decides to build the tool they actually wanted. It runs on your own
+infrastructure, keeps the full workflow in one place, and stays free forever for self-hosters - because that's the version I use myself.
+
+For the longer story:
+[Why I built Foundry](https://www.marvinkweyu.net/indulge/the-lifecycle-i-was-billing-against).
+
+---
+
+## Features
+
+- **Clients** - every relationship in one timeline: quotes, projects,
+  invoices, payments and documents in context.
+- **Projects** - the center of the workflow. Scope, timeline, documents
+  and invoices all hang off the project.
+- **Quotes** - professional, numbered quotes with real line items. When
+  the client accepts, the project starts. Nothing retyped.
+- **Invoices** - auto-numbered, PDF-generated, emailed and tracked from
+  draft to paid.
+- **Payments & expenses** - record payments against invoices, expenses
+  against projects. Outstanding balances and real margins, always
+  current.
+- **Documents** - contracts, briefs and deliverables attached to the
+  client and project they belong to. Local disk or any S3-compatible
+  storage.
+- **Realtime dashboard** - revenue, outstanding invoices and activity,
+  updated live as events happen.
+- **Event-driven core** - every action emits an event; automation and
+  extensions hook into the same bus.
+
+Full workflow. No row limits. No feature gates on core lifecycle.
+
+---
+
+## Community, Cloud & Enterprise
+
+Foundry is open-core: the workflow that runs your business is free forever, and the layer that only matters when you scale across teams is paid.
+
+**Community** - free, self-hosted, open source (AGPLv3). Full client-
+to-cash lifecycle, no row limits, no telemetry, no feature gates. This
+repository.
+
+**Cloud** *(in development, join the waitlist)* - Foundry hosted and operated by Tillertech. Everything Community does, plus SSO, RBAC,
+audit logs, multi-workspace management, an interactive client portal,
+managed backups and monitoring.
+
+**Self-hosted Enterprise** - considering it. If your organization needs the Cloud feature set on your own infrastructure (for compliance, air-gap, or contractual reasons), reach out at [hello@tillertech.io](mailto:hello@tillertech.io). We'd rather ship it because someone needs it than sell it speculatively.
+
+See the [feature boundary policy](./CONTRIBUTING.md#what-belongs-in-community-vs-cloud) in `CONTRIBUTING.md` for the full list.
+
+---
+
+## Quick start (Docker)
+
+Foundry runs on any host that can run Docker. You need about 2GB of RAM to start.
+
+**Prerequisites**
+
+- Docker 24 or newer
+- Docker Compose v2 (bundled with recent Docker installs)
+
+**Install**
 
 ```sh
 mkdir foundry && cd foundry
 curl -L -o docker-compose.yml https://raw.githubusercontent.com/tillertech/foundry/main/docker-compose.production.yml
 curl -L -o .env https://raw.githubusercontent.com/tillertech/foundry/main/.env.production.example
-# Edit .env to set your DATABASE_URL, secrets, and S3 credentials
+# Edit .env - set DATABASE_URL, JWT_SECRET, and your S3 credentials
 nano .env
 docker compose up -d
 ```
 
-## Local Development
+Foundry will be running at `http://localhost:3000`. On first run, create your admin account at `/register`.
 
-### Docker(Recommended)
+**Where your data lives**
 
-**Basic requirements**
-- Docker
-- Docker Compose
+- Postgres data: `./volumes/postgres`
+- Uploaded documents: your configured S3-compatible bucket (or
+  `./volumes/uploads` if using local storage)
+- Redis: ephemeral, safe to lose
 
-
-```sh
-cp .env.docker.example .env.docker
-docker compose -f docker-compose.local.yml up
-```
-
-If you have [just](https://just.systems/man/en/) installed:
+**Updating**
 
 ```sh
-cp .env.docker.example .env.docker
-just develop
+docker compose pull
+docker compose up -d
 ```
 
+Migrations run automatically on startup. Additive-only - your data is never reshaped.
 
-The complete set of commands can be found with:
 
-```sh
-just
-```
+---
 
+## Architecture
 
-### Manual(Docs WIP)
+Boring, proven infrastructure - the kind you can operate at 11pm without surprises.
 
-The manual setup process is (WIP)
+- **API** - NestJS, Prisma, event-driven modular monolith
+- **Client** - Angular with SpartanNG **(* finally :) **)** + Tailwind
+- **Database** - PostgreSQL
+- **Cache & queues** - Redis with BullMQ
+- **Object storage** - any S3-compatible provider (Cloudflare R2, Backblaze B2, AWS S3, MinIO)
+- **Deployment** - Docker Compose on a single VPS, or split across hosts as you scale
 
+Monorepo managed with Nx. Module boundaries enforced by ESLint so core lifecycle code can never depend on the commercial layer.
 
-```bash
+More on the architecture: `docs/architecture.md` *(work in progress)*.
 
-npm install --legacy-peer-deps
+---
 
-# Serve the Angular client application (this will simultaneously serve the API backend)
-npx nx run client:serve
+## Roadmap
 
-# ...or you can serve the API separately
-npx nx run api:serve
+**Shipped**
 
-# Build all projects
-npx nx run-many -t build
+- Clients & projects
+- Quotes & invoices
+- Payments & expenses
+- Documents & file storage (S3-compatible)
+- Realtime notifications
+- REST API
+- Basic reporting dashboard
 
-# Run tests
-npx nx run-many -t test
+**Next (Community)**
 
-# Lint all projects
-npx nx run-many -t lint
+- Basic client-facing portal (view/download)
+- Recurring invoices / retainers
+- Time tracking against projects
+- CSV/JSON import & export
+- Document branding (logo, colors, business details)
+- E-signature acceptance on quotes
+- Public plugin & extension API
 
-# Run e2e tests
-npx nx run client-e2e:e2e
+**Next (Cloud)**
 
-# Run tasks in parallel
+- Managed hosting, backups, monitoring
+- RBAC - Owner/Admin/Finance/PM/Viewer
+- SSO - SAML/OIDC & SCIM
+- Immutable audit log
+- Outbound webhooks
+- Multi-workspace management
+- Advanced template designer
+- Full interactive portal with payment collection
+- White-label & custom domain
 
-npx nx run-many -t lint test build e2e --parallel=3
+See [foundry.tillertech.io](https://foundry.tillertech.io/#roadmap) for the current state.
 
-# Visualize the project graph
-npx nx graph
-```
-----
+---
 
+## Contributing
 
+Bug reports, feature requests and pull requests are welcome - please read [CONTRIBUTING.md](./CONTRIBUTING.md) first. It covers:
 
-The client runs on `http://localhost:4200` and the API on `http://localhost:3000`. 
+- The AGPLv3 license for pull requests
+- What belongs in Community vs. what's out of scope here
+- The development setup and pull request workflow
 
-This repository demonstrates a production-ready Angular monorepo with:
+Local development setup, code style, and Nx generator commands are all documented there.
 
+---
 
-## Notes on Architecture(WIP)
-- **2 Applications**
+## License
 
-  - `client` - Angular e-commerce application with product listings and detail views
-  - `api` - Backend API with Docker support serving product data
+Foundry Community is licensed under [AGPL-3.0-or-later](./LICENSE).
 
-- **6 Libraries**
+**Short version:** you can run, modify and self-host Foundry without
+restriction. If you modify it and offer the modified version as a
+network service to others, AGPL requires you to publish your
+modifications. For internal use by your own business, there are no
+obligations you'll notice.
 
-  - `@org/feature-products` - Product listing feature (Angular)
-  - `@org/feature-product-detail` - Product detail feature (Angular)
-  - `@org/data` - Data access layer for client features
-  - `@org/shared-ui` - Shared UI components
-  - `@org/models` - Shared data models
-  - `@org/products` - API product service library
+---
 
-- **E2E Testing**
-  - `client-e2e` - Playwright tests for the client application
+Built by [Tillertech](https://www.tillertech.io)
 
-
-### 1.  Module Boundaries
-
-Enforces architectural constraints using tags. Each project has specific dependencies it can use:
-
-- `scope:shared` - Can be used by all projects
-- `scope:client` - client-specific libraries
-- `scope:api` - API-specific libraries
-- `type:feature` - Feature libraries
-- `type:data` - Data access libraries
-- `type:ui` - UI component libraries
-
-**Try it out:**
-
-```bash
-# See the current project graph and boundaries
-npx nx graph
-
-# View a specific project's details
-npx nx show project client --web
-```
-
-[Learn more about module boundaries →](https://nx.dev/docs/features/enforce-module-boundaries)
-
-### 2. Docker Integration
-
-The API project includes Docker support with automated targets and release management:
-
-```bash
-# Build Docker image
-npx nx run api:docker:build
-
-# Run Docker container
-npx nx run api:docker:run
-
-# Release with automatic Docker image versioning
-npx nx release
-```
-
-**Nx Release for Docker:** The repository is configured to use Nx Release for managing Docker image versioning and publishing. When running `nx release`, Docker images for the API project are automatically versioned and published based on the release configuration in `nx.json`. This integrates seamlessly with semantic versioning and changelog generation.
-
-[Learn more about Docker integration →](https://nx.dev/docs/guides/nx-release/release-docker-images)
-
-### 3. Playwright E2E Testing
-
-End-to-end testing with Playwright is pre-configured:
-
-```bash
-# Run e2e tests
-npx nx run client-e2e:e2e
-
-# Run e2e tests in CI mode
-npx nx run client-e2e:e2e-ci
-```
-
-[Learn more about E2E testing →](https://nx.dev/docs/technologies/test-tools/playwright)
-
-### 4. Vitest for Unit Testing
-
-Fast unit testing with Vite for Angular libraries:
-
-```bash
-# Test a specific library
-npx nx run data:test
-
-# Test all projects
-npx nx run-many -t test
-```
-
-##  Project Structure(WIP)
-
-```
-├── apps/
-│   ├── client/           [scope:client]    - Angular e-commerce app
-│   ├── client-e2e/                       - E2E tests for client
-│   └── api/            [scope:api]     - Backend API with Docker
-├── packages/
-│   ├── client/
-│   │   ├── feature-products/        [scope:client,type:feature] - Product listing
-│   │   ├── feature-product-detail/  [scope:client,type:feature] - Product details
-│   │   ├── data/                    [scope:client,type:data]    - Data access
-│   │   └── shared-ui/               [scope:client,type:ui]      - UI components
-│   ├── api/
-│   │   └── products/    [scope:api]    - Product service
-│   └── shared/
-│       └── models/      [scope:shared,type:data] - Shared models
-├── nx.json             - Nx configuration
-├── tsconfig.json       - TypeScript configuration
-└── eslint.config.mjs   - ESLint with module boundary rules
-```
-
-##  Understanding Tags
-
-This repository uses tags to enforce module boundaries:
-
-| Project            | Tags                         | Can Import From              |
-| ------------------ | ---------------------------- | ---------------------------- |
-| `client`             | `scope:client`                 | `scope:client`, `scope:shared` |
-| `api`              | `scope:api`                  | `scope:api`, `scope:shared`  |
-| `feature-products` | `scope:client`, `type:feature` | `scope:client`, `scope:shared` |
-| `data`             | `scope:client`, `type:data`    | `scope:shared`               |
-| `models`           | `scope:shared`, `type:data`  | Nothing (base library)       |
-
-##  Useful Commands
-
-```bash
-# Project exploration
-npx nx graph                                    # Interactive dependency graph
-npx nx list                                     # List installed plugins
-npx nx show project client --web                 # View project details
-
-# Development
-npx nx run client:serve                              # Serve Angular app
-npx nx run api:serve                               # Serve backend API
-npx nx run client:build                              # Build Angular app
-npx nx run data:test                               # Test a specific library
-npx nx run feature-products:lint                   # Lint a specific library
-
-# Running multiple tasks
-npx nx run-many -t build                       # Build all projects
-npx nx run-many -t test --parallel=3          # Test in parallel
-npx nx run-many -t lint test build            # Run multiple targets
-
-# Affected commands (great for CI)
-npx nx affected -t build                       # Build only affected projects
-npx nx affected -t test                        # Test only affected projects
-
-# Docker operations
-npx nx run api:docker:build                        # Build Docker image
-npx nx run api:docker:run                          # Run Docker container
-```
-
-##  Adding New Features
-
-### Generate a new Angular application:
-
-```bash
-npx nx g @nx/angular:app my-app
-```
-
-### Generate a new Angular library:
-
-```bash
-npx nx g @nx/angular:lib my-lib
-```
-
-### Generate a new Angular component:
-
-```bash
-npx nx g @nx/angular:component my-component --project=my-lib
-```
-
-### Generate a new API library:
-
-```bash
-npx nx g @nx/node:lib my-api-lib
-```
-
-You can use `npx nx list` to see all available plugins and `npx nx list <plugin-name>` to see all generators for a specific plugin.
+**PS:**
+Some pieces of the docs are a work in progress... as the project is
