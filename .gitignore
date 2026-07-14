@@ -57,3 +57,5 @@ vitest.config.*.timestamp*
 docs
 apps/api/src/generated
 uploads
+.env
+.env.docker
