@@ -1,5 +1,7 @@
 FROM node:lts-slim AS builder
 
+LABEL maintainer="hello@tillertech.io"
+
 WORKDIR /foundry
 
 RUN apt-get update && \
