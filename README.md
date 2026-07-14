@@ -3,13 +3,12 @@
   <p align="center">The modern workspace for consultants, agencies and studios</p>
 </p>
 
-![License](https://img.shields.io/badge/any_text-you_like-blue)
 
 ![Foundry](./images/preview.png)
 
 ##  Project Overview
 
-Foundry is an open-source, self-hostable workspace for consultants, agencies and service businesses. Manage clients, projects, quotes, invoices, payments, documents and reporting from one place.
+[Foundry](https://foundry.tillertech.io/) is an open-source, self-hostable workspace for consultants, agencies and service businesses. Manage clients, projects, quotes, invoices, payments, documents and reporting from one place.
 
 
 - [Project Overview](#project-overview)
