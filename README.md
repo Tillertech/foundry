@@ -1,37 +1,73 @@
-# Foundry
-> The modern workspace for independent consultants
+<p align="center">
+  <h2 align="center"> <a href="https://foundry.tillertech.io/"> Foundry</a></h2>
+  <p align="center">The modern workspace for independent consultants</p>
+</p>
+
+
+![Foundry](./images/preview.png)
 
 ##  Project Overview
 
-This repository demonstrates a production-ready Angular monorepo with:
+Foundry is the solution to consultancy management in the service industry.
 
-- **2 Applications**
 
-  - `client` - Angular e-commerce application with product listings and detail views
-  - `api` - Backend API with Docker support serving product data
+- [Project Overview](#project-overview)
+- [Local Development](#local-development)
+  - [Docker(Recommended)](#dockerrecommended)
+  - [Manual(Docs WIP)](#manualdocs-wip)
+- [Notes on Architecture(WIP)](#notes-on-architecturewip)
+  - [1.  Module Boundaries](#1--module-boundaries)
+  - [2. Docker Integration](#2-docker-integration)
+  - [3. Playwright E2E Testing](#3-playwright-e2e-testing)
+  - [4. Vitest for Unit Testing](#4-vitest-for-unit-testing)
+- [Project Structure(WIP)](#project-structurewip)
+- [Understanding Tags](#understanding-tags)
+- [Useful Commands](#useful-commands)
+- [Adding New Features](#adding-new-features)
+  - [Generate a new Angular application:](#generate-a-new-angular-application)
+  - [Generate a new Angular library:](#generate-a-new-angular-library)
+  - [Generate a new Angular component:](#generate-a-new-angular-component)
+  - [Generate a new API library:](#generate-a-new-api-library)
 
-- **6 Libraries**
 
-  - `@org/feature-products` - Product listing feature (Angular)
-  - `@org/feature-product-detail` - Product detail feature (Angular)
-  - `@org/data` - Data access layer for client features
-  - `@org/shared-ui` - Shared UI components
-  - `@org/models` - Shared data models
-  - `@org/products` - API product service library
 
-- **E2E Testing**
-  - `client-e2e` - Playwright tests for the client application
+## Local Development
 
-##  Quick Start
+### Docker(Recommended)
+
+**Basic requirements**
+- Docker
+- Docker Compose
+
+
+```sh
+cp .env.docker.example .env.docker
+docker compose -f docker-compose.local.yml up
+```
+
+If you have [just](https://just.systems/man/en/) installed:
+
+```sh
+cp .env.docker.example .env.docker
+just develop
+```
+
+
+The complete set of commands can be found with:
+
+```sh
+just
+```
+
+
+### Manual(Docs WIP)
+
+The manual setup process is (WIP)
+
 
 ```bash
-# Clone the repository
-git clone <your-fork-url>
-cd <your-repository-name>
 
-# Install dependencies
-# (Note: You may need --legacy-peer-deps)
-npm install
+npm install --legacy-peer-deps
 
 # Serve the Angular client application (this will simultaneously serve the API backend)
 npx nx run client:serve
@@ -58,10 +94,33 @@ npx nx run-many -t lint test build e2e --parallel=3
 # Visualize the project graph
 npx nx graph
 ```
+----
 
-##  Featured Nx Capabilities
 
-This repository showcases several powerful Nx features:
+
+The client runs on `http://localhost:4200` and the API on `http://localhost:3000`. 
+
+This repository demonstrates a production-ready Angular monorepo with:
+
+
+## Notes on Architecture(WIP)
+- **2 Applications**
+
+  - `client` - Angular e-commerce application with product listings and detail views
+  - `api` - Backend API with Docker support serving product data
+
+- **6 Libraries**
+
+  - `@org/feature-products` - Product listing feature (Angular)
+  - `@org/feature-product-detail` - Product detail feature (Angular)
+  - `@org/data` - Data access layer for client features
+  - `@org/shared-ui` - Shared UI components
+  - `@org/models` - Shared data models
+  - `@org/products` - API product service library
+
+- **E2E Testing**
+  - `client-e2e` - Playwright tests for the client application
+
 
 ### 1.  Module Boundaries
 
@@ -119,7 +178,7 @@ npx nx run client-e2e:e2e-ci
 
 [Learn more about E2E testing →](https://nx.dev/docs/technologies/test-tools/playwright)
 
-### 4. ⚡ Vitest for Unit Testing
+### 4. Vitest for Unit Testing
 
 Fast unit testing with Vite for Angular libraries:
 
@@ -131,27 +190,7 @@ npx nx run data:test
 npx nx run-many -t test
 ```
 
-[Learn more about Vite testing →](https://nx.dev/docs/technologies/build-tools/vite)
-
-### 5.  Self-Healing CI
-
-The CI pipeline includes `nx fix-ci` which automatically identifies and suggests fixes for common issues:
-
-```bash
-# In CI, this command provides automated fixes
-npx nx fix-ci
-```
-
-This feature helps maintain a healthy CI pipeline by automatically detecting and suggesting solutions for:
-
-- Missing dependencies
-- Incorrect task configurations
-- Cache invalidation issues
-- Common build failures
-
-[Learn more about self-healing CI →](https://nx.dev/docs/features/ci-features/self-healing-ci)
-
-##  Project Structure
+##  Project Structure(WIP)
 
 ```
 ├── apps/

@@ -56,4 +56,7 @@ vitest.config.*.timestamp*
 .nx/migrate-runs
 docs
 apps/api/src/generated
+*staging.yml
 uploads
+.env
+.env.docker
