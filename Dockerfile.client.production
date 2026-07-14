@@ -1,6 +1,7 @@
 FROM node:lts-slim AS builder
 
 LABEL maintainer="hello@tillertech.io"
+LABEL org.opencontainers.image.source=https://github.com/tillertech/foundry-client
 
 WORKDIR /foundry
 

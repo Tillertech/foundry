@@ -1,6 +1,6 @@
 <p align="center">
   <h2 align="center"> <a href="https://foundry.tillertech.io/"> Foundry</a></h2>
-  <p align="center">The modern workspace for independent consultants</p>
+  <p align="center">The modern workspace for consultants, agencies and studios</p>
 </p>
 
 
@@ -8,10 +8,12 @@
 
 ##  Project Overview
 
-Foundry is the solution to consultancy management in the service industry.
+[Foundry](https://foundry.tillertech.io/) is an open-source, self-hostable workspace for consultants, agencies and service businesses. Manage clients, projects, quotes, invoices, payments, documents and reporting from one place.
 
 
 - [Project Overview](#project-overview)
+- [Prerequisites](#prerequisites)
+- [Deployment](#deployment)
 - [Local Development](#local-development)
   - [Docker(Recommended)](#dockerrecommended)
   - [Manual(Docs WIP)](#manualdocs-wip)
@@ -30,6 +32,21 @@ Foundry is the solution to consultancy management in the service industry.
   - [Generate a new API library:](#generate-a-new-api-library)
 
 
+## Prerequisites
+
+ - Docker 
+ - Docker compose
+
+## Deployment
+
+```sh
+mkdir foundry && cd foundry
+curl -L -o docker-compose.yml https://raw.githubusercontent.com/tillertech/foundry/main/docker-compose.production.yml
+curl -L -o .env https://raw.githubusercontent.com/tillertech/foundry/main/.env.production.example
+# Edit .env to set your DATABASE_URL, secrets, and S3 credentials
+nano .env
+docker compose up -d
+```
 
 ## Local Development
 

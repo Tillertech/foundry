@@ -20,16 +20,14 @@ services:
       - foundry
 
   foundryapi:
+    image: ghcr.io/tillertech/foundry-api:latest
     container_name: foundry-api
-    build:
-      context: .
-      dockerfile: Dockerfile.api.production
     environment:
       NODE_ENV: production
       REDIS_HOST: redis
       UPLOADS_DIR: /app/uploads
     env_file:
-      - ./.env.production
+      - ./.env
     ports:
       - '3000:3000'
     volumes:
@@ -44,10 +42,8 @@ services:
       - foundry
 
   foundryclient:
+    image: ghcr.io/tillertech/foundry-client:latest
     container_name: foundry-client
-    build:
-      context: .
-      dockerfile: Dockerfile.client.production
     ports:
       - '4000:80'
     depends_on:
