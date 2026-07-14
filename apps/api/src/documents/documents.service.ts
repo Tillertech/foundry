@@ -127,7 +127,7 @@ export class DocumentsService {
     const document = await this.findOne(ownerId, id);
     if (!document.clientId) {
       throw new BadRequestException(
-        'Document is not linked to a client — link it before sharing',
+        'Document is not linked to a client - link it before sharing',
       );
     }
     const client = await this.clients.findOne(ownerId, document.clientId);

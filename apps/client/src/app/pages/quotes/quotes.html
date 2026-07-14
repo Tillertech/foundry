@@ -78,7 +78,7 @@
           >
             <span class="font-mono text-xs text-muted-foreground">{{ q.number }}</span>
             <span class="truncate text-sm font-medium">
-              {{ clientMap()[q.clientId]?.company || clientMap()[q.clientId]?.name || '—' }}
+              {{ clientMap()[q.clientId]?.company || clientMap()[q.clientId]?.name || '-' }}
             </span>
             <span class="hidden text-xs text-muted-foreground sm:inline">{{ day(q.validUntil) }}</span>
             <span class="text-right text-sm font-semibold tabular-nums">

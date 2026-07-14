@@ -1,0 +1,16 @@
+-- AlterTable
+ALTER TABLE "workspace" ADD COLUMN     "address" VARCHAR(500),
+ADD COLUMN     "city" VARCHAR(500),
+ADD COLUMN     "country" VARCHAR(500),
+ADD COLUMN     "email" VARCHAR(500),
+ADD COLUMN     "footerNote" TEXT,
+ADD COLUMN     "invoicePrefix" TEXT,
+ADD COLUMN     "legalName" VARCHAR(500),
+ADD COLUMN     "paymentTerms" INTEGER NOT NULL DEFAULT 7,
+ADD COLUMN     "phone" VARCHAR(500),
+ADD COLUMN     "postCode" VARCHAR(500),
+ADD COLUMN     "quotePrefix" TEXT,
+ADD COLUMN     "storageKey" TEXT,
+ADD COLUMN     "taxCode" VARCHAR(500),
+ADD COLUMN     "taxRate" DECIMAL(5,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "website" VARCHAR(500);

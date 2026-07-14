@@ -166,7 +166,7 @@ export class Login {
     const email = this.model().email.trim();
     this.auth.login({ email, password: v.password }).subscribe({
       next: (res) => {
-        // Credentials ok — a sign-in code was emailed. Persist the email so the
+        // Credentials ok - a sign-in code was emailed. Persist the email so the
         // code screen survives a reload, then hand off to it.
         setPendingLogin(res.email);
         this.toast.info('Check your email', res.message);

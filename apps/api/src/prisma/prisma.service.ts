@@ -30,7 +30,7 @@ export class PrismaService
       await this.$connect();
     } catch (err) {
       this.logger.warn(
-        `Database not reachable yet — continuing without an eager connection (${(err as Error).message})`,
+        `Database not reachable yet - continuing without an eager connection (${(err as Error).message})`,
       );
     }
   }

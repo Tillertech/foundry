@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { WorkspaceModel } from '../../../generated/prisma/models';
 import { WorkspaceEntity } from '../../../workspaces/entities/workspace.entity';
 
 export class AuthUserDto {
@@ -26,12 +27,12 @@ export class AuthResponseDto {
     type: WorkspaceEntity,
     description: 'The user default workspace (created at signup)',
   })
-  defaultWorkspace?: WorkspaceEntity;
+  defaultWorkspace?: WorkspaceModel;
 }
 
 export class MeResponseDto extends AuthUserDto {
   @ApiProperty({ type: [WorkspaceEntity] })
-  workspaces: WorkspaceEntity[];
+  workspaces: WorkspaceModel[];
 }
 
 export class MessageResponseDto {

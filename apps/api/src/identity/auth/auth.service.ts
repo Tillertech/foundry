@@ -142,7 +142,7 @@ export class AuthService {
 
   /**
    * Password check, step one of two. On success a fresh sign-in code is emailed
-   * and the caller must exchange it via verifyLogin() — no token is issued here.
+   * and the caller must exchange it via verifyLogin() - no token is issued here.
    * Unverified accounts are diverted to email confirmation (403).
    */
   async login(dto: LoginDto): Promise<LoginChallengeDto> {

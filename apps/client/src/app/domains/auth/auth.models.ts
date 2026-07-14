@@ -31,7 +31,7 @@ export interface SignupResponse {
   message: string;
 }
 
-/** Returned by POST /auth/login — credentials ok, a sign-in code was emailed. */
+/** Returned by POST /auth/login - credentials ok, a sign-in code was emailed. */
 export interface LoginChallenge {
   email: string;
   message: string;

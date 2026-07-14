@@ -1,147 +1,336 @@
-<div class="mx-auto max-w-3xl px-4 py-8 md:px-8">
+<div class="mx-auto max-w-4xl px-4 py-8 md:px-8">
   <div class="mb-8">
     <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
     <p class="mt-1 text-sm text-muted-foreground">
-      Configure your workspace and personalize the look.
+      Workspace configuration, branding and notification preferences.
     </p>
   </div>
 
-  <section class="surface-card p-6">
-    <div class="mb-5 flex items-center gap-2">
-      <ng-icon name="lucidePalette" size="16" class="text-primary" />
-      <h2 class="text-sm font-semibold">Appearance</h2>
-    </div>
+  <hlm-tabs tab="workspace" class="w-full">
+    <hlm-tabs-list class="mb-6 w-full" aria-label="Settings sections">
+      <button hlmTabsTrigger="workspace" type="button">
+        <ng-icon name="lucideBuilding2" size="14" />
+        <span class="hidden sm:inline">Workspace</span>
+      </button>
+      <button hlmTabsTrigger="templates" type="button">
+        <ng-icon name="lucideFileText" size="14" />
+        <span class="hidden sm:inline">Templates</span>
+      </button>
+      <button hlmTabsTrigger="appearance" type="button">
+        <ng-icon name="lucidePalette" size="14" />
+        <span class="hidden sm:inline">Appearance</span>
+      </button>
+      <button hlmTabsTrigger="notifications" type="button">
+        <ng-icon name="lucideBell" size="14" />
+        <span class="hidden sm:inline">Notifications</span>
+      </button>
+      <button hlmTabsTrigger="advanced" type="button">
+        <ng-icon name="lucideShieldAlert" size="14" />
+        <span class="hidden sm:inline">Advanced</span>
+      </button>
+    </hlm-tabs-list>
 
-    <div class="space-y-6">
-      <div>
-        <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Theme</p>
-        <div class="grid grid-cols-3 gap-2">
-          @for (m of modes; track m.id) {
-            <button
-              type="button"
-              [disabled]="m.disabled"
-              (click)="setMode(m.id)"
-              class="flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-sm transition-all"
-              [class]="
-                isActiveMode(m.id)
-                  ? 'border-primary/60 bg-primary/5 text-foreground shadow-[var(--shadow-glow)]'
-                  : m.disabled
-                    ? 'cursor-not-allowed border-border bg-surface text-muted-foreground opacity-40'
-                    : 'border-border bg-surface text-muted-foreground hover:border-primary/40 hover:text-foreground'
-              "
-            >
-              <ng-icon [name]="m.icon" size="20" />
-              {{ m.label }}
-            </button>
-          }
-        </div>
-      </div>
-
-      <div>
-        <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Accent color
-        </p>
-        <div class="flex flex-wrap gap-2">
-          @for (a of accents; track a.id) {
-            <button
-              type="button"
-              (click)="theme.setAccent(a.id)"
-              class="group relative flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all"
-              [class]="
-                theme.accent() === a.id
-                  ? 'border-primary/60 bg-primary/10'
-                  : 'border-border bg-surface hover:border-primary/40'
-              "
-            >
-              <span
-                class="h-4 w-4 rounded-full ring-2 ring-background"
-                [style.background-color]="a.swatch"
-              ></span>
-              {{ a.label }}
-              @if (theme.accent() === a.id) {
-                <ng-icon name="lucideCheck" size="14" class="text-primary" />
-              }
-            </button>
-          }
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="surface-card mt-4 p-6">
-    <div class="mb-5 flex items-center gap-2">
-      <ng-icon name="lucideBuilding2" size="16" class="text-primary" />
-      <h2 class="text-sm font-semibold">Workspace</h2>
-    </div>
-    @if (workspace(); as ws) {
-      <form class="grid gap-4" (submit)="$event.preventDefault(); saveWorkspace()">
-        <div class="grid gap-4 sm:grid-cols-2">
-          <app-field label="Name" [error]="fieldError(f.name())">
-            <input hlmInput class="w-full" [formField]="f.name" />
-          </app-field>
-          <app-field label="Default currency">
-            <hlm-select class="w-full" [formField]="f.currency" [itemToString]="currencyLabel">
-              <hlm-select-trigger class="w-full">
-                <hlm-select-value />
-              </hlm-select-trigger>
-              <hlm-select-content *hlmSelectPortal>
-                <hlm-select-item value="USD">USD - US Dollar</hlm-select-item>
-                <hlm-select-item value="EUR">EUR - Euro</hlm-select-item>
-                <hlm-select-item value="GBP">GBP - British Pound</hlm-select-item>
-                <hlm-select-item value="KES">KES - Kenyan Shilling</hlm-select-item>
-              </hlm-select-content>
-            </hlm-select>
-          </app-field>
-        </div>
-        <div class="border-t border-border pt-4">
-          <div class="mb-3 flex items-center gap-2">
-            <ng-icon name="lucideBellRing" size="14" class="text-primary" />
-            <p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Invoice reminders
+    <div hlmTabsContent="workspace">
+      @if (workspace(); as ws) {
+        <form class="space-y-4" (submit)="$event.preventDefault(); saveWorkspace()">
+          <section class="surface-card p-6">
+            <div class="mb-1 flex items-center gap-2">
+              <ng-icon name="lucideBuilding2" size="16" class="text-primary" />
+              <h2 class="text-sm font-semibold">Company</h2>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              Appears on invoices, quotes and payment receipts.
             </p>
-          </div>
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div class="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3">
-              <div>
-                <p class="text-sm font-medium">Email reminders</p>
+
+            <div class="mt-5 flex flex-wrap items-center gap-4 rounded-lg border border-border px-4 py-3">
+              @if (logoUrl(); as logo) {
+                <img
+                  [src]="logo"
+                  alt="Workspace logo"
+                  class="h-14 w-14 rounded-lg border border-border bg-surface object-contain p-1"
+                />
+              } @else {
+                <div
+                  class="grid h-14 w-14 place-items-center rounded-lg border border-dashed border-border text-muted-foreground"
+                >
+                  <ng-icon name="lucideImage" size="20" />
+                </div>
+              }
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium">Brand logo</p>
                 <p class="text-xs text-muted-foreground">
-                  Nudge clients when invoices come due.
+                  PNG or JPEG up to 2MB. Printed on invoice and quote PDFs.
                 </p>
               </div>
-              <hlm-switch
-                [formField]="f.remindersEnabled"
-                aria-label="Send invoice reminder emails"
-              />
-            </div>
-            <app-field
-              label="Days before due date"
-              hint="Reminders start this many days ahead and repeat at the same interval while unpaid."
-            >
               <input
-                hlmInput
-                type="number"
-                class="w-full"
-                [formField]="f.reminderDaysBefore"
+                #logoInput
+                type="file"
+                accept="image/png,image/jpeg"
+                class="hidden"
+                (change)="onLogoSelected($event)"
               />
-            </app-field>
+              <div class="flex items-center gap-2">
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  [disabled]="logoBusy()"
+                  (click)="logoInput.click()"
+                >
+                  <ng-icon name="lucideUpload" size="14" class="mr-1.5" />
+                  {{ logoUrl() ? 'Replace' : 'Upload' }}
+                </button>
+                @if (logoUrl()) {
+                  <button
+                    hlmBtn
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    class="text-destructive"
+                    [disabled]="logoBusy()"
+                    (click)="removeLogo()"
+                  >
+                    <ng-icon name="lucideTrash2" size="14" />
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+              <app-field label="Trading name" [error]="fieldError(f.name())">
+                <input hlmInput class="w-full" [formField]="f.name" />
+              </app-field>
+              <app-field label="Legal entity">
+                <input hlmInput class="w-full" [formField]="f.legalName" />
+              </app-field>
+              <app-field label="Billing email" [error]="fieldError(f.email())">
+                <input hlmInput type="email" class="w-full" [formField]="f.email" />
+              </app-field>
+              <app-field label="Phone">
+                <input hlmInput class="w-full" [formField]="f.phone" />
+              </app-field>
+              <app-field label="Website" class="sm:col-span-2">
+                <input hlmInput class="w-full" [formField]="f.website" />
+              </app-field>
+            </div>
+          </section>
+
+          <section class="surface-card p-6">
+            <div class="mb-5 flex items-center gap-2">
+              <ng-icon name="lucideMapPin" size="16" class="text-primary" />
+              <h2 class="text-sm font-semibold">Registered address</h2>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <app-field label="Address" class="sm:col-span-2">
+                <input hlmInput class="w-full" [formField]="f.address" />
+              </app-field>
+              <app-field label="City">
+                <input hlmInput class="w-full" [formField]="f.city" />
+              </app-field>
+              <app-field label="Postal code">
+                <input hlmInput class="w-full" [formField]="f.postCode" />
+              </app-field>
+              <app-field label="Country" class="sm:col-span-2">
+                <input hlmInput class="w-full" [formField]="f.country" />
+              </app-field>
+            </div>
+          </section>
+
+          <section class="surface-card p-6">
+            <div class="mb-1 flex items-center gap-2">
+              <ng-icon name="lucideReceipt" size="16" class="text-primary" />
+              <h2 class="text-sm font-semibold">Billing defaults</h2>
+            </div>
+            <p class="text-xs text-muted-foreground">Applied to new invoices and quotes.</p>
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+              <app-field label="Tax / VAT ID">
+                <input hlmInput class="w-full" [formField]="f.taxCode" />
+              </app-field>
+              <app-field label="Default currency">
+                <hlm-select class="w-full" [formField]="f.currency" [itemToString]="currencyLabel">
+                  <hlm-select-trigger class="w-full">
+                    <hlm-select-value />
+                  </hlm-select-trigger>
+                  <hlm-select-content *hlmSelectPortal>
+                    <hlm-select-item value="USD">USD - US Dollar</hlm-select-item>
+                    <hlm-select-item value="EUR">EUR - Euro</hlm-select-item>
+                    <hlm-select-item value="GBP">GBP - British Pound</hlm-select-item>
+                    <hlm-select-item value="KES">KES - Kenyan Shilling</hlm-select-item>
+                  </hlm-select-content>
+                </hlm-select>
+              </app-field>
+              <app-field label="Default tax rate (%)">
+                <input hlmInput type="number" step="0.5" class="w-full" [formField]="f.taxRate" />
+              </app-field>
+              <app-field label="Payment terms (days)">
+                <input hlmInput type="number" class="w-full" [formField]="f.paymentTerms" />
+              </app-field>
+              <app-field label="Invoice number prefix">
+                <input hlmInput class="w-full" placeholder="INV-" [formField]="f.invoicePrefix" />
+              </app-field>
+              <app-field label="Quote number prefix">
+                <input hlmInput class="w-full" placeholder="Q-" [formField]="f.quotePrefix" />
+              </app-field>
+              <app-field label="Invoice footer note" class="sm:col-span-2">
+                <textarea hlmTextarea rows="3" class="w-full" [formField]="f.footerNote"></textarea>
+              </app-field>
+            </div>
+          </section>
+
+          <section class="surface-card p-6">
+            <div class="mb-5 flex items-center gap-2">
+              <ng-icon name="lucideBellRing" size="16" class="text-primary" />
+              <h2 class="text-sm font-semibold">Invoice reminders</h2>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3">
+                <div>
+                  <p class="text-sm font-medium">Email reminders</p>
+                  <p class="text-xs text-muted-foreground">
+                    Nudge clients when invoices come due.
+                  </p>
+                </div>
+                <hlm-switch
+                  [formField]="f.remindersEnabled"
+                  aria-label="Send invoice reminder emails"
+                />
+              </div>
+              <app-field
+                label="Days before due date"
+                hint="Reminders start this many days ahead and repeat at the same interval while unpaid."
+              >
+                <input
+                  hlmInput
+                  type="number"
+                  class="w-full"
+                  [formField]="f.reminderDaysBefore"
+                />
+              </app-field>
+            </div>
+          </section>
+
+          <div class="flex items-center justify-between">
+            <p class="text-xs text-muted-foreground">
+              Slug: <span class="font-mono">{{ ws.slug }}</span>
+            </p>
+            <button
+              hlmBtn
+              size="sm"
+              type="submit"
+              [disabled]="savingWorkspace() || f().invalid()"
+            >
+              {{ savingWorkspace() ? 'Saving…' : 'Save workspace' }}
+            </button>
+          </div>
+        </form>
+      } @else {
+        <p class="text-xs text-muted-foreground">Loading workspace…</p>
+      }
+    </div>
+
+    <div hlmTabsContent="appearance">
+      <section class="surface-card p-6">
+        <div class="mb-5 flex items-center gap-2">
+          <ng-icon name="lucidePalette" size="16" class="text-primary" />
+          <h2 class="text-sm font-semibold">Appearance</h2>
+        </div>
+
+        <div class="space-y-6">
+          <div>
+            <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Theme</p>
+            <div class="grid grid-cols-3 gap-2">
+              @for (m of modes; track m.id) {
+                <button
+                  type="button"
+                  [disabled]="m.disabled"
+                  (click)="setMode(m.id)"
+                  class="flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-sm transition-all"
+                  [class]="
+                    isActiveMode(m.id)
+                      ? 'border-primary/60 bg-primary/5 text-foreground shadow-[var(--shadow-glow)]'
+                      : m.disabled
+                        ? 'cursor-not-allowed border-border bg-surface text-muted-foreground opacity-40'
+                        : 'border-border bg-surface text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  "
+                >
+                  <ng-icon [name]="m.icon" size="20" />
+                  {{ m.label }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <div>
+            <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Accent color
+            </p>
+            <div class="flex flex-wrap gap-2">
+              @for (a of accents; track a.id) {
+                <button
+                  type="button"
+                  (click)="theme.setAccent(a.id)"
+                  class="group relative flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all"
+                  [class]="
+                    theme.accent() === a.id
+                      ? 'border-primary/60 bg-primary/10'
+                      : 'border-border bg-surface hover:border-primary/40'
+                  "
+                >
+                  <span
+                    class="h-4 w-4 rounded-full ring-2 ring-background"
+                    [style.background-color]="a.swatch"
+                  ></span>
+                  {{ a.label }}
+                  @if (theme.accent() === a.id) {
+                    <ng-icon name="lucideCheck" size="14" class="text-primary" />
+                  }
+                </button>
+              }
+            </div>
           </div>
         </div>
-        <div class="flex items-center justify-between">
-          <p class="text-xs text-muted-foreground">
-            Slug: <span class="font-mono">{{ ws.slug }}</span>
-          </p>
-          <button
-            hlmBtn
-            size="sm"
-            type="submit"
-            [disabled]="savingWorkspace() || f().invalid()"
+      </section>
+    </div>
+
+    @for (feature of comingSoon; track feature.id) {
+      <div [hlmTabsContent]="feature.id">
+        <section class="surface-card flex flex-col items-center gap-3 px-6 py-14 text-center">
+          <div class="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary">
+            <ng-icon [name]="feature.icon" size="20" />
+          </div>
+          <span
+            class="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
           >
-            {{ savingWorkspace() ? 'Saving…' : 'Save workspace' }}
+            Coming soon
+          </span>
+          <h2 class="text-sm font-semibold">{{ feature.title }}</h2>
+          <p class="max-w-sm text-xs text-muted-foreground">{{ feature.description }}</p>
+        </section>
+      </div>
+    }
+
+    <div hlmTabsContent="advanced">
+      <section class="surface-card border-destructive/30 p-6">
+        <div class="flex items-center gap-2">
+          <ng-icon name="lucideShieldAlert" size="16" class="text-destructive" />
+          <h2 class="text-sm font-semibold">Advanced</h2>
+        </div>
+        <p class="mt-2 text-xs text-muted-foreground">
+          Destructive actions on this workspace. Proceed with care.
+        </p>
+        <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+          <div>
+            <p class="text-sm font-medium text-destructive">Delete workspace</p>
+            <p class="text-xs text-muted-foreground">
+              This can't be undone. All clients, invoices and payments will be permanently removed.
+            </p>
+          </div>
+          <button hlmBtn variant="destructive" size="sm" type="button" (click)="deleteWorkspace()">
+            Delete workspace
           </button>
         </div>
-      </form>
-    } @else {
-      <p class="text-xs text-muted-foreground">Loading workspace…</p>
-    }
-  </section>
+      </section>
+    </div>
+  </hlm-tabs>
 </div>

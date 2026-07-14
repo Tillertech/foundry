@@ -13,7 +13,7 @@ import { ReconciliationEntry, isoDay, money, num } from '../domains/shared';
 /**
  * Payment reconciliation timeline, viewable from an invoice (optionally
  * widened to its project), from a project, or both. Pass invoiceId for the
- * invoice view — a scope toggle appears when the invoice has a project —
+ * invoice view - a scope toggle appears when the invoice has a project -
  * or only projectId for the project-wide view.
  */
 @Component({
