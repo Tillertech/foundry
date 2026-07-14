@@ -10,9 +10,30 @@
 
 Foundry is the solution to consultancy management in the service industry.
 
-### Local Development
 
-#### Docker(Recommended)
+- [Project Overview](#project-overview)
+- [Local Development](#local-development)
+  - [Docker(Recommended)](#dockerrecommended)
+  - [Manual(Docs WIP)](#manualdocs-wip)
+- [Notes on Architecture(WIP)](#notes-on-architecturewip)
+  - [1.  Module Boundaries](#1--module-boundaries)
+  - [2. Docker Integration](#2-docker-integration)
+  - [3. Playwright E2E Testing](#3-playwright-e2e-testing)
+  - [4. Vitest for Unit Testing](#4-vitest-for-unit-testing)
+- [Project Structure(WIP)](#project-structurewip)
+- [Understanding Tags](#understanding-tags)
+- [Useful Commands](#useful-commands)
+- [Adding New Features](#adding-new-features)
+  - [Generate a new Angular application:](#generate-a-new-angular-application)
+  - [Generate a new Angular library:](#generate-a-new-angular-library)
+  - [Generate a new Angular component:](#generate-a-new-angular-component)
+  - [Generate a new API library:](#generate-a-new-api-library)
+
+
+
+## Local Development
+
+### Docker(Recommended)
 
 **Basic requirements**
 - Docker
@@ -39,7 +60,7 @@ just
 ```
 
 
-#### Manual(Docs WIP)
+### Manual(Docs WIP)
 
 The manual setup process is (WIP)
 
@@ -157,7 +178,7 @@ npx nx run client-e2e:e2e-ci
 
 [Learn more about E2E testing →](https://nx.dev/docs/technologies/test-tools/playwright)
 
-### 4. ⚡ Vitest for Unit Testing
+### 4. Vitest for Unit Testing
 
 Fast unit testing with Vite for Angular libraries:
 
@@ -169,27 +190,7 @@ npx nx run data:test
 npx nx run-many -t test
 ```
 
-[Learn more about Vite testing →](https://nx.dev/docs/technologies/build-tools/vite)
-
-### 5.  Self-Healing CI
-
-The CI pipeline includes `nx fix-ci` which automatically identifies and suggests fixes for common issues:
-
-```bash
-# In CI, this command provides automated fixes
-npx nx fix-ci
-```
-
-This feature helps maintain a healthy CI pipeline by automatically detecting and suggesting solutions for:
-
-- Missing dependencies
-- Incorrect task configurations
-- Cache invalidation issues
-- Common build failures
-
-[Learn more about self-healing CI →](https://nx.dev/docs/features/ci-features/self-healing-ci)
-
-##  Project Structure
+##  Project Structure(WIP)
 
 ```
 ├── apps/
