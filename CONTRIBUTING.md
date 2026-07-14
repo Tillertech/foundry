@@ -195,13 +195,11 @@ You will need:
 Setup:
 
 ```bash
-git clone https://github.com/tillertech/foundry.git
+git clone https://github.com/tillertech/foundry
 cd foundry
-pnpm install
-cp .env.example .env
-docker compose -f docker-compose.dev.yml up -d
-pnpm nx run api:migrate
-pnpm nx run-many -t serve
+npm install
+cp .env.docker.example .env.docker
+docker compose -f docker-compose.local.yml up -d
 ```
 
 The client runs on `http://localhost:4200` and the API on
