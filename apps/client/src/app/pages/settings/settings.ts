@@ -38,6 +38,7 @@ import {
   WorkspacesApiService,
 } from '../../domains/workspaces';
 import { ToastService } from '../../core/toast.service';
+import { toast } from '@spartan-ng/brain/sonner';
 import { Accent, ThemeService } from '../../core/theme.service';
 import { Field } from '../../shared/field';
 import { fieldError } from '../../shared/field-error';
@@ -263,9 +264,15 @@ export class Settings {
     this.savingWorkspace.set(true);
     this.workspacesApi.update(ws.id, body).subscribe({
       next: (updated) => {
+        console.log('hahahaha');
         this.savingWorkspace.set(false);
         this.workspace.set(updated);
-        this.toast.updated('Workspace');
+        // todo: figure out fail
+        this.toast.success(
+          'Settings saved',
+          'Your workspace details have been updated.',
+        );
+
       },
       error: (err) => {
         this.savingWorkspace.set(false);

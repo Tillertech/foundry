@@ -34,7 +34,7 @@ import {
   quoteTotal,
   toApiDate,
 } from '../../domains/shared';
-import { ToastService } from '../../core/toast.service';
+import { toast } from '@spartan-ng/brain/sonner';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
 import { Field } from '../../shared/field';
@@ -97,7 +97,6 @@ export class Quotes {
   private readonly quotesApi = inject(QuotesApiService);
   private readonly clientsApi = inject(ClientsApiService);
   private readonly projectsApi = inject(ProjectsApiService);
-  private readonly toast = inject(ToastService);
 
   protected readonly loading = signal(true);
   protected readonly quotes = signal<Quote[]>([]);
@@ -130,7 +129,7 @@ export class Quotes {
       },
       error: (err) => {
         this.loading.set(false);
-        this.toast.error('Could not load quotes', apiErrorMessage(err));
+        toast.error('Could not load quotes', {description: apiErrorMessage(err)});
       },
     });
     this.clientsApi.list({ take: 100 }).subscribe({
@@ -251,8 +250,8 @@ export class Quotes {
             : list.map((q) => (q.id === quote.id ? quote : q)),
         );
         this.sheetOpen.set(false);
-        if (this.isNew) this.toast.created('Quote');
-        else this.toast.updated('Quote');
+        if (this.isNew) toast.success('Quote created');
+        else toast.success('Quote updated');
         if (quote.status === 'accepted') {
           this.acceptedQuote.set(quote);
           this.projectDialogOpen.set(true);
@@ -260,7 +259,7 @@ export class Quotes {
       },
       error: (err) => {
         this.saving.set(false);
-        this.toast.error('Could not save quote', apiErrorMessage(err));
+        toast.error('Could not save quote', {description: apiErrorMessage(err)});
       },
     });
   }
@@ -276,14 +275,14 @@ export class Quotes {
           list.map((q) => (q.id === quote.id ? quote : q)),
         );
         this.sheetOpen.set(false);
-        this.toast.success(
+        toast.success(
           'Quote sent',
-          `${quote.number} was emailed to the client.`,
+          {description: `${quote.number} was emailed to the client.`},
         );
       },
       error: (err) => {
         this.sending.set(false);
-        this.toast.error('Could not send quote', apiErrorMessage(err));
+        toast.error('Could not send quote', {description: apiErrorMessage(err)});
       },
     });
   }
@@ -294,10 +293,10 @@ export class Quotes {
       next: () => {
         this.quotes.update((list) => list.filter((q) => q.id !== id));
         this.sheetOpen.set(false);
-        this.toast.deleted('Quote');
+        toast.success('Quote deleted');
       },
       error: (err) =>
-        this.toast.error('Could not delete quote', apiErrorMessage(err)),
+        toast.error('Could not delete quote', {description: apiErrorMessage(err)}),
     });
   }
 
@@ -334,13 +333,13 @@ export class Quotes {
       })
       .subscribe({
         next: (project) => {
-          this.toast.success(
+          toast.success(
             'Project created',
-            `${project.name} is ready to go.`,
+            {description: `${project.name} is ready to go.`},
           );
         },
         error: (err) => {
-          this.toast.error('Could not create project', apiErrorMessage(err));
+          toast.error('Could not create project', {description: apiErrorMessage(err)});
         },
       });
   }

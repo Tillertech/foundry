@@ -18,7 +18,9 @@ import type {
 import {
   PdfBrand,
   PdfGeneratorService,
+  PdfParty,
 } from '../invoices/pdf-generator.service';
+import type { ClientModel as Client } from '../generated/prisma/models';
 import { logoMimeType } from '../workspaces/workspaces.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -30,6 +32,21 @@ import {
 } from './mail/mail.service';
 import { NotificationGateway } from './notification.gateway';
 import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
+
+interface BillerWorkspace {
+  ownerId: string;
+  name: string;
+  legalName: string | null;
+  storageKey: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  postCode: string | null;
+  taxCode: string | null;
+}
 
 @Injectable()
 export class NotificationService {
@@ -48,13 +65,14 @@ export class NotificationService {
   async onInvoiceSent({ invoice, client }: InvoiceSentEvent): Promise<void> {
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: client.workspaceId },
-      select: { ownerId: true, name: true, legalName: true, storageKey: true },
+      select: NotificationService.BILLER_SELECT,
     });
 
     const context = this.invoiceContext(invoice, client.name, workspace?.name);
     const pdf = await this.pdfService.invoicePdf({
       number: invoice.number,
-      client: client.name,
+      biller: this.billerParty(workspace),
+      billedTo: this.clientParty(client),
       issueDate: context.issueDate,
       dueDate: context.dueDate,
       currency: invoice.currency,
@@ -169,13 +187,14 @@ export class NotificationService {
   async onQuoteSent({ quote, client }: QuoteSentEvent): Promise<void> {
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: client.workspaceId },
-      select: { ownerId: true, name: true, legalName: true, storageKey: true },
+      select: NotificationService.BILLER_SELECT,
     });
 
     const context = this.quoteContext(quote, client.name, workspace?.name);
     const pdf = await this.pdfService.quotePdf({
       number: quote.number,
-      client: client.name,
+      biller: this.billerParty(workspace),
+      billedTo: this.clientParty(client),
       issueDate: context.issueDate,
       validUntil: context.validUntil,
       currency: quote.currency,
@@ -205,7 +224,6 @@ export class NotificationService {
         });
       }
     }
-    this.logger.log(`Quote ${quote.number} sent to ${client.email}`);
   }
 
   /** Emails the stored file to the client and records the share for the owner. */
@@ -330,12 +348,55 @@ export class NotificationService {
     this.gateway.emitToUser(userId, 'notification.created', notification);
   }
 
+  /** Workspace fields needed to render the issuer (FROM) block on PDFs. */
+  private static readonly BILLER_SELECT = {
+    ownerId: true,
+    name: true,
+    legalName: true,
+    storageKey: true,
+    email: true,
+    phone: true,
+    website: true,
+    address: true,
+    city: true,
+    country: true,
+    postCode: true,
+    taxCode: true,
+  } as const;
+
+
+  private billerParty(workspace: BillerWorkspace | null): PdfParty {
+    if (!workspace) return { name: 'Foundry' };
+    return {
+      name: workspace.name,
+      detail: workspace.legalName,
+      address: workspace.address,
+      city: workspace.city,
+      postCode: workspace.postCode,
+      country: workspace.country,
+      email: workspace.email,
+      phone: workspace.phone,
+      website: workspace.website,
+      taxLabel: 'Tax ID',
+      taxId: workspace.taxCode,
+    };
+  }
+
+// billed to
+  private clientParty(client: Client): PdfParty {
+    return {
+      name: client.name,
+      detail: client.company,
+      address: client.address,
+      email: client.email,
+      phone: client.phone,
+      taxLabel: 'Tax ID',
+      taxId: client.taxId,
+    };
+  }
+
   private async pdfBrand(
-    workspace: {
-      name: string;
-      legalName: string | null;
-      storageKey: string | null;
-    } | null,
+    workspace: BillerWorkspace | null,
   ): Promise<PdfBrand | undefined> {
     if (!workspace) return undefined;
     const brand: PdfBrand = {

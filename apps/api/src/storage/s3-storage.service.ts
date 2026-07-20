@@ -16,19 +16,22 @@ export class S3StorageService extends StorageService {
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly region: string;
+  /** Base for public object URLs */
+  private readonly publicBase: string;
 
   constructor(config: ConfigService) {
     super();
     this.region = config.get<string>('AWS_REGION') ?? 'us-east-1';
     this.bucket = config.get<string>('S3_BUCKET') ?? 'foundry-uploads';
+    const endpoint = config.get<string>('S3_ENDPOINT');
     this.client = new S3Client({
       region: this.region,
-      // AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY come from the default
-      // credential chain; S3_ENDPOINT allows S3-compatible providers.
-      ...(config.get<string>('S3_ENDPOINT')
-        ? { endpoint: config.get<string>('S3_ENDPOINT'), forcePathStyle: true }
-        : {}),
+      ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
     });
+    //todo
+    this.publicBase = endpoint
+      ? `${endpoint.replace(/\/$/, '')}/${this.bucket}`
+      : `https://${this.bucket}.s3.${this.region}.amazonaws.com`;
   }
 
   async upload(file: Express.Multer.File): Promise<StoredFile> {
@@ -43,7 +46,7 @@ export class S3StorageService extends StorageService {
     );
     return {
       key,
-      url: `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`,
+      url: `${this.publicBase}/${key}`,
       size: file.size,
       mimeType: file.mimetype,
       originalName: file.originalname,
