@@ -54,7 +54,7 @@ const OPEN_STATUSES = ['sent', 'viewed', 'overdue'];
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgIcon, DatePipe, HlmButton, RouterLink, StatusBadge, RevenueChart],
+  imports: [NgIcon, HlmButton, RouterLink, StatusBadge, RevenueChart],
   providers: [
     provideIcons({
       lucideArrowDownRight,

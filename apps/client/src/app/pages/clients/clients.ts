@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  PLATFORM_ID,
   computed,
   inject,
   signal,
@@ -48,6 +47,7 @@ interface ClientForm {
   company: string;
   currency: Currency;
   status: ClientStatus;
+  phone: string;
   taxId: string;
   address: string;
   notes: string;
@@ -60,6 +60,7 @@ const emptyClient = (): ClientForm => ({
   company: '',
   currency: 'USD',
   status: 'active',
+  phone: '',
   taxId: '',
   address: '',
   notes: '',
@@ -185,6 +186,7 @@ export class Clients {
       company: c.company ?? '',
       currency: c.currency,
       status: c.status,
+      phone: c.phone ?? '',
       taxId: c.taxId ?? '',
       address: c.address ?? '',
       notes: c.notes ?? '',
@@ -196,15 +198,18 @@ export class Clients {
   protected save(): void {
     if (this.f().invalid() || this.saving()) return;
     const v = this.model();
+    // Optional fields send null (not undefined) so clearing one during an edit
+    // removes the stored value rather than leaving it unchanged.
     const body: CreateClientRequest = {
       name: v.name.trim(),
       email: v.email.trim(),
-      company: v.company.trim() || undefined,
+      company: v.company.trim() || null,
       currency: v.currency,
       status: v.status,
-      taxId: v.taxId.trim() || undefined,
-      address: v.address.trim() || undefined,
-      notes: v.notes.trim() || undefined,
+      phone: v.phone.trim() || null,
+      taxId: v.taxId.trim() || null,
+      address: v.address.trim() || null,
+      notes: v.notes.trim() || null,
     };
     this.saving.set(true);
     const request = this.isNew

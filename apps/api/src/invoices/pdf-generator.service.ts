@@ -22,9 +22,30 @@ export interface PdfBrand {
   logoDataUrl?: string;
 }
 
+/**
+ * A billing party (the workspace issuing the document, or the client being
+ * billed).
+ */
+export interface PdfParty {
+  name: string;
+  /** Company / trading name (client) or registered legal name (biller). */
+  detail?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postCode?: string | null;
+  country?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  /** Label for the tax identifier line, e.g. "Tax ID" or "VAT No.". */
+  taxLabel?: string;
+  taxId?: string | null;
+}
+
 export interface InvoicePdfData {
   number: string;
-  client: string;
+  biller: PdfParty;
+  billedTo: PdfParty;
   issueDate: string;
   dueDate: string;
   currency: string;
@@ -37,7 +58,8 @@ export interface InvoicePdfData {
 
 export interface QuotePdfData {
   number: string;
-  client: string;
+  biller: PdfParty;
+  billedTo: PdfParty;
   issueDate: string;
   validUntil: string;
   currency: string;
@@ -51,7 +73,8 @@ export interface QuotePdfData {
 interface DocumentPdfData {
   docType: 'INVOICE' | 'QUOTE';
   number: string;
-  client: string;
+  biller: PdfParty;
+  billedTo: PdfParty;
   dates: { label: string; value: string }[];
   currency: string;
   items: { description: string; quantity: number; rate: number }[];
@@ -73,7 +96,7 @@ const ZEBRA = '#f9fafb'; // alternating row fill
 const DANGER = '#dc2626'; // discounts
 
 const CONTENT_WIDTH = 515; // A4 width minus the 40pt side margins
-const TOTALS_WIDTH = 240;
+const TOTALS_WIDTH = 220;
 
 @Injectable()
 export class PdfGeneratorService {
@@ -168,7 +191,7 @@ export class PdfGeneratorService {
       ]);
     }
     totalsBody.push([
-      { text: `Tax (${taxRate}%)`, style: 'sumLabel' },
+      { text: `VAT (${taxRate}%)`, style: 'sumLabel' },
       { text: money(tax), style: 'sumValue' },
     ]);
     totalsBody.push([
@@ -201,8 +224,21 @@ export class PdfGeneratorService {
           { text: brandSub, style: 'brandSub' },
         ];
 
+    const dateRows: Content[] = data.dates.map((date, index) => ({
+      columns: [
+        { text: date.label, style: 'metaLabel', alignment: 'right' as Alignment },
+        {
+          text: date.value,
+          style: 'metaValue',
+          alignment: 'right' as Alignment,
+          width: 96,
+        },
+      ],
+      margin: [0, index === 0 ? 12 : 3, 0, 0],
+    }));
+
     const content: Content[] = [
-      // Masthead: brand on the left, invoice identity on the right.
+      // Masthead: brand on the left, document identity + dates on the right.
       {
         columns: [
           {
@@ -210,10 +246,11 @@ export class PdfGeneratorService {
             stack: brandStack,
           },
           {
-            width: 'auto',
+            width: 200,
             stack: [
               { text: data.docType, style: 'docType' },
               { text: data.number, style: 'docNumber' },
+              ...dateRows,
             ],
           },
         ],
@@ -235,35 +272,14 @@ export class PdfGeneratorService {
         margin: [0, 0, 0, 22],
       },
 
-      // Bill-to and invoice metadata.
+      // Issuer (FROM) and recipient (BILLED TO), side by side.
       {
         columns: [
-          {
-            width: '*',
-            stack: [
-              { text: 'BILLED TO', style: 'eyebrow' },
-              { text: data.client, style: 'clientName', margin: [0, 5, 0, 0] },
-            ],
-          },
-          {
-            width: TOTALS_WIDTH,
-            stack: [
-              { text: `${data.docType} DETAILS`, style: 'eyebrow' },
-              ...data.dates.map((date, index) => ({
-                columns: [
-                  { text: date.label, style: 'metaLabel', width: 55 },
-                  { text: date.value, style: 'metaValue' },
-                ],
-                margin: [0, index === 0 ? 5 : 0, 0, 3] as [
-                  number,
-                  number,
-                  number,
-                  number,
-                ],
-              })),
-            ],
-          },
+          { width: '*', ...this.partyStack('FROM', data.biller) },
+          { width: 24, text: '' },
+          { width: '*', ...this.partyStack('BILLED TO', data.billedTo) },
         ],
+        columnGap: 0,
         margin: [0, 0, 0, 26],
       },
 
@@ -338,7 +354,9 @@ export class PdfGeneratorService {
         margin: [0, 3, 0, 0],
       },
       eyebrow: { fontSize: 8, bold: true, color: FAINT, characterSpacing: 1.5 },
-      clientName: { fontSize: 14, bold: true, color: INK },
+      partyName: { fontSize: 13, bold: true, color: INK },
+      partyDetail: { fontSize: 10, color: MUTED },
+      partyLine: { fontSize: 9.5, color: MUTED, lineHeight: 1.35 },
       metaLabel: { fontSize: 10, color: MUTED },
       metaValue: { fontSize: 10, bold: true, color: INK },
       th: { fontSize: 9, bold: true, color: '#ffffff', characterSpacing: 0.5 },
@@ -387,5 +405,58 @@ export class PdfGeneratorService {
     };
 
     return pdfmake.createPdf(definition).getBuffer();
+  }
+
+  /**
+   * Builds a labelled address block for one billing party, emitting only the
+   * lines that carry a value so optional client/workspace fields stay clean.
+   */
+  private partyStack(
+    label: string,
+    party: PdfParty,
+  ): { stack: Content[] } {
+    const lines: Content[] = [
+      { text: label, style: 'eyebrow' },
+      { text: party.name, style: 'partyName', margin: [0, 5, 0, 0] },
+    ];
+    if (party.detail?.trim()) {
+      lines.push({ text: party.detail, style: 'partyDetail', margin: [0, 2, 0, 0] });
+    }
+
+    const locality = [party.city, party.postCode, party.country]
+      .map((v) => v?.trim())
+      .filter((v): v is string => !!v)
+      .join(', ');
+    const addressLines = [party.address?.trim(), locality].filter(
+      (v): v is string => !!v,
+    );
+    if (addressLines.length) {
+      lines.push({
+        text: addressLines.join('\n'),
+        style: 'partyLine',
+        margin: [0, 6, 0, 0],
+      });
+    }
+
+    const contactLines = [party.email?.trim(), party.phone?.trim(), party.website?.trim()].filter(
+      (v): v is string => !!v,
+    );
+    if (contactLines.length) {
+      lines.push({
+        text: contactLines.join('\n'),
+        style: 'partyLine',
+        margin: [0, 6, 0, 0],
+      });
+    }
+
+    if (party.taxId?.trim()) {
+      lines.push({
+        text: `${party.taxLabel ?? 'Tax ID'}: ${party.taxId.trim()}`,
+        style: 'partyLine',
+        margin: [0, 6, 0, 0],
+      });
+    }
+
+    return { stack: lines };
   }
 }

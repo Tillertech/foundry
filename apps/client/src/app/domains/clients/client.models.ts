@@ -20,13 +20,14 @@ export interface ApiClient {
 export interface CreateClientRequest {
   name: string;
   email: string;
-  company?: string;
+  // Nullable so an emptied field clears the stored value on update.
+  company?: string | null;
   currency?: Currency;
   status?: ClientStatus;
-  phone?: string;
-  taxId?: string;
-  address?: string;
-  notes?: string;
+  phone?: string | null;
+  taxId?: string | null;
+  address?: string | null;
+  notes?: string | null;
   workspaceId?: string;
 }
 

@@ -167,6 +167,7 @@ model Client {
   name      String
   email     String
   company   String?
+  // todo: add website
   currency  Currency     @default(USD)
   status    ClientStatus @default(active)
   phone     String?      @db.VarChar(250)

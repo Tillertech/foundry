@@ -190,6 +190,15 @@
         </app-field>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
+        <app-field label="Phone">
+          <input
+            hlmInput
+            type="tel"
+            class="w-full"
+            [formField]="f.phone"
+            placeholder="Optional"
+          />
+        </app-field>
         <app-field label="Tax ID / VAT">
           <input
             hlmInput
@@ -198,15 +207,15 @@
             placeholder="Optional"
           />
         </app-field>
-        <app-field label="Address">
-          <input
-            hlmInput
-            class="w-full"
-            [formField]="f.address"
-            placeholder="Optional"
-          />
-        </app-field>
       </div>
+      <app-field label="Address">
+        <input
+          hlmInput
+          class="w-full"
+          [formField]="f.address"
+          placeholder="Optional"
+        />
+      </app-field>
       <app-field label="Notes">
         <textarea
           hlmTextarea
