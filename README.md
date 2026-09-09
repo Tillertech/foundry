@@ -10,7 +10,12 @@
   <a href="https://foundry.tillertech.io/"><img src="https://img.shields.io/badge/website-foundry.tillertech.io-orange" alt="Website"></a>
 </p>
 
-![Foundry](./images/preview.png)
+![Foundry - quote to payment in one workspace](./images/demo.gif)
+
+<p align="center">
+  <em>Quote accepted &rarr; project &rarr; invoice sent &rarr; payment matched &rarr; dashboard updated.</em><br>
+  <a href="./images/demo-full.mp4">Watch the full walkthrough</a>
+</p>
 
 Foundry manages the full client-to-cash lifecycle - clients, quotes, projects, invoices, payments and documents - as one workspace on your own infrastructure. No row limits, no per-seat pricing, no telemetry.
 
