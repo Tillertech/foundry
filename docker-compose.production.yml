@@ -12,7 +12,7 @@ services:
 
   redis:
     container_name: foundrycache
-    image: redis
+    image: redis:7.4-alpine
     volumes:
       - redis:/data
     restart: always
@@ -30,8 +30,8 @@ services:
       - ./.env
     ports:
       - '3000:3000'
-    volumes:
-      - uploads:/app/uploads
+    # volumes:
+    #   - uploads:/app/uploads
     depends_on:
       db:
         condition: service_started
