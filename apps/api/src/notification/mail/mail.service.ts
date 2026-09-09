@@ -23,10 +23,21 @@ export interface InvoiceMailContext {
   tax: string;
   total: string;
   notes: string;
-  /** Total actually received against the invoice (settlement mails). */
+  /** Total actually received against the invoice to date. */
   amountPaid: string;
   /** Amount received beyond the total; empty string when not overpaid. */
   overpaidBy: string;
+  /** Amount still owed (0 once settled or overpaid). */
+  balanceDue: string;
+  /** Percent of the invoice total paid so far, 0-100. */
+  percentPaid: string;
+  /** Whether a PDF payment receipt is attached to this mail. */
+  hasReceipt: boolean;
+}
+
+export interface InvoicePartiallyPaidMailContext extends InvoiceMailContext {
+  /** Amount received in this specific payment, in the invoice currency. */
+  paymentAmount: string;
 }
 
 export interface QuoteMailContext {
@@ -126,12 +137,35 @@ export class MailService {
     );
   }
 
-  sendInvoicePaid(to: string, context: InvoiceMailContext): Promise<boolean> {
+  sendInvoicePaid(
+    to: string,
+    context: InvoiceMailContext,
+    receipt?: Buffer,
+  ): Promise<boolean> {
     return this.send(
       to,
       `Payment received for invoice ${context.number}`,
       'invoice-paid',
       { ...context },
+      receipt
+        ? [{ filename: `Receipt-${context.number}.pdf`, content: receipt }]
+        : undefined,
+    );
+  }
+
+  sendInvoicePartiallyPaid(
+    to: string,
+    context: InvoicePartiallyPaidMailContext,
+    receipt?: Buffer,
+  ): Promise<boolean> {
+    return this.send(
+      to,
+      `Payment received for invoice ${context.number} - ${context.currency} ${context.balanceDue} remaining`,
+      'invoice-partially-paid',
+      { ...context },
+      receipt
+        ? [{ filename: `Receipt-${context.number}.pdf`, content: receipt }]
+        : undefined,
     );
   }
 

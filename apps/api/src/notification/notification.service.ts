@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   DocumentSharedEvent,
   InvoicePaidEvent,
+  InvoicePartiallyPaidEvent,
   InvoiceReminderDueEvent,
   InvoiceSentEvent,
   QuoteSentEvent,
@@ -106,15 +107,15 @@ export class NotificationService {
     this.logger.log(`Invoice ${invoice.number} sent to ${client.email}`);
   }
 
-  /** Confirms settlement to the client and pushes a realtime event to the owner. */
   async onInvoicePaid({
     invoice,
     client,
     balance,
+    payment,
   }: InvoicePaidEvent): Promise<void> {
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: client.workspaceId },
-      select: { ownerId: true, name: true },
+      select: NotificationService.BILLER_SELECT,
     });
 
     const context = this.invoiceContext(
@@ -123,7 +124,14 @@ export class NotificationService {
       workspace?.name,
       balance,
     );
-    const delivered = await this.mail.sendInvoicePaid(client.email, context);
+    const receipt = payment
+      ? await this.receiptPdf(invoice, client, workspace, payment, context)
+      : undefined;
+    const delivered = await this.mail.sendInvoicePaid(
+      client.email,
+      { ...context, hasReceipt: !!receipt },
+      receipt,
+    );
     if (workspace) {
       this.gateway.emitToUser(workspace.ownerId, 'invoice.paid', {
         id: invoice.id,
@@ -144,6 +152,58 @@ export class NotificationService {
     }
     this.logger.log(
       `Invoice ${invoice.number} paid - receipt mailed to ${client.email}`,
+    );
+  }
+
+  /** Confirms a partial payment to the client (with a PDF receipt) and notifies the owner. */
+  async onInvoicePartiallyPaid({
+    invoice,
+    client,
+    payment,
+    balance,
+  }: InvoicePartiallyPaidEvent): Promise<void> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: client.workspaceId },
+      select: NotificationService.BILLER_SELECT,
+    });
+
+    const context = this.invoiceContext(
+      invoice,
+      client.name,
+      workspace?.name,
+      balance,
+    );
+    const paymentAmount = Number(payment.amount).toFixed(2);
+    const receipt = await this.receiptPdf(
+      invoice,
+      client,
+      workspace,
+      payment,
+      context,
+    );
+    const delivered = await this.mail.sendInvoicePartiallyPaid(
+      client.email,
+      { ...context, paymentAmount, hasReceipt: true },
+      receipt,
+    );
+    if (workspace) {
+      this.gateway.emitToUser(workspace.ownerId, 'invoice.partially_paid', {
+        id: invoice.id,
+        number: invoice.number,
+        clientName: client.name,
+        balance,
+      });
+      if (delivered) {
+        await this.notify(workspace.ownerId, {
+          kind: NotificationKind.invoice_partially_paid,
+          title: `Payment received for ${invoice.number}`,
+          body: `${client.name} paid ${invoice.currency} ${paymentAmount} toward ${invoice.number} - ${invoice.currency} ${context.balanceDue} still due.`,
+          resourceId: invoice.id,
+        });
+      }
+    }
+    this.logger.log(
+      `Invoice ${invoice.number} partially paid - ${invoice.currency} ${context.balanceDue} remaining, receipt mailed to ${client.email}`,
     );
   }
 
@@ -416,6 +476,37 @@ export class NotificationService {
     return brand;
   }
 
+  /** PDF receipt for one payment against an invoice - full settlement or a partial installment. */
+  private async receiptPdf(
+    invoice: InvoiceSentEvent['invoice'],
+    client: Client,
+    workspace: BillerWorkspace | null,
+    payment: Payment,
+    context: InvoiceMailContext,
+  ): Promise<Buffer> {
+    return this.pdfService.receiptPdf({
+      receiptNumber: `RCT-${payment.id.slice(0, 8).toUpperCase()}`,
+      invoiceNumber: invoice.number,
+      biller: this.billerParty(workspace),
+      billedTo: this.clientParty(client),
+      paymentDate: new Date(payment.date).toISOString().slice(0, 10),
+      paymentMethod: this.prettyPaymentMethod(payment.method),
+      paymentReference: payment.reference ?? undefined,
+      currency: invoice.currency,
+      paymentAmount: Number(payment.amount),
+      invoiceTotal: Number(context.total),
+      amountPaidToDate: Number(context.amountPaid),
+      balanceDue: Number(context.balanceDue),
+      brand: await this.pdfBrand(workspace),
+    });
+  }
+
+  /** "bank_transfer" -> "Bank transfer". */
+  private prettyPaymentMethod(method: string): string {
+    const spaced = method.replace(/_/g, ' ');
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+  }
+
   private invoiceContext(
     invoice: InvoiceSentEvent['invoice'],
     clientName: string,
@@ -434,6 +525,10 @@ export class NotificationService {
     const total = afterDiscount + tax;
     const money = (n: number) => n.toFixed(2);
     const day = (d: Date) => new Date(d).toISOString().slice(0, 10);
+    const amountPaid = total - balance;
+    const balanceDue = Math.max(0, balance);
+    const percentPaid =
+      total > 0 ? Math.min(100, Math.round((amountPaid / total) * 100)) : 100;
 
     return {
       clientName,
@@ -454,8 +549,12 @@ export class NotificationService {
       tax: money(tax),
       total: money(total),
       notes: invoice.notes ?? '',
-      amountPaid: money(total - balance),
+      amountPaid: money(amountPaid),
       overpaidBy: balance < 0 ? money(-balance) : '',
+      balanceDue: money(balanceDue),
+      percentPaid: String(percentPaid),
+      // Set true by the caller once it knows a receipt PDF was attached.
+      hasReceipt: false,
     };
   }
 

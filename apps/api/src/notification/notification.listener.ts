@@ -9,6 +9,7 @@ import {
   type DocumentSharedEvent,
   type EmailVerificationRequestedEvent,
   type InvoicePaidEvent,
+  type InvoicePartiallyPaidEvent,
   type InvoiceReminderDueEvent,
   type InvoiceSentEvent,
   type LoginOtpRequestedEvent,
@@ -47,6 +48,15 @@ export class NotificationListener {
       .onInvoicePaid(payload)
       .catch((err) =>
         this.logger.error('invoice.paid notification failed', err),
+      );
+  }
+
+  @OnEvent(InvoiceEvents.PARTIALLY_PAID, { async: true })
+  handleInvoicePartiallyPaid(payload: InvoicePartiallyPaidEvent) {
+    return this.notifications
+      .onInvoicePartiallyPaid(payload)
+      .catch((err) =>
+        this.logger.error('invoice.partially_paid notification failed', err),
       );
   }
 

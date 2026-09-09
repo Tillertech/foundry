@@ -14,13 +14,14 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
 @Component({
   selector: 'app-entity-sheet',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'block' },
   imports: [NgIcon, HlmButton, HlmSheetImports, BrnSheetContent, HlmAlertDialogImports, BrnAlertDialogContent],
   providers: [provideIcons({ lucideTrash2 })],
   template: `
     <hlm-sheet side="right" [state]="open() ? 'open' : 'closed'" (closed)="open.set(false)">
       <hlm-sheet-content
         *brnSheetContent="let ctx"
-        class="flex flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
+        class="flex min-w-0 flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
       >
         <div hlmSheetHeader class="border-b border-border px-6 py-4 text-left">
           <h3 hlmSheetTitle class="text-base font-semibold">{{ title() }}</h3>
@@ -29,7 +30,7 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
           }
         </div>
 
-        <div class="flex-1 overflow-y-auto px-6 py-5">
+        <div class="scrollbar-thin min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-5">
           <ng-content />
         </div>
 

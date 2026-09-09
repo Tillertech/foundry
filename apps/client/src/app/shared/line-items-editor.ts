@@ -21,6 +21,7 @@ export interface LineItemDraft {
 @Component({
   selector: 'app-line-items-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'block' },
   imports: [NgIcon, HlmButton, HlmInput],
   providers: [provideIcons({ lucideGripVertical, lucidePlus, lucideTrash2 })],
   template: `

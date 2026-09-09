@@ -7,6 +7,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 @Component({
   selector: 'app-list-skeleton',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'block' },
   template: `
     @if (variant() === 'cards') {
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

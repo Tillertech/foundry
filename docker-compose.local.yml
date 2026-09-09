@@ -53,7 +53,7 @@ services:
       - foundry
 
   foundryapi:
-    container_name: foundrydb-api
+    container_name: foundry-api
     build:
       context: .
       dockerfile: Dockerfile.api.local
@@ -71,9 +71,6 @@ services:
     volumes:
       - .:/foundry
       - /foundry/node_modules
-    # .nx holds nx's running-task registry (PID-keyed); sharing it with the
-    # host or across restarts makes nx wait on phantom "other" processes.
-    # bane of existence
     tmpfs:
       - /foundry/.nx
     depends_on:

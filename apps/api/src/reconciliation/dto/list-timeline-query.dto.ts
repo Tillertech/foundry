@@ -10,8 +10,9 @@ export class ListTimelineQueryDto extends PaginationQueryDto {
       "Invoice timeline only: also include the linked project's other entries (combined view)",
   })
   @IsOptional()
-  // Implicit query conversion turns "false" into true; convert explicitly.
-  @Transform(({ value }) => value === true || value === 'true')
+  // Read the untransformed source (`obj`) instead so "false"/
+  // "true" are parsed from the original query string, not its broken cast.
+  @Transform(({ obj, key }) => obj[key] === true || obj[key] === 'true')
   @IsBoolean()
   includeProject?: boolean;
 }
