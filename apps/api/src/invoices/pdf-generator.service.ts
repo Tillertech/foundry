@@ -56,6 +56,25 @@ export interface InvoicePdfData {
   brand?: PdfBrand;
 }
 
+export interface ReceiptPdfData {
+  receiptNumber: string;
+  invoiceNumber: string;
+  biller: PdfParty;
+  billedTo: PdfParty;
+  paymentDate: string;
+  paymentMethod: string;
+  paymentReference?: string;
+  currency: string;
+  /** Amount received in this specific payment. */
+  paymentAmount: number;
+  invoiceTotal: number;
+  /** Total received against the invoice to date, including this payment. */
+  amountPaidToDate: number;
+  /** Amount still owed after this payment; 0 once settled. */
+  balanceDue: number;
+  brand?: PdfBrand;
+}
+
 export interface QuotePdfData {
   number: string;
   biller: PdfParty;
@@ -94,6 +113,8 @@ const ACCENT_SOFT = '#fdf0e6'; // total-row highlight
 const LINE = '#e5e7eb'; // hairline rules
 const ZEBRA = '#f9fafb'; // alternating row fill
 const DANGER = '#dc2626'; // discounts
+const SETTLED = '#16a34a'; // paid-in-full status
+const PARTIAL = '#2563eb'; // partial-payment status
 
 const CONTENT_WIDTH = 515; // A4 width minus the 40pt side margins
 const TOTALS_WIDTH = 220;
@@ -136,6 +157,226 @@ export class PdfGeneratorService {
     });
   }
 
+  /** Payment receipt confirming an invoice payment - full settlement or a partial installment. */
+  async receiptPdf(data: ReceiptPdfData): Promise<Buffer> {
+    const money = (n: number) => this.money(data.currency, n);
+    const settled = data.balanceDue <= 0;
+    const statusLabel = settled ? 'PAID IN FULL' : 'PARTIAL PAYMENT';
+    const statusColor = settled ? SETTLED : PARTIAL;
+
+    const brandName = data.brand?.name?.trim() || 'FOUNDRY';
+    const brandSub = data.brand?.subName?.trim() || 'Studio Workspace';
+    const brandStack: Content[] = data.brand?.logoDataUrl
+      ? [
+          { image: data.brand.logoDataUrl, fit: [150, 48] },
+          { text: brandName, style: 'brandSub', margin: [0, 6, 0, 0] },
+        ]
+      : [
+          { text: brandName.toUpperCase(), style: 'brand' },
+          { text: brandSub, style: 'brandSub' },
+        ];
+
+    const summaryBody: TableCell[][] = [
+      [
+        { text: 'Invoice', style: 'sumLabel' },
+        { text: data.invoiceNumber, style: 'sumValue' },
+      ],
+      [
+        { text: 'Payment method', style: 'sumLabel' },
+        { text: data.paymentMethod, style: 'sumValue' },
+      ],
+    ];
+    if (data.paymentReference?.trim()) {
+      summaryBody.push([
+        { text: 'Reference', style: 'sumLabel' },
+        { text: data.paymentReference.trim(), style: 'sumValue' },
+      ]);
+    }
+    summaryBody.push([
+      { text: 'Invoice total', style: 'sumLabel' },
+      { text: money(data.invoiceTotal), style: 'sumValue' },
+    ]);
+    summaryBody.push([
+      { text: 'Paid to date', style: 'sumLabel' },
+      { text: money(data.amountPaidToDate), style: 'sumValue' },
+    ]);
+    summaryBody.push([
+      { text: 'Balance due', style: 'sumLabel' },
+      {
+        text: money(Math.max(0, data.balanceDue)),
+        style: 'sumValue',
+        color: settled ? undefined : DANGER,
+      },
+    ]);
+    summaryBody.push([
+      { text: 'Amount received', style: 'sumTotalLabel' },
+      { text: money(data.paymentAmount), style: 'sumTotalValue' },
+    ]);
+
+    const summaryLayout: CustomTableLayout = {
+      hLineWidth: (i, node) => (i === node.table.body.length - 1 ? 1 : 0),
+      vLineWidth: () => 0,
+      hLineColor: () => ACCENT_BAR,
+      fillColor: (rowIndex, node) =>
+        rowIndex === node.table.body.length - 1 ? ACCENT_SOFT : null,
+      paddingLeft: (col) => (col === 0 ? 12 : 8),
+      paddingRight: (col) => (col === 0 ? 12 : 12),
+      paddingTop: (i, node) => (i === node.table.body.length - 1 ? 9 : 5),
+      paddingBottom: (i, node) => (i === node.table.body.length - 1 ? 9 : 5),
+    };
+
+    const content: Content[] = [
+      {
+        columns: [
+          { width: '*', stack: brandStack },
+          {
+            width: 200,
+            stack: [
+              { text: 'RECEIPT', style: 'docType' },
+              { text: data.receiptNumber, style: 'docNumber' },
+              {
+                text: statusLabel,
+                style: 'statusLabel',
+                color: statusColor,
+                margin: [0, 6, 0, 0],
+              },
+              {
+                columns: [
+                  {
+                    text: 'Paid on',
+                    style: 'metaLabel',
+                    alignment: 'right' as Alignment,
+                  },
+                  {
+                    text: data.paymentDate,
+                    style: 'metaValue',
+                    alignment: 'right' as Alignment,
+                    width: 96,
+                  },
+                ],
+                margin: [0, 10, 0, 0],
+              },
+            ],
+          },
+        ],
+        margin: [0, 0, 0, 16],
+      },
+      {
+        canvas: [
+          { type: 'rect', x: 0, y: 0, w: CONTENT_WIDTH, h: 3, color: statusColor },
+        ],
+        margin: [0, 0, 0, 22],
+      },
+      {
+        columns: [
+          { width: '*', ...this.partyStack('FROM', data.biller) },
+          { width: 24, text: '' },
+          { width: '*', ...this.partyStack('RECEIVED FROM', data.billedTo) },
+        ],
+        columnGap: 0,
+        margin: [0, 0, 0, 30],
+      },
+      {
+        columns: [
+          { width: '*', text: '' },
+          {
+            width: TOTALS_WIDTH,
+            table: { widths: ['*', 'auto'], body: summaryBody },
+            layout: summaryLayout,
+          },
+        ],
+      },
+    ];
+
+    content.push({
+      text: settled
+        ? 'This invoice is fully settled. Thank you for your business.'
+        : 'Thank you for your payment - a balance remains outstanding on this invoice.',
+      style: 'thanks',
+      margin: [0, 36, 0, 0],
+    });
+
+    const styles: StyleDictionary = {
+      brand: { fontSize: 26, bold: true, color: INK, characterSpacing: 2 },
+      brandSub: { fontSize: 10, color: MUTED, characterSpacing: 1 },
+      docType: {
+        fontSize: 13,
+        bold: true,
+        color: MUTED,
+        alignment: 'right',
+        characterSpacing: 3,
+      },
+      docNumber: {
+        fontSize: 22,
+        bold: true,
+        color: ACCENT,
+        alignment: 'right',
+        margin: [0, 3, 0, 0],
+      },
+      statusLabel: {
+        fontSize: 11,
+        bold: true,
+        alignment: 'right',
+        characterSpacing: 1,
+      },
+      eyebrow: { fontSize: 8, bold: true, color: FAINT, characterSpacing: 1.5 },
+      partyName: { fontSize: 13, bold: true, color: INK },
+      partyDetail: { fontSize: 10, color: MUTED },
+      partyLine: { fontSize: 9.5, color: MUTED, lineHeight: 1.35 },
+      metaLabel: { fontSize: 10, color: MUTED },
+      metaValue: { fontSize: 10, bold: true, color: INK },
+      sumLabel: { fontSize: 10, color: MUTED },
+      sumValue: { fontSize: 10, color: INK, alignment: 'right' },
+      sumTotalLabel: { fontSize: 12, bold: true, color: INK },
+      sumTotalValue: {
+        fontSize: 12,
+        bold: true,
+        color: ACCENT,
+        alignment: 'right',
+      },
+      thanks: {
+        fontSize: 10,
+        color: FAINT,
+        alignment: 'center',
+        characterSpacing: 0.5,
+      },
+    };
+
+    const definition: TDocumentDefinitions = {
+      defaultStyle: { font: 'Helvetica', fontSize: 10, color: INK },
+      pageMargins: [40, 56, 40, 64],
+      content,
+      styles,
+      footer: (currentPage, pageCount) => ({
+        margin: [40, 0, 40, 32],
+        columns: [
+          {
+            text: brandName.toUpperCase(),
+            fontSize: 8,
+            bold: true,
+            color: FAINT,
+            characterSpacing: 1,
+          },
+          {
+            text: `Page ${currentPage} of ${pageCount}`,
+            fontSize: 8,
+            color: FAINT,
+            alignment: 'right',
+          },
+        ],
+      }),
+    };
+
+    return pdfmake.createPdf(definition).getBuffer();
+  }
+
+  private money(currency: string, n: number): string {
+    return `${currency} ${n.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+
   private async documentPdf(data: DocumentPdfData): Promise<Buffer> {
     const discount = Math.max(0, data.discount || 0);
     const taxRate = data.taxRate || 0;
@@ -144,11 +385,7 @@ export class PdfGeneratorService {
     const tax = afterDiscount * (taxRate / 100);
     const total = afterDiscount + tax;
 
-    const money = (n: number) =>
-      `${data.currency} ${n.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`;
+    const money = (n: number) => this.money(data.currency, n);
     const qty = (n: number) => n.toLocaleString('en-US');
 
     const th = (text: string, align: Alignment = 'left'): TableCell => ({

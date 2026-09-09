@@ -47,6 +47,14 @@ export class ReconciliationEntryEntity {
   @ApiPropertyOptional({ nullable: true, type: String, format: 'uuid' })
   invoiceId: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Number of the invoice this entry belongs to',
+    example: 'INV-1001',
+  })
+  invoiceNumber: string | null;
+
   @ApiPropertyOptional({ nullable: true, type: String, format: 'uuid' })
   projectId: string | null;
 

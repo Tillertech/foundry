@@ -85,14 +85,15 @@ enum ReconciliationKind {
 enum NotificationKind {
   invoice_sent
   invoice_paid
+  invoice_partially_paid
   invoice_reminder
   quote_sent
   document_shared
 }
 
 model User {
-  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email           String      @unique
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String         @unique
   name            String
   passwordHash    String
   otpSecret       String?
@@ -155,9 +156,11 @@ model Workspace {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  ownerId String   @db.Uuid
-  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  clients Client[]
+  ownerId  String    @db.Uuid
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  clients  Client[]
+  /// Denormalized for the per-workspace invoice numbering sequence and its uniqueness constraint.
+  invoices Invoice[]
 
   @@map("workspace")
 }
@@ -213,7 +216,7 @@ model Project {
 
 model Invoice {
   id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  number         String        @unique
+  number         String
   status         InvoiceStatus @default(draft)
   issueDate      DateTime
   dueDate        DateTime
@@ -226,15 +229,18 @@ model Invoice {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  clientId  String   @db.Uuid
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  projectId String?  @db.Uuid
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clientId    String    @db.Uuid
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId   String?   @db.Uuid
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  workspaceId String    @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   items           InvoiceItem[]
   payments        Payment[]
   reconciliations ReconciliationEntry[]
 
+  @@unique([workspaceId, number])
   @@index([clientId])
   @@index([status])
   @@map("invoices")

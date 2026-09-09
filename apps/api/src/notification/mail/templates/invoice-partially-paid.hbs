@@ -8,7 +8,7 @@
             <tr>
               <td style="padding:32px 40px;border-bottom:1px solid #e4e4e7;">
                 <h1 style="margin:0;font-size:20px;">{{workspaceName}}</h1>
-                <p style="margin:8px 0 0;color:#16a34a;font-size:14px;font-weight:bold;">Payment received</p>
+                <p style="margin:8px 0 0;color:#2563eb;font-size:14px;font-weight:bold;">Payment received - partially paid</p>
               </td>
             </tr>
             <tr>
@@ -16,29 +16,40 @@
                 <p style="margin:0 0 16px;font-size:14px;">Hi {{clientName}},</p>
                 <p style="margin:0 0 24px;font-size:14px;">
                   Thank you - we have received your payment of
-                  <strong>{{currency}} {{amountPaid}}</strong> for invoice
-                  <strong>{{number}}</strong>. This invoice is now settled and no
-                  further action is needed.
+                  <strong>{{currency}} {{paymentAmount}}</strong> toward invoice
+                  <strong>{{number}}</strong>. <strong>{{currency}} {{balanceDue}}</strong> is
+                  still outstanding.
                 </p>
-                {{#if overpaidBy}}
-                <p style="margin:0 0 24px;font-size:14px;background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:12px 16px;">
-                  We received <strong>{{currency}} {{overpaidBy}}</strong> more than the
-                  invoice total of {{currency}} {{total}}. The overpayment is credited to
-                  your account - reach out if you would prefer a refund.
-                </p>
-                {{/if}}
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">
+                  <tr>
+                    <td style="background:#e4e4e7;border-radius:999px;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" style="width:{{percentPaid}}%;">
+                        <tr><td style="background:#16a34a;border-radius:999px;height:8px;line-height:8px;font-size:1px;">&nbsp;</td></tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 24px;font-size:12px;color:#71717a;">{{percentPaid}}% of the invoice total has been paid.</p>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
                   <tr>
                     <td style="color:#71717a;padding:4px 0;">Invoice</td>
                     <td style="text-align:right;padding:4px 0;">{{number}}</td>
                   </tr>
                   <tr>
-                    <td style="color:#71717a;padding:4px 0;">Issued</td>
-                    <td style="text-align:right;padding:4px 0;">{{issueDate}}</td>
+                    <td style="color:#71717a;padding:4px 0;">Invoice total</td>
+                    <td style="text-align:right;padding:4px 0;">{{currency}} {{total}}</td>
+                  </tr>
+                  <tr>
+                    <td style="color:#71717a;padding:4px 0;">Paid to date</td>
+                    <td style="text-align:right;padding:4px 0;">{{currency}} {{amountPaid}}</td>
                   </tr>
                   <tr style="border-top:2px solid #e4e4e7;">
-                    <td style="padding:8px 0;font-weight:bold;">Amount paid</td>
-                    <td style="text-align:right;padding:8px 0;font-weight:bold;">{{currency}} {{amountPaid}}</td>
+                    <td style="padding:8px 0;font-weight:bold;">Balance due</td>
+                    <td style="text-align:right;padding:8px 0;font-weight:bold;">{{currency}} {{balanceDue}}</td>
+                  </tr>
+                  <tr>
+                    <td style="color:#71717a;padding:4px 0;">Due date</td>
+                    <td style="text-align:right;padding:4px 0;">{{dueDate}}</td>
                   </tr>
                 </table>
                 {{#if notes}}

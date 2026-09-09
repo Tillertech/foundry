@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { InvoiceEvents } from '../common/events';
+import { InvoiceEvents, type InvoicePartiallyPaidEvent } from '../common/events';
 import {
   PaginationRes,
   PaginationService,
@@ -19,6 +19,11 @@ import { ListTimelineQueryDto } from './dto/list-timeline-query.dto';
 type InvoiceForReconciliation = Invoice & {
   items: InvoiceItem[];
   client: Client;
+};
+
+/** A timeline entry annotated with the number of the invoice it belongs to. */
+export type ReconciliationEntryWithInvoiceNumber = ReconciliationEntry & {
+  invoiceNumber: string | null;
 };
 
 /** Both balances an entry snapshots; project is null when the invoice has none. */
@@ -65,7 +70,30 @@ export class ReconciliationService {
       paymentId: payment.id,
       note: this.note('applied to', invoice, balances.invoiceBalance),
     });
-    await this.transition(invoice, balances.invoiceBalance, opts.forcePaid);
+    await this.transition(
+      invoice,
+      balances.invoiceBalance,
+      opts.forcePaid,
+      payment,
+    );
+
+    // Only a genuine partial settlement gets a progress email - a
+    // force-paid invoice is fully closed regardless of its balance, and a
+    // cancelled invoice shouldn't chase the client for anything.
+    if (
+      !opts.forcePaid &&
+      invoice.status !== InvoiceStatus.cancelled &&
+      balances.invoiceBalance > 0
+    ) {
+      const { client, ...rest } = invoice;
+      const partialPayload: InvoicePartiallyPaidEvent = {
+        invoice: rest,
+        client,
+        payment,
+        balance: balances.invoiceBalance,
+      };
+      this.events.emit(InvoiceEvents.PARTIALLY_PAID, partialPayload);
+    }
     return entry;
   }
 
@@ -127,19 +155,19 @@ export class ReconciliationService {
       paymentId: after.id,
       note: this.note('adjusted on', invoice, balances.invoiceBalance),
     });
-    await this.transition(invoice, balances.invoiceBalance);
+    await this.transition(invoice, balances.invoiceBalance, false, after);
   }
 
   /**
    * Timeline entries scoped to an invoice, a project, or both (union),
    * newest first. Ownership is enforced through the workspace chain.
    */
-  timeline(
+  async timeline(
     ownerId: string,
     filter: { invoiceId?: string; projectId?: string },
     query: ListTimelineQueryDto,
     baseUrl: string,
-  ): Promise<PaginationRes<ReconciliationEntry>> {
+  ): Promise<PaginationRes<ReconciliationEntryWithInvoiceNumber>> {
     const scopes: Record<string, unknown>[] = [];
     if (filter.invoiceId) {
       scopes.push({
@@ -154,9 +182,14 @@ export class ReconciliationService {
       });
     }
     const where = scopes.length === 1 ? scopes[0] : { OR: scopes };
-    return this.pagination.paginate<ReconciliationEntry>(
+    // The invoice number rides along so a combined invoice+project or
+    // project-wide timeline can say which invoice each entry belongs to,
+    // rather than leaving same-looking balances undifferentiated.
+    const page = await this.pagination.paginate<
+      ReconciliationEntry & { invoice: { number: string } | null }
+    >(
       this.prisma.reconciliationEntry,
-      { where },
+      { where, include: { invoice: { select: { number: true } } } },
       {
         cursor: query.cursor,
         take: query.take,
@@ -165,6 +198,13 @@ export class ReconciliationService {
         includeCount: true,
       },
     );
+    return {
+      ...page,
+      results: page.results.map(({ invoice, ...entry }) => ({
+        ...entry,
+        invoiceNumber: invoice?.number ?? null,
+      })),
+    };
   }
 
   private loadInvoice(
@@ -204,13 +244,14 @@ export class ReconciliationService {
 
   /**
    * Moves the invoice to the status its balance dictates after an entry:
-   * settled → paid, negative balance → overpaid, part of the total covered →
+   * settled - paid, negative balance - overpaid, part of the total covered -
    * partially_paid, and fully reversed settlements reopen to sent/overdue.
    */
   private async transition(
     invoice: InvoiceForReconciliation,
     invoiceBalance: number,
     forcePaid = false,
+    payment?: Payment,
   ): Promise<void> {
     if (invoice.status === InvoiceStatus.cancelled) return;
 
@@ -236,6 +277,7 @@ export class ReconciliationService {
         invoice: { ...rest, status: next },
         client,
         balance: invoiceBalance,
+        payment,
       });
     }
   }

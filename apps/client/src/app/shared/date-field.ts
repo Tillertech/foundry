@@ -9,6 +9,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 @Component({
   selector: 'app-date-field',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'block' },
   imports: [HlmDatePicker, HlmDatePickerTrigger],
   template: `
     <hlm-date-picker

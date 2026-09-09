@@ -31,6 +31,8 @@ export interface ReconciliationEntry {
   note: string | null;
   paymentId: string | null;
   invoiceId: string | null;
+  /** Number of the invoice this entry belongs to. */
+  invoiceNumber: string | null;
   projectId: string | null;
   createdAt: string;
 }

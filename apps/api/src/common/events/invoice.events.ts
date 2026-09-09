@@ -2,11 +2,13 @@ import type {
   ClientModel as Client,
   InvoiceModel as Invoice,
   InvoiceItemModel as InvoiceItem,
+  PaymentModel as Payment,
 } from '../../generated/prisma/models';
 
 export const InvoiceEvents = {
   SENT: 'invoice.sent',
   PAID: 'invoice.paid',
+  PARTIALLY_PAID: 'invoice.partially_paid',
   REMINDER_DUE: 'invoice.reminder_due',
 } as const;
 
@@ -20,6 +22,23 @@ export interface InvoicePaidEvent {
   invoice: Invoice & { items: InvoiceItem[] };
   client: Client;
   /** Amount still owed in the invoice currency; negative when overpaid. */
+  balance: number;
+  /**
+   * The payment that settled the invoice, when the settlement was triggered
+   * by one (a create or an amount adjustment). Absent on the rare case of a
+   * reversal landing exactly on a zero balance - there is no single payment
+   * to issue a receipt for there.
+   */
+  payment?: Payment;
+}
+
+/** Emitted when a payment leaves the invoice still owing a balance (previous or first partial payment). */
+export interface InvoicePartiallyPaidEvent {
+  invoice: Invoice & { items: InvoiceItem[] };
+  client: Client;
+  /** The payment that triggered this update. */
+  payment: Payment;
+  /** Amount still owed in the invoice currency (always > 0). */
   balance: number;
 }
 

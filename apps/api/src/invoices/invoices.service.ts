@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   Inject,
   NotFoundException,
@@ -14,6 +15,7 @@ import {
 } from '../common/pagination/pagination.service';
 import { InvoiceEvents } from '../common/events';
 import { Currency, InvoiceStatus } from '../generated/prisma/enums';
+import { Prisma } from '../generated/prisma/client';
 import type {
   InvoiceModel as Invoice,
   InvoiceItemModel as InvoiceItem,
@@ -30,6 +32,10 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { Decimal } from '@prisma/client/runtime/client';
 import { ConversionRate } from './dto/conversion-date.dto';
 import { ExchangeRatesEntity } from './entities/exchange-rates.entity';
+
+const DEFAULT_INVOICE_PREFIX = 'INV-';
+const DEFAULT_INVOICE_START = 1001;
+const MAX_NUMBER_ATTEMPTS = 5;
 
 export type InvoiceWithItems = Invoice & {
   items: InvoiceItem[];
@@ -52,17 +58,67 @@ export class InvoicesService {
     ownerId: string,
     dto: CreateInvoiceDto,
   ): Promise<InvoiceWithItems> {
-    await this.clients.findOne(ownerId, dto.clientId);
+    const client = await this.clients.findOne(ownerId, dto.clientId);
     if (dto.projectId) await this.projects.findOne(ownerId, dto.projectId);
     const { items, number, ...data } = dto;
+
+    // An explicit number is trusted as-is - only the per-workspace unique
+    // constraint can reject it, so a single attempt is enough.
+    if (number) {
+      try {
+        return await this.createInvoice({
+          ...data,
+          number,
+          workspaceId: client.workspaceId,
+          items: { create: items },
+        });
+      } catch (err) {
+        if (this.isDuplicateNumber(err)) {
+          throw new ConflictException('Invoice number already exists');
+        }
+        throw err;
+      }
+    }
+
+    // Auto-generated numbers are scoped to the workspace's sequence, which
+    // can race with another concurrent create() against the same workspace.
+    // Retry with a freshly computed number on a unique-constraint conflict
+    // rather than surfacing a raw 500 to the caller.
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+      const generated = await this.nextNumber(client.workspaceId);
+      try {
+        return await this.createInvoice({
+          ...data,
+          number: generated,
+          workspaceId: client.workspaceId,
+          items: { create: items },
+        });
+      } catch (err) {
+        if (!this.isDuplicateNumber(err)) throw err;
+        lastError = err;
+      }
+    }
+    throw new ConflictException(
+      'Could not generate a unique invoice number, please retry',
+      { cause: lastError },
+    );
+  }
+
+  private createInvoice(
+    data: Prisma.InvoiceCreateArgs['data'],
+  ): Promise<InvoiceWithItems> {
     return this.prisma.invoice.create({
-      data: {
-        ...data,
-        number: number ?? (await this.nextNumber()),
-        items: { create: items },
-      },
+      data,
       include: { items: true, project: { select: { name: true } } },
     });
+  }
+
+  private isDuplicateNumber(err: unknown): boolean {
+    return (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    );
   }
 
   findAll(
@@ -109,14 +165,21 @@ export class InvoicesService {
     await this.findOne(ownerId, id);
     if (dto.projectId) await this.projects.findOne(ownerId, dto.projectId);
     const { items, ...data } = dto;
-    return this.prisma.invoice.update({
-      where: { id },
-      data: {
-        ...data,
-        ...(items ? { items: { deleteMany: {}, create: items } } : {}),
-      },
-      include: { items: true, project: { select: { name: true } } },
-    });
+    try {
+      return await this.prisma.invoice.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(items ? { items: { deleteMany: {}, create: items } } : {}),
+        },
+        include: { items: true, project: { select: { name: true } } },
+      });
+    } catch (err) {
+      if (this.isDuplicateNumber(err)) {
+        throw new ConflictException('Invoice number already exists');
+      }
+      throw err;
+    }
   }
 
   async remove(ownerId: string, id: string): Promise<InvoiceWithItems> {
@@ -145,14 +208,27 @@ export class InvoicesService {
     return rest;
   }
 
-  private async nextNumber(): Promise<string> {
-    const latest = await this.prisma.invoice.findFirst({
-      where: { number: { startsWith: 'INV-' } },
-      orderBy: { number: 'desc' },
+  /**
+   * Next number in the workspace's own sequence, using its custom
+   * invoicePrefix when set (falling back to "INV-").
+   *
+   */
+  private async nextNumber(workspaceId: string): Promise<string> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { invoicePrefix: true },
+    });
+    const prefix = workspace?.invoicePrefix?.trim() || DEFAULT_INVOICE_PREFIX;
+
+    const existing = await this.prisma.invoice.findMany({
+      where: { number: { startsWith: prefix }, workspaceId },
       select: { number: true },
     });
-    const current = Number(latest?.number.replace('INV-', ''));
-    return `INV-${Number.isNaN(current) ? 1001 : current + 1}`;
+    const latest = existing.reduce((max, { number }) => {
+      const n = Number(number.slice(prefix.length));
+      return Number.isFinite(n) ? Math.max(max, n) : max;
+    }, 0);
+    return `${prefix}${latest > 0 ? latest + 1 : DEFAULT_INVOICE_START}`;
   }
 
   /**

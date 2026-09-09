@@ -22,6 +22,7 @@ import {
 @Component({
   selector: 'app-notifications-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'block' },
   imports: [NgIcon],
   providers: [provideIcons({ lucideBell, lucideCheckCheck })],
   template: `
@@ -68,7 +69,7 @@ import {
               </button>
             }
           </div>
-          <div class="max-h-[60vh] overflow-y-auto sm:max-h-[380px]">
+          <div class="scrollbar-thin max-h-[60vh] overflow-y-auto sm:max-h-[380px]">
             @if (loading()) {
               <p class="px-4 py-6 text-center text-xs text-muted-foreground">
                 Loading…
