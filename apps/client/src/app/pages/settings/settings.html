@@ -16,6 +16,10 @@
         <ng-icon name="lucideFileText" size="14" />
         <span class="hidden sm:inline">Templates</span>
       </button>
+      <button hlmTabsTrigger="portal" type="button">
+        <ng-icon name="lucideGlobe" size="14" />
+        <span class="hidden sm:inline">Client Portal</span>
+      </button>
       <button hlmTabsTrigger="appearance" type="button">
         <ng-icon name="lucidePalette" size="14" />
         <span class="hidden sm:inline">Appearance</span>
@@ -227,6 +231,10 @@
       } @else {
         <p class="text-xs text-muted-foreground">Loading workspace…</p>
       }
+    </div>
+
+    <div hlmTabsContent="portal">
+      <app-portal-settings />
     </div>
 
     <div hlmTabsContent="appearance">

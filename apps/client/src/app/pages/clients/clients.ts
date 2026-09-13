@@ -15,11 +15,18 @@ import {
 } from '@angular/forms/signals';
 import { fieldError } from '../../shared/field-error';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideMail, lucidePlus, lucideSearch } from '@ng-icons/lucide';
+import {
+  lucideBuilding2,
+  lucideGlobe,
+  lucideMail,
+  lucidePlus,
+  lucideSearch,
+} from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
+import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { apiErrorMessage } from '../../core/http';
 import {
   ApiClient,
@@ -39,6 +46,7 @@ import { Field } from '../../shared/field';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PageHeader } from '../../shared/page-header';
 import { StatusBadge } from '../../shared/status-badge';
+import { PortalAccessPanel } from './portal-access-panel';
 
 interface ClientForm {
   id: string;
@@ -81,8 +89,18 @@ const emptyClient = (): ClientForm => ({
     ListSkeleton,
     PageHeader,
     StatusBadge,
+    HlmTabsImports,
+    PortalAccessPanel,
   ],
-  providers: [provideIcons({ lucideMail, lucidePlus, lucideSearch })],
+  providers: [
+    provideIcons({
+      lucideBuilding2,
+      lucideMail,
+      lucidePlus,
+      lucideSearch,
+      lucideGlobe,
+    }),
+  ],
   templateUrl: './clients.html',
 })
 export class Clients {

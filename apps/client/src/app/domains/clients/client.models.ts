@@ -33,7 +33,7 @@ export interface CreateClientRequest {
 
 export type UpdateClientRequest = Partial<
   Omit<CreateClientRequest, 'workspaceId'>
->;
+  >;
 
 export interface ListClientsQuery extends PaginationQuery {
   workspaceId?: string;

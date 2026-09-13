@@ -1,0 +1,131 @@
+<div class="space-y-4">
+  <!-- Status -->
+  <section class="surface-card p-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="flex items-start gap-3">
+        <div
+          class="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"
+        >
+          <ng-icon name="lucideGlobe" size="20" />
+        </div>
+        <div>
+          <h2 class="text-sm font-semibold">Client portal</h2>
+          <p class="mt-0.5 max-w-md text-xs text-muted-foreground">
+            A secure, read-and-act space where your clients track projects,
+            approve quotes and pay invoices.
+          </p>
+          <div class="mt-2 flex items-center gap-2 text-xs">
+            <span class="font-mono text-muted-foreground"
+              >{{ portalUrl() }}</span
+            >
+            <button
+              type="button"
+              (click)="copyPortalUrl()"
+              class="text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="Copy portal URL"
+            >
+              <ng-icon name="lucideCopy" size="14" />
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span
+          class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+          [class]="store.enabled() ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
+        >
+          {{ store.enabled() ? 'Live' : 'Disabled' }}
+        </span>
+        <hlm-switch
+          [checked]="store.enabled()"
+          (checkedChange)="store.setEnabled($event)"
+        />
+      </div>
+    </div>
+
+    <div class="my-5 border-t border-border"></div>
+
+    <div class="flex flex-wrap items-center gap-6 text-sm">
+      <div>
+        <p class="text-2xl font-semibold tabular-nums">{{ activeUsers() }}</p>
+        <p class="text-xs text-muted-foreground">Active client users</p>
+      </div>
+      <div>
+        <p class="text-2xl font-semibold tabular-nums">{{ invitedUsers() }}</p>
+        <p class="text-xs text-muted-foreground">Pending invitations</p>
+      </div>
+      <p class="ml-auto max-w-xs text-right text-xs text-muted-foreground">
+        Invite users and share projects from each client's own record on the
+        <span class="font-medium text-foreground">Clients</span> page.
+      </p>
+    </div>
+  </section>
+
+  <!-- Default permissions -->
+  <section class="surface-card p-6">
+    <h2 class="text-sm font-semibold">Default permissions</h2>
+    <p class="mt-1 text-xs text-muted-foreground">
+      Applied to every project unless you override them per project below.
+    </p>
+    <div class="mt-5 grid gap-x-8 gap-y-6 md:grid-cols-2">
+      @for (group of capabilityGroups(); track group[0]) {
+      <div>
+        <p
+          class="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+        >
+          {{ group[0] }}
+        </p>
+        <div class="divide-y divide-border/60 rounded-lg border border-border">
+          @for (c of group[1]; track c.key) {
+          <div class="flex items-center justify-between gap-4 px-4 py-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">{{ c.label }}</p>
+              <p class="text-xs text-muted-foreground">{{ c.desc }}</p>
+            </div>
+            <hlm-switch
+              [checked]="store.defaults()[c.key]"
+              (checkedChange)="toggleDefault(c.key, $event)"
+            />
+          </div>
+          }
+        </div>
+      </div>
+      }
+    </div>
+  </section>
+
+  <!-- Branding -->
+  <section class="surface-card p-6">
+    <h2 class="text-sm font-semibold">Portal branding</h2>
+    <p class="mt-1 text-xs text-muted-foreground">
+      Your workspace logo and accent color carry over automatically.
+    </p>
+    <div class="mt-5 grid gap-4">
+      <app-field label="Portal URL slug" hint="portal.foundry.app/{slug}">
+        <input
+          hlmInput
+          class="w-full"
+          [value]="slugDraft()"
+          (input)="onSlugInput($any($event.target).value)"
+        />
+      </app-field>
+      <app-field
+        label="Welcome message"
+        hint="Shown on the client dashboard after sign-in."
+      >
+        <textarea
+          hlmTextarea
+          rows="3"
+          class="w-full"
+          [value]="welcomeDraft()"
+          (input)="welcomeDraft.set($any($event.target).value)"
+        ></textarea>
+      </app-field>
+    </div>
+    <div class="mt-4 flex justify-end">
+      <button hlmBtn size="sm" type="button" (click)="saveBranding()">
+        Save branding
+      </button>
+    </div>
+  </section>
+</div>

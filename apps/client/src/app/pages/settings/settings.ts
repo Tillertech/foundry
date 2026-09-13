@@ -23,6 +23,7 @@ import {
   lucideSun,
   lucideTrash2,
   lucideUpload,
+  lucideGlobe
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
@@ -42,6 +43,7 @@ import { toast } from '@spartan-ng/brain/sonner';
 import { Accent, ThemeService } from '../../core/theme.service';
 import { Field } from '../../shared/field';
 import { fieldError } from '../../shared/field-error';
+import { PortalSettings } from './portal/portal-settings';
 
 const LOGO_TYPES = ['image/png', 'image/jpeg'];
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
@@ -67,6 +69,7 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
     HlmSwitchImports,
     HlmTabsImports,
     Field,
+    PortalSettings,
   ],
   providers: [
     provideIcons({
@@ -85,6 +88,7 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
       lucideSun,
       lucideTrash2,
       lucideUpload,
+      lucideGlobe
     }),
   ],
   templateUrl: './settings.html',

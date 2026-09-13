@@ -127,104 +127,142 @@
     (saved)="save()"
     (deleted)="removeCurrent()"
   >
-    <div class="grid gap-4">
-      <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Contact name" [error]="fieldError(f.name())">
-          <input
-            hlmInput
-            class="w-full"
-            [formField]="f.name"
-            placeholder="Jane Doe"
-          />
-        </app-field>
-        <app-field label="Company">
-          <input
-            hlmInput
-            class="w-full"
-            [formField]="f.company"
-            placeholder="Acme Inc."
-          />
-        </app-field>
-      </div>
-      <app-field label="Email" [error]="fieldError(f.email())">
-        <div class="relative">
-          <ng-icon
-            name="lucideMail"
-            size="16"
-            class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-          />
-          <input
-            hlmInput
-            type="email"
-            class="w-full pl-9"
-            [formField]="f.email"
-            placeholder="hello@acme.com"
-          />
+    <hlm-tabs tab="client" class="w-full">
+      <hlm-tabs-list class="mb-6 w-full" aria-label="Client Management">
+        <button hlmTabsTrigger="client" type="button">
+          <ng-icon name="lucideBuilding2" size="14" />
+          <span class="hidden sm:inline">Client</span>
+        </button>
+        <button hlmTabsTrigger="portal" type="button" [disabled]="isNew">
+          <ng-icon name="lucideGlobe" size="14" />
+          <span class="hidden sm:inline">Portal access</span>
+        </button>
+      </hlm-tabs-list>
+
+      <div hlmTabsContent="client" class="grid gap-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <app-field label="Contact name" [error]="fieldError(f.name())">
+            <input
+              hlmInput
+              class="w-full"
+              [formField]="f.name"
+              placeholder="Jane Doe"
+            />
+          </app-field>
+          <app-field label="Company">
+            <input
+              hlmInput
+              class="w-full"
+              [formField]="f.company"
+              placeholder="Acme Inc."
+            />
+          </app-field>
         </div>
-      </app-field>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Currency">
-          <hlm-select class="w-full" [formField]="f.currency" [itemToString]="currencyLabel">
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              <hlm-select-item value="USD">USD - US Dollar</hlm-select-item>
-              <hlm-select-item value="EUR">EUR - Euro</hlm-select-item>
-              <hlm-select-item value="GBP">GBP - British Pound</hlm-select-item>
-              <hlm-select-item value="KES">KES - Kenyan Shilling</hlm-select-item>
-            </hlm-select-content>
-          </hlm-select>
+        <app-field label="Email" [error]="fieldError(f.email())">
+          <div class="relative">
+            <ng-icon
+              name="lucideMail"
+              size="16"
+              class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+            />
+            <input
+              hlmInput
+              type="email"
+              class="w-full pl-9"
+              [formField]="f.email"
+              placeholder="hello@acme.com"
+            />
+          </div>
         </app-field>
-        <app-field label="Status">
-          <hlm-select class="w-full" [formField]="f.status" [itemToString]="statusLabel">
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              <hlm-select-item value="active">Active</hlm-select-item>
-              <hlm-select-item value="lead">Lead</hlm-select-item>
-              <hlm-select-item value="archived">Archived</hlm-select-item>
-            </hlm-select-content>
-          </hlm-select>
-        </app-field>
-      </div>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Phone">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <app-field label="Currency">
+            <hlm-select
+              class="w-full"
+              [formField]="f.currency"
+              [itemToString]="currencyLabel"
+            >
+              <hlm-select-trigger class="w-full">
+                <hlm-select-value />
+              </hlm-select-trigger>
+              <hlm-select-content *hlmSelectPortal>
+                <hlm-select-item value="USD">USD - US Dollar</hlm-select-item>
+                <hlm-select-item value="EUR">EUR - Euro</hlm-select-item>
+                <hlm-select-item value="GBP"
+                  >GBP - British Pound</hlm-select-item
+                >
+                <hlm-select-item value="KES"
+                  >KES - Kenyan Shilling</hlm-select-item
+                >
+              </hlm-select-content>
+            </hlm-select>
+          </app-field>
+          <app-field label="Status">
+            <hlm-select
+              class="w-full"
+              [formField]="f.status"
+              [itemToString]="statusLabel"
+            >
+              <hlm-select-trigger class="w-full">
+                <hlm-select-value />
+              </hlm-select-trigger>
+              <hlm-select-content *hlmSelectPortal>
+                <hlm-select-item value="active">Active</hlm-select-item>
+                <hlm-select-item value="lead">Lead</hlm-select-item>
+                <hlm-select-item value="archived">Archived</hlm-select-item>
+              </hlm-select-content>
+            </hlm-select>
+          </app-field>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <app-field label="Phone">
+            <input
+              hlmInput
+              type="tel"
+              class="w-full"
+              [formField]="f.phone"
+              placeholder="Optional"
+            />
+          </app-field>
+          <app-field label="Tax ID / VAT">
+            <input
+              hlmInput
+              class="w-full"
+              [formField]="f.taxId"
+              placeholder="Optional"
+            />
+          </app-field>
+        </div>
+        <app-field label="Address">
           <input
             hlmInput
-            type="tel"
             class="w-full"
-            [formField]="f.phone"
+            [formField]="f.address"
             placeholder="Optional"
           />
         </app-field>
-        <app-field label="Tax ID / VAT">
-          <input
-            hlmInput
+        <app-field label="Notes">
+          <textarea
+            hlmTextarea
+            rows="3"
             class="w-full"
-            [formField]="f.taxId"
-            placeholder="Optional"
-          />
+            [formField]="f.notes"
+            placeholder="Internal notes about this client…"
+          ></textarea>
         </app-field>
       </div>
-      <app-field label="Address">
-        <input
-          hlmInput
-          class="w-full"
-          [formField]="f.address"
-          placeholder="Optional"
-        />
-      </app-field>
-      <app-field label="Notes">
-        <textarea
-          hlmTextarea
-          rows="3"
-          class="w-full"
-          [formField]="f.notes"
-          placeholder="Internal notes about this client…"
-        ></textarea>
-      </app-field>
-    </div>
+
+      <div hlmTabsContent="portal">
+        @if (isNew) {
+          <p class="rounded-lg border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
+            Save this client first, then come back here to invite portal users and share projects.
+          </p>
+        } @else {
+          <app-portal-access-panel
+            [clientId]="model().id"
+            [clientName]="model().company || model().name"
+          />
+        }
+      </div>
+    </hlm-tabs>
   </app-entity-sheet>
 </div>

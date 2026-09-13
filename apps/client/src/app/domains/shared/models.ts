@@ -5,6 +5,8 @@ export type Currency = 'USD' | 'EUR' | 'GBP' | 'KES';
 /** Lifecycle shared by workspaces and clients. */
 export type ClientStatus = 'active' | 'lead' | 'archived';
 
+export type PortalUserStatus = 'invited' | 'active' | 'suspended';
+
 /** Line item payload for invoice and quote writes. */
 export interface LineItemRequest {
   description: string;

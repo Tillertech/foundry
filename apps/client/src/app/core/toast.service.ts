@@ -5,7 +5,6 @@ import { toast } from 'ngx-sonner';
 @Injectable({ providedIn: 'root' })
 export class ToastService {
   success(message: string, description?: string): void {
-    console.log('success');
     toast.success(message, { description });
   }
 
