@@ -7,6 +7,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PortalEvents } from '../common/events';
 import { ClientPortalUserStatus } from '../generated/prisma/enums';
 import type { ClientPortalUserModel as ClientPortalUser } from '../generated/prisma/models';
+
+type PortalUserWithSlug = ClientPortalUser & {
+  clientPortal: { slug: string };
+};
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { PortalLoginDto } from './dto/portal-login.dto';
 import { ForgotPortalPasswordDto } from './dto/forgot-portal-password.dto';
@@ -39,7 +43,7 @@ export class PortalAuthService {
       throw new UnauthorizedException('Invalid or expired invite');
     }
     const updated = await this.setCredentials(found.id, dto.password);
-    return this.toAuthResponse(updated);
+    return this.toAuthResponse(updated, found.clientPortal.slug);
   }
 
   async login(dto: PortalLoginDto): Promise<PortalAuthResponseEntity> {
@@ -62,7 +66,7 @@ export class PortalAuthService {
     if (!(await bcrypt.compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password');
     }
-    return this.toAuthResponse(user);
+    return this.toAuthResponse(user, user.clientPortal.slug);
   }
 
   /** Always generic so this cannot be used to enumerate portal accounts. */
@@ -80,6 +84,7 @@ export class PortalAuthService {
       this.events.emit(PortalEvents.PASSWORD_RESET_REQUESTED, {
         email: user.email,
         name: user.name,
+        portalSlug: user.clientPortal.slug,
         token,
       });
     }
@@ -134,8 +139,11 @@ export class PortalAuthService {
     };
   }
 
-  private findByEmail(email: string): Promise<ClientPortalUser | null> {
-    return this.prisma.clientPortalUser.findFirst({ where: { email } });
+  private findByEmail(email: string): Promise<PortalUserWithSlug | null> {
+    return this.prisma.clientPortalUser.findFirst({
+      where: { email },
+      include: { clientPortal: { select: { slug: true } } },
+    });
   }
 
   private generateToken(): string {
@@ -173,7 +181,10 @@ export class PortalAuthService {
     });
   }
 
-  private toAuthResponse(user: ClientPortalUser): PortalAuthResponseEntity {
+  private toAuthResponse(
+    user: ClientPortalUser,
+    portalSlug: string,
+  ): PortalAuthResponseEntity {
     return {
       accessToken: this.jwtService.sign({
         sub: user.id,
@@ -186,6 +197,7 @@ export class PortalAuthService {
         name: user.name,
         email: user.email,
         clientPortalId: user.clientPortalId,
+        portalSlug,
       },
     };
   }

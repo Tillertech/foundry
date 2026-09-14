@@ -133,7 +133,12 @@ export class NotificationListener {
   @OnEvent(PortalEvents.PASSWORD_RESET_REQUESTED, { async: true })
   handlePortalPasswordResetRequested(payload: PortalPasswordResetRequestedEvent) {
     return this.mail
-      .sendPasswordReset(payload.email, payload.name, payload.token)
+      .sendPasswordReset(
+        payload.email,
+        payload.name,
+        payload.portalSlug,
+        payload.token,
+      )
       .catch((err) => this.logger.error('portal password reset mail failed', err));
   }
 }

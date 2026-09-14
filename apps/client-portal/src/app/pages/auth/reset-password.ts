@@ -57,7 +57,12 @@ import { Field, fieldError } from '@foundry/shared-ui';
               The link is missing or incomplete. Request a new one from the
               sign-in page.
             </p>
-            <a routerLink="/forgot-password" hlmBtn variant="outline" size="sm">
+            <a
+              [routerLink]="['/', slug(), 'forgot-password']"
+              hlmBtn
+              variant="outline"
+              size="sm"
+            >
               Request a new link
             </a>
           </div>
@@ -67,7 +72,7 @@ import { Field, fieldError } from '@foundry/shared-ui';
               Sign in with your new password.
             </p>
             <a
-              routerLink="/login"
+              [routerLink]="['/', slug(), 'login']"
               hlmBtn
               class="w-full shadow-[var(--shadow-glow)]"
             >
@@ -120,6 +125,7 @@ import { Field, fieldError } from '@foundry/shared-ui';
   `,
 })
 export class ResetPassword {
+  readonly slug = input.required<string>();
   readonly token = input<string>();
   readonly email = input<string>();
 

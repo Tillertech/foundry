@@ -22,6 +22,10 @@ export class PortalAuthService {
 
   readonly authenticated = computed(() => this.tokenStore.token() !== null);
   readonly me = signal<PortalMe | null>(null);
+  /** This session's portal slug (/:slug/...) - available immediately after
+   * login/accept-invite, and restored from storage across reloads even
+   * before `/me` resolves. */
+  readonly slug = this.tokenStore.slug;
 
   /** Rehydrates the token from storage and re-syncs the profile against the API. */
   async restore(): Promise<void> {
@@ -34,6 +38,7 @@ export class PortalAuthService {
       this.api.me().subscribe({
         next: (me) => {
           this.me.set(me);
+          this.tokenStore.setSlug(me.clientPortal.slug);
           resolve();
         },
         // An invalid/expired token 401s here; the interceptor already clears
@@ -59,7 +64,7 @@ export class PortalAuthService {
   }
 
   private applySession(res: PortalAuthResponse): void {
-    this.tokenStore.set(res.accessToken);
+    this.tokenStore.set(res.accessToken, res.user.portalSlug);
     void this.refresh();
   }
 }

@@ -22,6 +22,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { PortalApiModule } from '../portal-api/portal-api.module';
 import { PortalAuthModule } from '../portal-auth/portal-auth.module';
+import { PortalPublicModule } from '../portal-public/portal-public.module';
 import { PortalUsersModule } from '../portal-users/portal-users.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ProjectsModule } from '../projects/projects.module';
@@ -94,6 +95,7 @@ import { APP_GUARD } from '@nestjs/core';
     PortalUsersModule,
     PortalAuthModule,
     PortalApiModule,
+    PortalPublicModule,
   ],
   controllers: [AppController],
   providers: [

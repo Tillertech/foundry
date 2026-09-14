@@ -21,6 +21,9 @@ export class Profile {
   protected readonly auth = inject(PortalAuthService);
 
   protected readonly me = this.auth.me;
+  protected readonly forgotPasswordLink = computed(
+    () => `/${this.auth.slug() ?? ''}/forgot-password`,
+  );
   protected readonly initials = computed(() => {
     const name = this.me()?.name ?? '';
     return name

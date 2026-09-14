@@ -84,53 +84,58 @@ export class PortalShell {
 
   protected readonly userMenuOpen = signal(false);
 
+  /** This portal's base path - every link in the shell is rooted here. */
+  protected readonly base = computed(() => `/${this.auth.slug() ?? ''}`);
+  protected readonly profileLink = computed(() => `${this.base()}/profile`);
+
   protected readonly nav = computed<NavItem[]>(() => {
     const permission = this.permission();
+    const base = this.base();
     return [
       {
-        to: '/',
+        to: base,
         label: 'Dashboard',
         icon: 'lucideLayoutDashboard',
         exact: true,
         visible: () => true,
       },
       {
-        to: '/projects',
+        to: `${base}/projects`,
         label: 'Projects',
         icon: 'lucideFolderKanban',
         exact: false,
         visible: () => permission?.viewProjects ?? false,
       },
       {
-        to: '/documents',
+        to: `${base}/documents`,
         label: 'Documents',
         icon: 'lucideFolderOpen',
         exact: false,
         visible: () => permission?.viewDocuments ?? false,
       },
       {
-        to: '/quotes',
+        to: `${base}/quotes`,
         label: 'Quotes',
         icon: 'lucideFileSignature',
         exact: false,
         visible: () => permission?.viewQuotes ?? false,
       },
       {
-        to: '/invoices',
+        to: `${base}/invoices`,
         label: 'Invoices',
         icon: 'lucideFileText',
         exact: false,
         visible: () => permission?.viewPayments ?? false,
       },
       {
-        to: '/payments',
+        to: `${base}/payments`,
         label: 'Payments',
         icon: 'lucideWallet',
         exact: false,
         visible: () => permission?.viewPayments ?? false,
       },
       {
-        to: '/messages',
+        to: `${base}/messages`,
         label: 'Messages',
         icon: 'lucideMessagesSquare',
         exact: false,
@@ -139,21 +144,24 @@ export class PortalShell {
     ].filter((item) => item.visible());
   });
 
-  protected readonly mobileNav = computed<NavItem[]>(() =>
-    this.nav()
+  protected readonly mobileNav = computed<NavItem[]>(() => {
+    const base = this.base();
+    return this.nav()
       .filter((item) =>
-        ['/', '/projects', '/invoices', '/messages'].includes(item.to),
+        [base, `${base}/projects`, `${base}/invoices`, `${base}/messages`].includes(
+          item.to,
+        ),
       )
       .concat([
         {
-          to: '/profile',
+          to: this.profileLink(),
           label: 'Profile',
           icon: 'lucideUserRound',
           exact: false,
           visible: () => true,
         },
-      ]),
-  );
+      ]);
+  });
 
   protected toggleUserMenu(): void {
     this.userMenuOpen.update((v) => !v);
@@ -165,8 +173,9 @@ export class PortalShell {
 
   protected signOut(): void {
     this.closeMenus();
+    const loginUrl = `${this.base()}/login`;
     this.auth.logout();
     this.toast.info('Signed out of the client portal');
-    void this.router.navigateByUrl('/login');
+    void this.router.navigateByUrl(loginUrl);
   }
 }

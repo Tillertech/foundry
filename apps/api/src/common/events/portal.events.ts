@@ -14,6 +14,7 @@ export interface PortalUserInvitedEvent {
 export interface PortalPasswordResetRequestedEvent {
   email: string;
   name: string;
+  portalSlug: string;
   /** Plaintext reset token - single use, expires like an OTP. Never persisted as-is. */
   token: string;
 }

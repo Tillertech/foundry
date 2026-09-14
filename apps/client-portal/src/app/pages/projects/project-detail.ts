@@ -52,6 +52,10 @@ export class ProjectDetail {
     () => this.auth.me()?.clientPortal.permission ?? null,
   );
 
+  protected readonly projectsLink = computed(
+    () => `/${this.auth.slug() ?? ''}/projects`,
+  );
+
   protected readonly projectDocs = computed(() =>
     this.documents().filter((d) => d.projectId === this.id()),
   );

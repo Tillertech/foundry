@@ -24,8 +24,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         err.status === 401 &&
         !req.url.includes('/portal-auth/')
       ) {
+        const slug = tokenStore.slug();
         tokenStore.clear();
-        void router.navigateByUrl('/login');
+        void router.navigateByUrl(`/${slug ?? ''}/login`);
       }
       return throwError(() => err);
     }),

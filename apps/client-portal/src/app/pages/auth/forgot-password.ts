@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   inject,
+  input,
   signal,
 } from '@angular/core';
 import { FormField, email, form, required } from '@angular/forms/signals';
@@ -84,7 +85,7 @@ import { Field, fieldError } from '@foundry/shared-ui';
             </button>
 
             <a
-              routerLink="/login"
+              [routerLink]="['/', slug(), 'login']"
               class="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               <ng-icon name="lucideArrowLeft" size="14" />
@@ -93,7 +94,7 @@ import { Field, fieldError } from '@foundry/shared-ui';
           </form>
         } @else {
           <a
-            routerLink="/login"
+            [routerLink]="['/', slug(), 'login']"
             hlmBtn
             variant="outline"
             class="w-full gap-1.5"
@@ -107,6 +108,8 @@ import { Field, fieldError } from '@foundry/shared-ui';
   `,
 })
 export class ForgotPassword {
+  readonly slug = input.required<string>();
+
   private readonly api = inject(PortalAuthApiService);
 
   protected readonly submitting = signal(false);

@@ -3,6 +3,8 @@ export interface PortalAuthUser {
   name: string;
   email: string;
   clientPortalId: string;
+  /** Slug this portal is reached at (/:slug/...) - navigate here after auth. */
+  portalSlug: string;
 }
 
 export interface PortalAuthResponse {

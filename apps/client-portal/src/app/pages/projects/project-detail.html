@@ -5,7 +5,7 @@
 } @else if (project(); as p) {
   <div class="mx-auto max-w-[1080px] px-4 py-8 md:px-8 md:py-10">
     <a
-      routerLink="/projects"
+      [routerLink]="projectsLink()"
       hlmBtn
       variant="ghost"
       size="sm"
@@ -120,7 +120,7 @@
 } @else {
   <div class="mx-auto max-w-[1040px] px-4 py-16 text-center">
     <p class="text-sm font-semibold">Project not found</p>
-    <a routerLink="/projects" hlmBtn variant="outline" size="sm" class="mt-4"
+    <a [routerLink]="projectsLink()" hlmBtn variant="outline" size="sm" class="mt-4"
       >Back to projects</a
     >
   </div>

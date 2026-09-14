@@ -8,6 +8,7 @@ import {
 import {
   provideRouter,
   withComponentInputBinding,
+  withRouterConfig,
   withViewTransitions,
 } from '@angular/router';
 import {
@@ -26,6 +27,10 @@ export const appConfig: ApplicationConfig = {
       appRoutes,
       withComponentInputBinding(),
       withViewTransitions(),
+      // The :slug param lives on the top-level route; every page below it
+      // (auth screens and the shell's children alike) needs it inherited
+      // into its own paramMap to auto-bind as a `slug` input.
+      withRouterConfig({ paramsInheritanceStrategy: 'always' }),
     ),
     provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
     // Rehydrate the session before the router (and its guards) run.

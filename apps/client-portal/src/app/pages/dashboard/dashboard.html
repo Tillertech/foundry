@@ -32,7 +32,7 @@
       <div class="mb-3 flex items-center justify-between">
         <h2 class="text-sm font-semibold">Projects</h2>
         <a
-          routerLink="/projects"
+          [routerLink]="projectsLink()"
           class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           All projects <ng-icon name="lucideArrowRight" size="14" />
@@ -51,7 +51,7 @@
         <div class="space-y-3">
           @for (project of activeProjects(); track project.id) {
             <a
-              [routerLink]="['/projects', project.id]"
+              [routerLink]="[projectsLink(), project.id]"
               class="surface-card hover-lift flex items-start justify-between gap-4 p-5 transition sm:p-6"
             >
               <div class="min-w-0">

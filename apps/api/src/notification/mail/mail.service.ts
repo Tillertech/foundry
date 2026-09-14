@@ -220,10 +220,10 @@ export class MailService {
     portalSlug: string,
     token: string,
   ): Promise<boolean> {
-    // client-portal is its own deployed SPA (one instance per API, no
-    // per-slug route prefix) - the accept-invite link points at it, not at
-    // the main workspace app.
-    const acceptUrl = this.portalUrl('/accept-invite', token, to);
+    // client-portal is one shared deployment for every tenant - the slug in
+    // the path is what tells it (and the person clicking the link) which
+    // client's portal this is, until it gets its own per-tenant domain.
+    const acceptUrl = this.portalUrl(portalSlug, '/accept-invite', token, to);
 
     return this.send(
       to,
@@ -237,8 +237,13 @@ export class MailService {
     );
   }
 
-  sendPasswordReset(to: string, name: string, token: string): Promise<boolean> {
-    const resetUrl = this.portalUrl('/reset-password', token, to);
+  sendPasswordReset(
+    to: string,
+    name: string,
+    portalSlug: string,
+    token: string,
+  ): Promise<boolean> {
+    const resetUrl = this.portalUrl(portalSlug, '/reset-password', token, to);
 
     return this.send(to, 'Reset your client portal password', 'portal-password-reset', {
       name,
@@ -246,13 +251,18 @@ export class MailService {
     });
   }
 
-  /** Builds a `${PORTAL_APP_URL}${path}?token=...&email=...` deep link for the client-portal SPA. */
-  private portalUrl(path: string, token: string, email: string): string {
+  /** Builds a `${PORTAL_APP_URL}/:slug${path}?token=...&email=...` deep link for the client-portal SPA. */
+  private portalUrl(
+    portalSlug: string,
+    path: string,
+    token: string,
+    email: string,
+  ): string {
     const portalAppUrl = this.config
       .get<string>('PORTAL_APP_URL')
       ?.replace(/\/+$/, '');
     if (!portalAppUrl) return '';
-    return `${portalAppUrl}${path}?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    return `${portalAppUrl}/${portalSlug}${path}?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
   }
 
   /** Resolves true when the transport accepted the mail, false otherwise. */

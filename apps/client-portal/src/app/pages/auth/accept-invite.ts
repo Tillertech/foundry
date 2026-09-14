@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  effect,
   inject,
   input,
   signal,
@@ -13,6 +14,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { apiErrorMessage } from '@foundry/shared-util';
 import { PortalAuthService } from '../../domains/auth';
+import { PortalPublicApiService } from '../../domains/portal-public';
 import { Field, fieldError } from '@foundry/shared-ui';
 
 @Component({
@@ -29,10 +31,10 @@ import { Field, fieldError } from '@foundry/shared-ui';
           <div
             class="grid h-12 w-12 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
           >
-            <span class="font-mono text-lg font-bold">F</span>
+            <span class="font-mono text-lg font-bold">{{ initial() }}</span>
           </div>
           <h1 class="mt-4 text-2xl font-semibold tracking-tight">
-            Welcome to your client portal
+            Welcome to {{ brandName() }}
           </h1>
           <p class="mt-1 text-sm text-muted-foreground">
             @if (email()) {
@@ -117,15 +119,35 @@ import { Field, fieldError } from '@foundry/shared-ui';
   `,
 })
 export class AcceptInvite {
+  readonly slug = input.required<string>();
   readonly token = input<string>();
   readonly email = input<string>();
 
   private readonly auth = inject(PortalAuthService);
+  private readonly portalPublicApi = inject(PortalPublicApiService);
   private readonly router = inject(Router);
 
   protected readonly submitting = signal(false);
   protected readonly error = signal('');
   protected readonly confirmPassword = signal('');
+
+  protected readonly brandName = signal('your client portal');
+  protected readonly initial = signal('F');
+
+  constructor() {
+    // input.required() isn't readable until after the first change
+    // detection, so the fetch has to be an effect, not a constructor call.
+    effect(() => {
+      this.portalPublicApi.get(this.slug()).subscribe({
+        next: (portal) => {
+          const name = portal.company || portal.clientName;
+          this.brandName.set(name);
+          this.initial.set(name.slice(0, 1).toUpperCase());
+        },
+        error: () => undefined,
+      });
+    });
+  }
 
   protected readonly model = signal({ password: '' });
   protected readonly f = form(this.model, (p) => {
@@ -155,7 +177,8 @@ export class AcceptInvite {
     this.auth
       .acceptInvite({ email, token, password: this.model().password })
       .subscribe({
-        next: () => void this.router.navigateByUrl('/'),
+        next: (res) =>
+          void this.router.navigateByUrl(`/${res.user.portalSlug}`),
         error: (err) => {
           this.submitting.set(false);
           this.error.set(

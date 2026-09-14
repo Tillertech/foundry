@@ -51,6 +51,9 @@ export class Dashboard {
     () => (this.me()?.name ?? 'there').split(' ')[0],
   );
 
+  protected readonly base = computed(() => `/${this.auth.slug() ?? ''}`);
+  protected readonly projectsLink = computed(() => `${this.base()}/projects`);
+
   protected readonly loading = signal(true);
   protected readonly projects = signal<Project[]>([]);
 
@@ -60,27 +63,28 @@ export class Dashboard {
 
   protected readonly shortcuts = computed(() => {
     const permission = this.permission();
+    const base = this.base();
     return [
       {
-        to: '/quotes',
+        to: `${base}/quotes`,
         label: 'Quotes',
         icon: 'lucideFileSignature',
         visible: permission?.viewQuotes ?? false,
       },
       {
-        to: '/invoices',
+        to: `${base}/invoices`,
         label: 'Invoices',
         icon: 'lucideFileText',
         visible: permission?.viewPayments ?? false,
       },
       {
-        to: '/payments',
+        to: `${base}/payments`,
         label: 'Payments',
         icon: 'lucideWallet',
         visible: permission?.viewPayments ?? false,
       },
       {
-        to: '/documents',
+        to: `${base}/documents`,
         label: 'Documents',
         icon: 'lucideFolderOpen',
         visible: permission?.viewDocuments ?? false,
