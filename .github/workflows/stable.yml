@@ -1,0 +1,57 @@
+name: Publish
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  CLIENT_NAME: foundry-client
+  API_NAME: foundry-api
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set TAG_NAME
+        run: echo "TAG_NAME=${GITHUB_REF#refs/*/}" >> "$GITHUB_ENV"
+
+      - name: Build API image
+        run: docker build . --file Dockerfile.api.production --tag $API_NAME --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Build client image
+        run: docker build . --file Dockerfile.client.production --tag $CLIENT_NAME --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Auth registry
+        run: echo "${{ secrets.FOUNDRY_PUB }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        #
+      - name: Push api
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$API_NAME
+
+          # uppercase characters to lowercase.
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$TAG_NAME
+          docker tag $API_NAME $IMAGE_ID:$TAG_NAME
+          docker push $IMAGE_ID:$TAG_NAME
+
+      - name: Push client
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$CLIENT_NAME
+
+          # uppercase chars to lowercase.
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$TAG_NAME
+          docker tag $CLIENT_NAME $IMAGE_ID:$TAG_NAME
+          docker push $IMAGE_ID:$TAG_NAME
