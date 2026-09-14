@@ -23,11 +23,10 @@ import {
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { apiErrorMessage } from '../../core/http';
+import { apiErrorMessage } from '@foundry/shared-util';
 import { AuthService, setPendingVerification } from '../../domains/auth';
 import { ToastService } from '../../core/toast.service';
-import { Field } from '../../shared/field';
-import { fieldError } from '../../shared/field-error';
+import { Field, fieldError } from '@foundry/shared-ui';
 
 @Component({
   selector: 'app-signup',
@@ -62,7 +61,10 @@ import { fieldError } from '../../shared/field-error';
           </p>
         </div>
 
-        <form class="surface-card space-y-4 p-6" (submit)="$event.preventDefault(); submit()">
+        <form
+          class="surface-card space-y-4 p-6"
+          (submit)="$event.preventDefault(); submit()"
+        >
           <app-field label="Full name" [error]="fieldError(f.name())">
             <div class="relative">
               <ng-icon
@@ -99,7 +101,11 @@ import { fieldError } from '../../shared/field-error';
             </div>
           </app-field>
 
-          <app-field label="Password" hint="At least 8 characters." [error]="fieldError(f.password())">
+          <app-field
+            label="Password"
+            hint="At least 8 characters."
+            [error]="fieldError(f.password())"
+          >
             <div class="relative">
               <ng-icon
                 name="lucideLock"
@@ -130,7 +136,10 @@ import { fieldError } from '../../shared/field-error';
             </div>
           </app-field>
 
-          <app-field label="Workspace name" hint="Optional - defaults to your studio.">
+          <app-field
+            label="Workspace name"
+            hint="Optional - defaults to your studio."
+          >
             <div class="relative">
               <ng-icon
                 name="lucideBuilding2"

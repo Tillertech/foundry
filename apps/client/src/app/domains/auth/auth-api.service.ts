@@ -1,9 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-import { API_BASE } from '../../core/http/api-base';
+import { API_BASE, MessageResponse } from '@foundry/shared-util';
 import { ApiTokenStore } from './api-token.store';
-import { MessageResponse } from '../../core/http/api.types';
 import {
   AuthResponse,
   ForgotPasswordRequest,
@@ -65,7 +64,10 @@ export class AuthApiService {
   }
 
   forgotPassword(body: ForgotPasswordRequest): Observable<MessageResponse> {
-    return this.http.post<MessageResponse>(`${this.base}/forgot-password`, body);
+    return this.http.post<MessageResponse>(
+      `${this.base}/forgot-password`,
+      body,
+    );
   }
 
   resetPassword(body: ResetPasswordRequest): Observable<MessageResponse> {

@@ -1,4 +1,4 @@
-import { ClientStatus, Currency } from '../shared/models';
+import { ClientStatus, Currency } from '@foundry/shared-util';
 
 export interface Workspace {
   id: string;

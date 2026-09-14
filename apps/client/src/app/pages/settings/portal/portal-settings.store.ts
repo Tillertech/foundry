@@ -45,19 +45,84 @@ export const capabilityMeta: {
   desc: string;
   group: string;
 }[] = [
-  { key: 'viewProjects', label: 'View projects', desc: 'See project overview, status and milestones.', group: 'Projects & time' },
-  { key: 'viewBudgets', label: 'View budgets', desc: 'See client-facing budget, spend and remaining balance.', group: 'Projects & time' },
-  { key: 'viewTime', label: 'View time', desc: 'See hours logged and time breakdowns.', group: 'Projects & time' },
-  { key: 'viewDocuments', label: 'View documents', desc: 'See documents shared with them.', group: 'Documents' },
-  { key: 'downloadDocuments', label: 'Download documents', desc: 'Save copies of shared documents.', group: 'Documents' },
-  { key: 'uploadDocuments', label: 'Upload documents', desc: 'Share files back with your team.', group: 'Documents' },
-  { key: 'viewQuotes', label: 'View quotes', desc: 'See quotes and proposals.', group: 'Financials' },
-  { key: 'approveQuotes', label: 'Approve quotes', desc: 'Accept or decline quotes in the portal.', group: 'Financials' },
-  { key: 'viewInvoices', label: 'View invoices', desc: 'See issued invoices and balances.', group: 'Financials' },
-  { key: 'viewPayments', label: 'View payments', desc: 'See payment history and receipts.', group: 'Financials' },
-  { key: 'makePayments', label: 'Make payments', desc: 'Pay invoices directly from the portal.', group: 'Financials' },
-  { key: 'commentOnProjects', label: 'Messages & comments', desc: 'Message your team and comment on documents.', group: 'Collaboration' },
-  { key: 'receiveNotifications', label: 'Receive notifications', desc: 'Get notified about new documents, quotes and invoices.', group: 'Collaboration' },
+  {
+    key: 'viewProjects',
+    label: 'View projects',
+    desc: 'See project overview, status and milestones.',
+    group: 'Projects & time',
+  },
+  {
+    key: 'viewBudgets',
+    label: 'View budgets',
+    desc: 'See client-facing budget, spend and remaining balance.',
+    group: 'Projects & time',
+  },
+  {
+    key: 'viewTime',
+    label: 'View time',
+    desc: 'See hours logged and time breakdowns.',
+    group: 'Projects & time',
+  },
+  {
+    key: 'viewDocuments',
+    label: 'View documents',
+    desc: 'See documents shared with them.',
+    group: 'Documents',
+  },
+  {
+    key: 'downloadDocuments',
+    label: 'Download documents',
+    desc: 'Save copies of shared documents.',
+    group: 'Documents',
+  },
+  {
+    key: 'uploadDocuments',
+    label: 'Upload documents',
+    desc: 'Share files back with your team.',
+    group: 'Documents',
+  },
+  {
+    key: 'viewQuotes',
+    label: 'View quotes',
+    desc: 'See quotes and proposals.',
+    group: 'Financials',
+  },
+  {
+    key: 'approveQuotes',
+    label: 'Approve quotes',
+    desc: 'Accept or decline quotes in the portal.',
+    group: 'Financials',
+  },
+  {
+    key: 'viewInvoices',
+    label: 'View invoices',
+    desc: 'See issued invoices and balances.',
+    group: 'Financials',
+  },
+  {
+    key: 'viewPayments',
+    label: 'View payments',
+    desc: 'See payment history and receipts.',
+    group: 'Financials',
+  },
+  {
+    key: 'makePayments',
+    label: 'Make payments',
+    desc: 'Pay invoices directly from the portal.',
+    group: 'Financials',
+  },
+  {
+    key: 'commentOnProjects',
+    label: 'Messages & comments',
+    desc: 'Message your team and comment on documents.',
+    group: 'Collaboration',
+  },
+  {
+    key: 'receiveNotifications',
+    label: 'Receive notifications',
+    desc: 'Get notified about new documents, quotes and invoices.',
+    group: 'Collaboration',
+  },
 ];
 
 export type ProjectAccess = {
@@ -108,7 +173,10 @@ export class PortalSettingsStore {
   }
 
   setClientPortalActive(clientId: string, active: boolean): void {
-    this.clientPortalActive.update((current) => ({ ...current, [clientId]: active }));
+    this.clientPortalActive.update((current) => ({
+      ...current,
+      [clientId]: active,
+    }));
   }
 
   setDefaults(defaults: PortalCapabilities): void {
@@ -135,7 +203,11 @@ export class PortalSettingsStore {
   }
 
   inviteUser(input: Omit<ClientPortalUser, 'id' | 'status'>): ClientPortalUser {
-    const user: ClientPortalUser = { ...input, id: `cu_${uid()}`, status: 'invited' };
+    const user: ClientPortalUser = {
+      ...input,
+      id: `cu_${uid()}`,
+      status: 'invited',
+    };
     this.clientUsers.update((users) => [...users, user]);
     return user;
   }

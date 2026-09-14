@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+} from '@angular/core';
 
 /**
  * Shimmer placeholder shown while page content loads:
@@ -47,5 +52,7 @@ export class ListSkeleton {
   readonly rows = input(6);
   readonly variant = input<'rows' | 'cards'>('rows');
 
-  protected readonly items = computed(() => Array.from({ length: this.rows() }, (_, i) => i));
+  protected readonly items = computed(() =>
+    Array.from({ length: this.rows() }, (_, i) => i),
+  );
 }

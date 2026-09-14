@@ -2,6 +2,12 @@ FROM node:lts-slim
 
 LABEL maintainer="hello@tillertech.io"
 
+# Which Angular app to serve: "client" (the workspace app) or "client-portal".
+ARG PROJECT=client
+ARG PORT=4200
+ENV PROJECT=$PROJECT
+ENV PORT=$PORT
+
 WORKDIR /foundry
 
 RUN apt-get update && \
@@ -15,10 +21,11 @@ RUN npm ci --legacy-peer-deps
 
 COPY . .
 
-EXPOSE 4200
+EXPOSE $PORT
 
 ENV NX_DAEMON=false
 
 # excludeTaskDependencies: client:serve dependsOn api:serve, but the API runs
-# in its own container.
-CMD ["sh", "-c", "npx nx serve client --configuration=development --host=0.0.0.0 --port=4200 --excludeTaskDependencies --proxyConfig=apps/client/proxy.conf.docker.json"]
+# in its own container (client-portal has no such dependency; the flag is a
+# no-op for it).
+CMD ["sh", "-c", "npx nx serve $PROJECT --configuration=development --host=0.0.0.0 --port=$PORT --excludeTaskDependencies --proxyConfig=apps/$PROJECT/proxy.conf.docker.json"]

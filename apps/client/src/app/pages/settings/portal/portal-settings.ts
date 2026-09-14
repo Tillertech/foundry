@@ -1,12 +1,22 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCopy, lucideGlobe } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
-import { Field } from '../../../shared/field';
-import { capabilityMeta, PortalCapabilities, PortalSettingsStore } from './portal-settings.store';
+import { Field } from '@foundry/shared-ui';
+import {
+  capabilityMeta,
+  PortalCapabilities,
+  PortalSettingsStore,
+} from './portal-settings.store';
 
 @Component({
   selector: 'app-portal-settings',
@@ -27,7 +37,9 @@ export class PortalSettings {
     return [...map.entries()];
   });
 
-  protected readonly portalUrl = computed(() => `https://portal.foundry.app/${this.store.slug()}`);
+  protected readonly portalUrl = computed(
+    () => `https://portal.foundry.app/${this.store.slug()}`,
+  );
   protected readonly activeUsers = computed(
     () => this.store.clientUsers().filter((u) => u.status === 'active').length,
   );

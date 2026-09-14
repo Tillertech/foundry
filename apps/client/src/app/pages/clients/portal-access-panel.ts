@@ -34,7 +34,7 @@ import {
   PortalProject,
 } from '../../domains/client-portals';
 import { PortalUser, PortalUsersApiService } from '../../domains/portal-users';
-import { apiErrorMessage } from '../../core/http/api-error';
+import { apiErrorMessage } from '@foundry/shared-util';
 import { ToastService } from '../../core/toast.service';
 
 function timeAgo(iso: string): string {
@@ -108,9 +108,7 @@ export class PortalAccessPanel {
   );
 
   protected readonly sharedProjectCount = computed(
-    () =>
-      this.projects().filter((p) => p.active)
-        .length,
+    () => this.projects().filter((p) => p.active).length,
   );
 
   protected readonly filteredProjects = computed(() => {
@@ -127,7 +125,7 @@ export class PortalAccessPanel {
     return list.filter(
       (u) =>
         u.name.toLowerCase().includes(term) ||
-        u.email.toLowerCase().includes(term)
+        u.email.toLowerCase().includes(term),
     );
   });
 
@@ -150,7 +148,7 @@ export class PortalAccessPanel {
             this.projects.set(portal.clientPortalProjects);
             this.users.set(portal.clientPortalUsers);
           }
-            this.loadingProjects.set(false);
+          this.loadingProjects.set(false);
         },
         error: (err) => {
           if (cancelled) return;

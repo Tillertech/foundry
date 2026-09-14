@@ -10,7 +10,7 @@ services:
       - '5433:5432'
     volumes:
       - postgres_data:/var/lib/postgresql
-    restart: on-failure
+    restart: unless-stopped
     networks:
       - foundry
 
@@ -23,7 +23,7 @@ services:
       - redis:/data
     networks:
       - foundry
-    restart: on-failure
+    restart: unless-stopped
 
   redis-insight:
     container_name: foundryredisinsight
@@ -36,7 +36,7 @@ services:
       - redis
     volumes:
       - redis-insight:/data
-    restart: on-failure
+    restart: unless-stopped
 
   mailpit:
     image: docker.io/axllent/mailpit:latest
@@ -78,7 +78,7 @@ services:
         condition: service_started
       redis:
         condition: service_started
-    restart: on-failure
+    restart: unless-stopped
     networks:
       - foundry
 
@@ -87,6 +87,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.client.local
+      args:
+        PROJECT: client
+        PORT: '4200'
     environment:
       NODE_ENV: development
       CHOKIDAR_USEPOLLING: 'true'
@@ -100,7 +103,32 @@ services:
     depends_on:
       foundryapi:
         condition: service_started
-    restart: on-failure
+    restart: unless-stopped
+    networks:
+      - foundry
+
+  clientportal:
+    container_name: foundry-clientportal
+    build:
+      context: .
+      dockerfile: Dockerfile.client.local
+      args:
+        PROJECT: client-portal
+        PORT: '4201'
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: 'true'
+    ports:
+      - '4201:4201'
+    volumes:
+      - .:/foundry
+      - /foundry/node_modules
+    tmpfs:
+      - /foundry/.nx
+    depends_on:
+      foundryapi:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - foundry
 

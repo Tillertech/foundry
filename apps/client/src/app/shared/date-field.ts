@@ -1,5 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, input, model } from '@angular/core';
-import { HlmDatePicker, HlmDatePickerTrigger } from '@spartan-ng/helm/date-picker';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  model,
+} from '@angular/core';
+import {
+  HlmDatePicker,
+  HlmDatePickerTrigger,
+} from '@spartan-ng/helm/date-picker';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -39,7 +48,9 @@ export class DateField {
 
   protected onDateChange(date: Date | undefined): void {
     this.value.set(
-      date ? `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` : '',
+      date
+        ? `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+        : '',
     );
   }
 }

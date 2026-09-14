@@ -13,7 +13,7 @@ import {
   minLength,
   required,
 } from '@angular/forms/signals';
-import { fieldError } from '../../shared/field-error';
+import { fieldError, Field, PageHeader, StatusBadge } from '@foundry/shared-ui';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBuilding2,
@@ -25,27 +25,26 @@ import {
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
+import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
-import { apiErrorMessage } from '../../core/http';
+import {
+  apiErrorMessage,
+  ClientStatus,
+  Currency,
+  invoiceTotal,
+  money,
+} from '@foundry/shared-util';
 import {
   ApiClient,
   ClientsApiService,
   CreateClientRequest,
 } from '../../domains/clients';
+import { ClientPortalApiService } from '../../domains/client-portals';
 import { Invoice, InvoicesApiService } from '../../domains/invoices';
-import {
-  ClientStatus,
-  Currency,
-  invoiceTotal,
-  money,
-} from '../../domains/shared';
 import { ToastService } from '../../core/toast.service';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field } from '../../shared/field';
 import { ListSkeleton } from '../../shared/list-skeleton';
-import { PageHeader } from '../../shared/page-header';
-import { StatusBadge } from '../../shared/status-badge';
 import { PortalAccessPanel } from './portal-access-panel';
 
 interface ClientForm {
@@ -84,6 +83,7 @@ const emptyClient = (): ClientForm => ({
     HlmInput,
     HlmTextarea,
     HlmSelectImports,
+    HlmSwitchImports,
     EntitySheet,
     Field,
     ListSkeleton,
@@ -105,6 +105,7 @@ const emptyClient = (): ClientForm => ({
 })
 export class Clients {
   private readonly clientsApi = inject(ClientsApiService);
+  private readonly clientPortalApi = inject(ClientPortalApiService);
   private readonly invoicesApi = inject(InvoicesApiService);
   private readonly toast = inject(ToastService);
 
@@ -117,6 +118,8 @@ export class Clients {
   protected readonly sheetOpen = signal(false);
   protected readonly saving = signal(false);
   protected isNew = true;
+  /** Whether to also provision a client portal once the new client is saved. */
+  protected readonly enablePortalOnCreate = signal(false);
 
   // Status filter options + a label resolver so the trigger shows the label,
   // not the raw value, once a value is selected.
@@ -193,6 +196,7 @@ export class Clients {
   protected openNew(): void {
     this.model.set(emptyClient());
     this.isNew = true;
+    this.enablePortalOnCreate.set(false);
     this.sheetOpen.set(true);
   }
 
@@ -230,26 +234,55 @@ export class Clients {
       notes: v.notes.trim() || null,
     };
     this.saving.set(true);
-    const request = this.isNew
+    const isNew = this.isNew;
+    const wantsPortal = isNew && this.enablePortalOnCreate();
+    const request = isNew
       ? this.clientsApi.create(body)
       : this.clientsApi.update(v.id, body);
     request.subscribe({
       next: (client) => {
-        this.saving.set(false);
         this.clients.update((list) =>
-          this.isNew
+          isNew
             ? [client, ...list]
             : list.map((c) => (c.id === client.id ? client : c)),
         );
-        this.sheetOpen.set(false);
-        if (this.isNew) this.toast.created('Client');
-        else this.toast.updated('Client');
+        if (!wantsPortal) {
+          this.finishSave(isNew);
+          return;
+        }
+        // Client is already saved at this point - a portal failure here
+        // shouldn't look like the whole save failed, so it gets its own toast
+        // rather than routing through the generic error handler below.
+        this.clientPortalApi.create({ clientId: client.id }).subscribe({
+          next: () => {
+            this.toast.success(
+              'Client created',
+              'Portal enabled - the client has been invited by email.',
+            );
+            this.finishSave(isNew, true);
+          },
+          error: (err) => {
+            this.toast.error(
+              'Client saved, but the portal could not be created',
+              apiErrorMessage(err),
+            );
+            this.finishSave(isNew, true);
+          },
+        });
       },
       error: (err) => {
         this.saving.set(false);
         this.toast.error('Could not save client', apiErrorMessage(err));
       },
     });
+  }
+
+  private finishSave(isNew: boolean, skipDefaultToast = false): void {
+    this.saving.set(false);
+    this.sheetOpen.set(false);
+    if (skipDefaultToast) return;
+    if (isNew) this.toast.created('Client');
+    else this.toast.updated('Client');
   }
 
   protected removeCurrent(): void {

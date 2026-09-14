@@ -5,7 +5,13 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { FormField, email, form, minLength, required } from '@angular/forms/signals';
+import {
+  FormField,
+  email,
+  form,
+  minLength,
+  required,
+} from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBell,
@@ -23,7 +29,7 @@ import {
   lucideSun,
   lucideTrash2,
   lucideUpload,
-  lucideGlobe
+  lucideGlobe,
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
@@ -31,8 +37,7 @@ import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
-import { apiErrorMessage } from '../../core/http';
-import { Currency } from '../../domains/shared';
+import { apiErrorMessage, Currency } from '@foundry/shared-util';
 import {
   UpdateWorkspaceRequest,
   Workspace,
@@ -41,8 +46,7 @@ import {
 import { ToastService } from '../../core/toast.service';
 import { toast } from '@spartan-ng/brain/sonner';
 import { Accent, ThemeService } from '../../core/theme.service';
-import { Field } from '../../shared/field';
-import { fieldError } from '../../shared/field-error';
+import { Field, fieldError } from '@foundry/shared-ui';
 import { PortalSettings } from './portal/portal-settings';
 
 const LOGO_TYPES = ['image/png', 'image/jpeg'];
@@ -88,7 +92,7 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
       lucideSun,
       lucideTrash2,
       lucideUpload,
-      lucideGlobe
+      lucideGlobe,
     }),
   ],
   templateUrl: './settings.html',
@@ -276,7 +280,6 @@ export class Settings {
           'Settings saved',
           'Your workspace details have been updated.',
         );
-
       },
       error: (err) => {
         this.savingWorkspace.set(false);
@@ -305,7 +308,10 @@ export class Settings {
         this.logoBusy.set(false);
         this.workspace.set(updated);
         this.setLogoUrl(URL.createObjectURL(file));
-        this.toast.success('Logo updated', 'It will appear on invoice and quote PDFs.');
+        this.toast.success(
+          'Logo updated',
+          'It will appear on invoice and quote PDFs.',
+        );
       },
       error: (err) => {
         this.logoBusy.set(false);

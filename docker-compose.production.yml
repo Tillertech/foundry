@@ -53,6 +53,20 @@ services:
     networks:
       - foundry
 
+  foundryportal:
+      image: ghcr.io/tillertech/foundry-portal:latest
+      container_name: foundry-portal
+      ports:
+        - '4001:80'
+      depends_on:
+        foundryapi:
+          condition: service_started
+        foundryclient:
+            condition: service_started
+      restart: always
+      networks:
+        - foundry
+
 volumes:
   postgres_data:
   redis:

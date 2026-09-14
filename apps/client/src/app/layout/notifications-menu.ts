@@ -69,7 +69,9 @@ import {
               </button>
             }
           </div>
-          <div class="scrollbar-thin max-h-[60vh] overflow-y-auto sm:max-h-[380px]">
+          <div
+            class="scrollbar-thin max-h-[60vh] overflow-y-auto sm:max-h-[380px]"
+          >
             @if (loading()) {
               <p class="px-4 py-6 text-center text-xs text-muted-foreground">
                 Loading…

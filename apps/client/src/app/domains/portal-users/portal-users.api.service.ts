@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { API_BASE, PaginatedResponse, toParams } from '../../core/http';
+import { API_BASE, PaginatedResponse, toParams } from '@foundry/shared-util';
 import {
   CreatePortalUserRequest,
   PortalUser,
@@ -28,13 +28,8 @@ export class PortalUsersApiService {
   get(id: string): Observable<ClientPortal> {
     return this.http.get<ClientPortal>(`${this.base}/${id}`);
   }
-  
-  update(
-    id: string,
-    body: UpdatePortalUserRequest,
-  ): Observable<PortalUser> {
+
+  update(id: string, body: UpdatePortalUserRequest): Observable<PortalUser> {
     return this.http.patch<PortalUser>(`${this.base}/${id}`, body);
   }
-
-
 }

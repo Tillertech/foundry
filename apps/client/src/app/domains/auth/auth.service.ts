@@ -64,7 +64,9 @@ export class AuthService {
 
   /** Step two of login: confirms the emailed code and establishes the session. */
   verifyLogin(body: VerifyLoginRequest): Observable<AuthResponse> {
-    return this.api.verifyLogin(body).pipe(tap((res) => this.setUser(res.user)));
+    return this.api
+      .verifyLogin(body)
+      .pipe(tap((res) => this.setUser(res.user)));
   }
 
   /** Registers the account; returns the pending email (no session yet). */
@@ -74,7 +76,9 @@ export class AuthService {
 
   /** Confirms the emailed code and establishes the session. */
   verifyEmail(body: VerifyEmailRequest): Observable<AuthResponse> {
-    return this.api.verifyEmail(body).pipe(tap((res) => this.setUser(res.user)));
+    return this.api
+      .verifyEmail(body)
+      .pipe(tap((res) => this.setUser(res.user)));
   }
 
   /** Re-syncs the cached user with the API; drops the session on 401. */

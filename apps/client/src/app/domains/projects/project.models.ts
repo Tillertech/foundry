@@ -1,4 +1,4 @@
-import { PaginationQuery } from '../../core/http/api.types';
+import { PaginationQuery } from '@foundry/shared-util';
 
 export type ProjectStatus = 'planning' | 'active' | 'on_hold' | 'completed';
 

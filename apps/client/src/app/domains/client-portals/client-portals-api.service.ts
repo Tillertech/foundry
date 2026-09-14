@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { API_BASE, PaginatedResponse, toParams } from '../../core/http';
+import { API_BASE, PaginatedResponse, toParams } from '@foundry/shared-util';
 import {
   ClientPortal,
   CreateClientPortalRequest,
@@ -33,5 +33,4 @@ export class ClientPortalApiService {
   ): Observable<ClientPortal> {
     return this.http.patch<ClientPortal>(`${this.base}/${id}`, body);
   }
-
 }

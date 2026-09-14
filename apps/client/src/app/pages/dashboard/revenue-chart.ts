@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+} from '@angular/core';
 import type { EChartsCoreOption } from 'echarts/core';
 import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
 import { ThemeService } from '../../core/theme.service';
@@ -11,13 +17,22 @@ import { ThemeService } from '../../core/theme.service';
     provideEchartsCore({
       echarts: async () => {
         const echarts = await import('echarts/core');
-        const [{ LineChart }, { GridComponent, LegendComponent, TooltipComponent }, { CanvasRenderer }] =
-          await Promise.all([
-            import('echarts/charts'),
-            import('echarts/components'),
-            import('echarts/renderers'),
-          ]);
-        echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+        const [
+          { LineChart },
+          { GridComponent, LegendComponent, TooltipComponent },
+          { CanvasRenderer },
+        ] = await Promise.all([
+          import('echarts/charts'),
+          import('echarts/components'),
+          import('echarts/renderers'),
+        ]);
+        echarts.use([
+          LineChart,
+          GridComponent,
+          LegendComponent,
+          TooltipComponent,
+          CanvasRenderer,
+        ]);
         return echarts;
       },
     }),
@@ -54,7 +69,10 @@ export class RevenueChart {
         backgroundColor: isDark ? '#1c1f24' : '#ffffff',
         borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
         borderWidth: 1,
-        textStyle: { color: isDark ? '#e6e8eb' : '#111418', fontFamily: 'Inter' },
+        textStyle: {
+          color: isDark ? '#e6e8eb' : '#111418',
+          fontFamily: 'Inter',
+        },
         valueFormatter: (v: unknown) => `$${Number(v).toLocaleString()}`,
       },
       legend: {
@@ -116,7 +134,11 @@ export class RevenueChart {
           symbol: 'circle',
           symbolSize: 6,
           showSymbol: false,
-          lineStyle: { width: 2, color: isDark ? '#94a3b8' : '#64748b', type: 'dashed' },
+          lineStyle: {
+            width: 2,
+            color: isDark ? '#94a3b8' : '#64748b',
+            type: 'dashed',
+          },
           itemStyle: { color: isDark ? '#94a3b8' : '#64748b' },
         },
       ],

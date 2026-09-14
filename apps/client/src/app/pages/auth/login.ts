@@ -16,15 +16,14 @@ import {
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HttpErrorResponse } from '@angular/common/http';
-import { apiErrorMessage } from '../../core/http';
+import { apiErrorMessage } from '@foundry/shared-util';
 import {
   AuthService,
   setPendingLogin,
   setPendingVerification,
 } from '../../domains/auth';
 import { ToastService } from '../../core/toast.service';
-import { Field } from '../../shared/field';
-import { fieldError } from '../../shared/field-error';
+import { Field, fieldError } from '@foundry/shared-ui';
 
 @Component({
   selector: 'app-login',

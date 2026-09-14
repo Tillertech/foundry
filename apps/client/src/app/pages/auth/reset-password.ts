@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   FormField,
@@ -9,16 +14,20 @@ import {
 } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowLeft, lucideLock, lucideMail, lucideShieldCheck } from '@ng-icons/lucide';
+import {
+  lucideArrowLeft,
+  lucideLock,
+  lucideMail,
+  lucideShieldCheck,
+} from '@ng-icons/lucide';
 import { BrnInputOtp } from '@spartan-ng/brain/input-otp';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmInputOtpImports } from '@spartan-ng/helm/input-otp';
-import { apiErrorMessage } from '../../core/http';
+import { apiErrorMessage } from '@foundry/shared-util';
 import { AuthApiService } from '../../domains/auth';
 import { ToastService } from '../../core/toast.service';
-import { Field } from '../../shared/field';
-import { fieldError } from '../../shared/field-error';
+import { Field, fieldError } from '@foundry/shared-ui';
 
 /**
  * Two-step reset: request a 6-digit code by email, then exchange the
@@ -39,10 +48,17 @@ import { fieldError } from '../../shared/field-error';
     HlmInputOtpImports,
   ],
   providers: [
-    provideIcons({ lucideArrowLeft, lucideLock, lucideMail, lucideShieldCheck }),
+    provideIcons({
+      lucideArrowLeft,
+      lucideLock,
+      lucideMail,
+      lucideShieldCheck,
+    }),
   ],
   template: `
-    <div class="flex min-h-screen w-full items-center justify-center bg-background px-4 py-10 text-foreground">
+    <div
+      class="flex min-h-screen w-full items-center justify-center bg-background px-4 py-10 text-foreground"
+    >
       <div class="w-full max-w-sm">
         <div class="mb-8 flex flex-col items-center text-center">
           <div
@@ -55,20 +71,27 @@ import { fieldError } from '../../shared/field-error';
             }
           </div>
           <h1 class="mt-4 text-2xl font-semibold tracking-tight">
-            {{ step() === 'email' ? 'Reset your password' : 'Check your email' }}
+            {{
+              step() === 'email' ? 'Reset your password' : 'Check your email'
+            }}
           </h1>
           <p class="mt-1 text-sm text-muted-foreground">
             @if (step() === 'email') {
               We'll email you a 6-digit code to set a new one.
             } @else {
               We sent a 6-digit code to
-              <span class="font-medium text-foreground">{{ model().email }}</span>
+              <span class="font-medium text-foreground">{{
+                model().email
+              }}</span>
             }
           </p>
         </div>
 
         @if (step() === 'email') {
-          <form class="surface-card space-y-4 p-6" (submit)="$event.preventDefault(); sendCode()">
+          <form
+            class="surface-card space-y-4 p-6"
+            (submit)="$event.preventDefault(); sendCode()"
+          >
             <app-field
               label="Email"
               hint="Use the address you signed up with."
@@ -113,7 +136,10 @@ import { fieldError } from '../../shared/field-error';
             </a>
           </form>
         } @else {
-          <form class="surface-card flex flex-col gap-5 p-6" (submit)="$event.preventDefault(); reset()">
+          <form
+            class="surface-card flex flex-col gap-5 p-6"
+            (submit)="$event.preventDefault(); reset()"
+          >
             <div class="flex justify-center">
               <brn-input-otp
                 hlm
@@ -166,12 +192,16 @@ import { fieldError } from '../../shared/field-error';
               hlmBtn
               type="submit"
               class="w-full shadow-[var(--shadow-glow)]"
-              [disabled]="code.length < 6 || f.newPassword().invalid() || submitting()"
+              [disabled]="
+                code.length < 6 || f.newPassword().invalid() || submitting()
+              "
             >
               {{ submitting() ? 'Resetting…' : 'Reset password' }}
             </button>
 
-            <div class="flex flex-col items-center gap-2 text-xs text-muted-foreground">
+            <div
+              class="flex flex-col items-center gap-2 text-xs text-muted-foreground"
+            >
               <button
                 type="button"
                 class="font-medium transition-colors hover:text-primary"
@@ -243,12 +273,17 @@ export class ResetPassword {
       })
       .subscribe({
         next: () => {
-          this.toast.success('Password reset', 'Sign in with your new password.');
+          this.toast.success(
+            'Password reset',
+            'Sign in with your new password.',
+          );
           void this.router.navigateByUrl('/auth/login');
         },
         error: (err) => {
           this.submitting.set(false);
-          this.error.set(apiErrorMessage(err, 'That code is not valid. Try again.'));
+          this.error.set(
+            apiErrorMessage(err, 'That code is not valid. Try again.'),
+          );
         },
       });
   }

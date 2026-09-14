@@ -12,7 +12,7 @@ import { lucideArrowLeft, lucideMailCheck } from '@ng-icons/lucide';
 import { BrnInputOtp } from '@spartan-ng/brain/input-otp';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInputOtpImports } from '@spartan-ng/helm/input-otp';
-import { apiErrorMessage } from '../../core/http';
+import { apiErrorMessage } from '@foundry/shared-util';
 import { ToastService } from '../../core/toast.service';
 import {
   AuthApiService,
@@ -43,10 +43,14 @@ import {
   ],
   providers: [provideIcons({ lucideArrowLeft, lucideMailCheck })],
   template: `
-    <div class="flex min-h-screen w-full items-center justify-center bg-background px-4 py-10 text-foreground">
+    <div
+      class="flex min-h-screen w-full items-center justify-center bg-background px-4 py-10 text-foreground"
+    >
       <div class="w-full max-w-sm">
         <div class="mb-8 flex flex-col items-center text-center">
-          <div class="grid h-12 w-12 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-glow)]">
+          <div
+            class="grid h-12 w-12 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-glow)]"
+          >
             <ng-icon name="lucideMailCheck" size="22" />
           </div>
           <h1 class="mt-4 text-2xl font-semibold tracking-tight">
@@ -58,7 +62,10 @@ import {
           </p>
         </div>
 
-        <form class="surface-card flex flex-col gap-5 p-6" (submit)="$event.preventDefault(); verify()">
+        <form
+          class="surface-card flex flex-col gap-5 p-6"
+          (submit)="$event.preventDefault(); verify()"
+        >
           <div class="flex justify-center">
             <brn-input-otp
               hlm
@@ -95,7 +102,9 @@ import {
             {{ submitting() ? 'Verifying…' : 'Verify email' }}
           </button>
 
-          <div class="flex flex-col items-center gap-2 text-xs text-muted-foreground">
+          <div
+            class="flex flex-col items-center gap-2 text-xs text-muted-foreground"
+          >
             <button
               type="button"
               class="font-medium transition-colors hover:text-primary disabled:opacity-50"

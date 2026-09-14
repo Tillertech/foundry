@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, Component, input, model, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  model,
+  output,
+} from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideTrash2 } from '@ng-icons/lucide';
 import { BrnAlertDialogContent } from '@spartan-ng/brain/alert-dialog';
@@ -15,10 +21,21 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
   selector: 'app-entity-sheet',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
-  imports: [NgIcon, HlmButton, HlmSheetImports, BrnSheetContent, HlmAlertDialogImports, BrnAlertDialogContent],
+  imports: [
+    NgIcon,
+    HlmButton,
+    HlmSheetImports,
+    BrnSheetContent,
+    HlmAlertDialogImports,
+    BrnAlertDialogContent,
+  ],
   providers: [provideIcons({ lucideTrash2 })],
   template: `
-    <hlm-sheet side="right" [state]="open() ? 'open' : 'closed'" (closed)="open.set(false)">
+    <hlm-sheet
+      side="right"
+      [state]="open() ? 'open' : 'closed'"
+      (closed)="open.set(false)"
+    >
       <hlm-sheet-content
         *brnSheetContent="let ctx"
         class="flex min-w-0 flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
@@ -30,7 +47,9 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
           }
         </div>
 
-        <div class="scrollbar-thin min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-5">
+        <div
+          class="scrollbar-thin min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-5"
+        >
           <ng-content />
         </div>
 
@@ -51,15 +70,20 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
                   <ng-icon name="lucideTrash2" size="16" />
                   Delete
                 </button>
-                <hlm-alert-dialog-content *brnAlertDialogContent="let dialogCtx">
+                <hlm-alert-dialog-content
+                  *brnAlertDialogContent="let dialogCtx"
+                >
                   <div hlmAlertDialogHeader>
                     <h3 hlmAlertDialogTitle>Delete this record?</h3>
                     <p hlmAlertDialogDescription>
-                      This can't be undone. The record will be permanently removed.
+                      This can't be undone. The record will be permanently
+                      removed.
                     </p>
                   </div>
                   <div hlmAlertDialogFooter>
-                    <button hlmAlertDialogCancel (click)="dialogCtx.close()">Cancel</button>
+                    <button hlmAlertDialogCancel (click)="dialogCtx.close()">
+                      Cancel
+                    </button>
                     <button
                       hlmAlertDialogAction
                       class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -73,7 +97,9 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
             }
           </div>
           <div class="flex items-center gap-2">
-            <button hlmBtn variant="ghost" size="sm" (click)="open.set(false)">Cancel</button>
+            <button hlmBtn variant="ghost" size="sm" (click)="open.set(false)">
+              Cancel
+            </button>
             <button
               hlmBtn
               size="sm"

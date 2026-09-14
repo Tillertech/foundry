@@ -1,8 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { API_BASE, toParams } from '../../core/http/api-base';
-import { PaginatedResponse } from '../../core/http/api.types';
+import { API_BASE, toParams, PaginatedResponse } from '@foundry/shared-util';
 import {
   AppNotification,
   ListNotificationsQuery,

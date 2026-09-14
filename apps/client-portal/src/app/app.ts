@@ -1,13 +1,21 @@
-import { Component } from '@angular/core';
-import { RouterModule } from '@angular/router';
-import { NxWelcome } from './nx-welcome';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+import { HlmToaster } from '@spartan-ng/helm/sonner';
+import { ThemeService } from './core/theme.service';
 
 @Component({
-  imports: [NxWelcome, RouterModule],
+  imports: [RouterOutlet, HlmToaster],
   selector: 'app-root',
-  templateUrl: './app.html',
-  styleUrl: './app.css',
+  template: `
+    <router-outlet />
+    <hlm-toaster
+      richColors
+      [theme]="theme.dark() ? 'dark' : 'light'"
+      position="bottom-right"
+    />
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
-  protected title = 'client-portal';
+  protected readonly theme = inject(ThemeService);
 }

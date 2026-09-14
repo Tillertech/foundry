@@ -1,8 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { API_BASE, toParams } from '../../core/http/api-base';
-import { PaginatedResponse } from '../../core/http/api.types';
+import { API_BASE, toParams, PaginatedResponse } from '@foundry/shared-util';
 import {
   ApiDocument,
   CreateDocumentRequest,
@@ -16,7 +15,10 @@ export class DocumentsApiService {
   private readonly base = `${API_BASE}/documents`;
 
   /** Uploads the file and registers the document in one multipart call. */
-  create(file: File, meta: CreateDocumentRequest = {}): Observable<ApiDocument> {
+  create(
+    file: File,
+    meta: CreateDocumentRequest = {},
+  ): Observable<ApiDocument> {
     const form = new FormData();
     form.append('file', file);
     for (const [key, value] of Object.entries(meta)) {

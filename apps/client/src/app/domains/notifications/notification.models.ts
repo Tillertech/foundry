@@ -1,4 +1,4 @@
-import { PaginationQuery } from '../../core/http/api.types';
+import { PaginationQuery } from '@foundry/shared-util';
 
 export type NotificationKind =
   | 'invoice_sent'

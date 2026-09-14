@@ -8,6 +8,7 @@ describe('ClientPortalService', () => {
       undefined as any, // PrismaService
       undefined as any, // ClientsService
       undefined as any, // PaginationService
+      undefined as any, // PortalUsersService
     );
   });
 

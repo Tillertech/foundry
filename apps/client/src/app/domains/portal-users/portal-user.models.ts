@@ -1,7 +1,6 @@
-import { PaginationQuery } from '../../core/http/api.types';
-import { PortalUserStatus } from '../shared/models';
+import { PaginationQuery, PortalUserStatus } from '@foundry/shared-util';
 
-export interface PortalUser{
+export interface PortalUser {
   id: string;
   email: string;
   name: string;
@@ -16,12 +15,10 @@ export interface CreatePortalUserRequest {
   name: string;
 }
 
-export type UpdatePortalUserRequest =
-  Partial<CreatePortalUserRequest>;
-  // todo: add status
-
+export type UpdatePortalUserRequest = Partial<CreatePortalUserRequest>;
+// todo: add status
 
 export interface ListPortalUserQuery extends PaginationQuery {
   clientPortalId?: string;
   status?: PortalUserStatus;
-  }
+}

@@ -1,5 +1,4 @@
-import { PaginationQuery } from '../../core/http/api.types';
-import { Currency, LineItemRequest } from '../shared/models';
+import { PaginationQuery, Currency, LineItemRequest } from '@foundry/shared-util';
 
 export type QuoteStatus =
   'draft' | 'sent' | 'accepted' | 'declined' | 'expired';

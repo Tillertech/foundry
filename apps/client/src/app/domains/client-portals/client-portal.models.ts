@@ -1,4 +1,4 @@
-import { PaginationQuery } from '../../core/http/api.types';
+import { PaginationQuery } from '@foundry/shared-util';
 import { PortalUser } from '../portal-users/portal-user.models';
 import { Project } from '../projects';
 
@@ -11,7 +11,7 @@ export interface ClientPortal {
   clientId: string;
   permission: PortalPermission | undefined;
   clientPortalProjects: PortalProject[];
-  clientPortalUsers: PortalUser[]
+  clientPortalUsers: PortalUser[];
 }
 
 export interface PortalProject {
@@ -42,8 +42,7 @@ export interface CreateClientPortalRequest {
   viewPayments?: boolean;
 }
 
-export type UpdateClientPortalRequest =
-  Partial<CreateClientPortalRequest>;
+export type UpdateClientPortalRequest = Partial<CreateClientPortalRequest>;
 
 export interface ListClientPortalQuery extends PaginationQuery {
   clientId?: string;

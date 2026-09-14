@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { API_BASE } from '../../core/http/api-base';
+import { API_BASE } from '@foundry/shared-util';
 import {
   CreateWorkspaceRequest,
   UpdateWorkspaceRequest,

@@ -1,0 +1,48 @@
+<div class="mx-auto max-w-[1200px] px-4 py-8 md:px-8">
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">
+      Documents
+    </h1>
+    <p class="mt-1 text-sm text-muted-foreground">
+      Files your consulting team has shared with you.
+    </p>
+  </div>
+
+  @if (loading()) {
+    <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
+      Loading…
+    </div>
+  } @else if (documents().length === 0) {
+    <app-empty-state
+      title="No documents yet"
+      description="Documents shared with you will appear here."
+    />
+  } @else {
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      @for (d of documents(); track d.id) {
+        <button
+          type="button"
+          (click)="open(d)"
+          class="surface-card hover-lift flex flex-col p-4 text-left transition"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div
+              class="grid h-9 w-9 place-items-center rounded-lg bg-muted text-muted-foreground"
+            >
+              <ng-icon [name]="typeIcon[d.type]" size="18" />
+            </div>
+          </div>
+          <p class="mt-3 truncate text-sm font-medium">{{ d.name }}</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">
+            {{ typeLabel[d.type] }} · {{ fmtSize(d.size) }}
+          </p>
+          <p
+            class="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground"
+          >
+            Shared {{ isoDay(d.uploadedAt) }}
+          </p>
+        </button>
+      }
+    </div>
+  }
+</div>

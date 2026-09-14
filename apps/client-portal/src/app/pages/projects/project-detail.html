@@ -1,0 +1,127 @@
+@if (loading()) {
+  <div class="mx-auto max-w-[1080px] px-4 py-16 text-center text-sm text-muted-foreground">
+    Loading…
+  </div>
+} @else if (project(); as p) {
+  <div class="mx-auto max-w-[1080px] px-4 py-8 md:px-8 md:py-10">
+    <a
+      routerLink="/projects"
+      hlmBtn
+      variant="ghost"
+      size="sm"
+      class="mb-5 -ml-2 gap-1.5 text-muted-foreground"
+    >
+      <ng-icon name="lucideArrowLeft" size="16" /> All projects
+    </a>
+
+    <header class="mb-7">
+      <div class="min-w-0 max-w-2xl">
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-2xl font-semibold sm:text-[28px]">{{ p.name }}</h1>
+          <app-status-badge [status]="p.status" />
+        </div>
+        @if (p.description) {
+          <p class="mt-2 text-sm leading-6 text-muted-foreground">
+            {{ p.description }}
+          </p>
+        }
+      </div>
+    </header>
+
+    <div hlmTabs [tab]="tab()" (tabActivated)="tab.set($event)">
+      <div hlmTabsList class="mb-6 h-9">
+        <button hlmTabsTrigger="overview" class="text-xs">Overview</button>
+        @if (permission()?.viewDocuments) {
+          <button hlmTabsTrigger="files" class="text-xs">Files</button>
+        }
+      </div>
+
+      <div hlmTabsContent="overview" class="space-y-6">
+        <section>
+          <h2 class="mb-3 text-sm font-semibold">Project details</h2>
+          <dl
+            class="surface-card grid divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0"
+          >
+            <div class="p-5">
+              <dt class="text-xs text-muted-foreground">Start date</dt>
+              <dd class="mt-1.5 text-xl font-semibold tabular-nums">
+                {{ isoDay(p.startDate) }}
+              </dd>
+            </div>
+            <div class="p-5">
+              <dt class="text-xs text-muted-foreground">
+                {{ p.status === 'completed' ? 'Completed' : 'Expected end' }}
+              </dt>
+              <dd class="mt-1.5 text-xl font-semibold tabular-nums">
+                {{ p.endDate ? isoDay(p.endDate) : '-' }}
+              </dd>
+            </div>
+            <div class="p-5">
+              <dt class="text-xs text-muted-foreground">Budget</dt>
+              <dd class="mt-1.5 text-xl font-semibold tabular-nums">
+                {{ money(p.budget) }}
+              </dd>
+            </div>
+            @if (p.hourlyRate) {
+              <div class="p-5">
+                <dt class="text-xs text-muted-foreground">Hourly rate</dt>
+                <dd class="mt-1.5 text-xl font-semibold tabular-nums">
+                  {{ money(p.hourlyRate) }}
+                </dd>
+              </div>
+            }
+          </dl>
+        </section>
+      </div>
+
+      @if (permission()?.viewDocuments) {
+        <div hlmTabsContent="files">
+          <section class="surface-card divide-y divide-border/70">
+            @if (documentsLoading()) {
+              <p class="px-5 py-10 text-center text-sm text-muted-foreground">
+                Loading…
+              </p>
+            } @else if (projectDocs().length === 0) {
+              <p class="px-5 py-10 text-center text-sm text-muted-foreground">
+                No files shared on this project yet.
+              </p>
+            } @else {
+              @for (doc of projectDocs(); track doc.id) {
+                <div class="flex flex-wrap items-center gap-3 px-5 py-4">
+                  <div
+                    class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"
+                  >
+                    <ng-icon name="lucideFileText" size="16" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium">{{ doc.name }}</p>
+                    <p class="mt-0.5 text-xs text-muted-foreground">
+                      Shared {{ isoDay(doc.uploadedAt) }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    hlmBtn
+                    variant="ghost"
+                    size="icon"
+                    [attr.aria-label]="'Download ' + doc.name"
+                    (click)="download(doc)"
+                  >
+                    <ng-icon name="lucideDownload" size="16" />
+                  </button>
+                </div>
+              }
+            }
+          </section>
+        </div>
+      }
+    </div>
+  </div>
+} @else {
+  <div class="mx-auto max-w-[1040px] px-4 py-16 text-center">
+    <p class="text-sm font-semibold">Project not found</p>
+    <a routerLink="/projects" hlmBtn variant="outline" size="sm" class="mt-4"
+      >Back to projects</a
+    >
+  </div>
+}

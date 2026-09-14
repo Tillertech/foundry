@@ -1,9 +1,19 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from '@angular/core';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
 import { HlmDialogImports } from '@spartan-ng/helm/dialog';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
-import { capabilityMeta, PortalCapabilities, PortalSettingsStore, ProjectAccess } from './portal-settings.store';
+import {
+  capabilityMeta,
+  PortalCapabilities,
+  PortalSettingsStore,
+  ProjectAccess,
+} from './portal-settings.store';
 
 export interface ProjectPermissionsDialogContext {
   projectId: string;
@@ -18,7 +28,9 @@ export interface ProjectPermissionsDialogContext {
   template: `
     <div hlmDialogHeader>
       <h3 hlmDialogTitle>Permissions - {{ ctx.projectName }}</h3>
-      <p hlmDialogDescription>Override workspace defaults for this project only.</p>
+      <p hlmDialogDescription>
+        Override workspace defaults for this project only.
+      </p>
     </div>
 
     @if (access(); as a) {
@@ -29,13 +41,17 @@ export interface ProjectPermissionsDialogContext {
         <hlm-checkbox
           inputId="use-defaults"
           [checked]="a.useDefaults"
-          (checkedChange)="store.setProjectAccess(ctx.projectId, { useDefaults: !!$event })"
+          (checkedChange)="
+            store.setProjectAccess(ctx.projectId, { useDefaults: !!$event })
+          "
         />
         Use workspace default permissions
       </label>
 
       @if (!a.useDefaults) {
-        <div class="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
+        <div
+          class="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border p-2"
+        >
           @for (c of capabilities; track c.key) {
             <label
               [for]="c.key"
@@ -54,19 +70,30 @@ export interface ProjectPermissionsDialogContext {
     }
 
     <div hlmDialogFooter>
-      <button hlmBtn size="sm" type="button" (click)="dialogRef.close()">Done</button>
+      <button hlmBtn size="sm" type="button" (click)="dialogRef.close()">
+        Done
+      </button>
     </div>
   `,
 })
 export class ProjectPermissionsDialog {
-  protected readonly ctx = injectBrnDialogContext<ProjectPermissionsDialogContext>();
+  protected readonly ctx =
+    injectBrnDialogContext<ProjectPermissionsDialogContext>();
   protected readonly dialogRef = inject(BrnDialogRef);
   protected readonly store = inject(PortalSettingsStore);
 
   protected readonly capabilities = capabilityMeta;
-  protected readonly access = computed(() => this.store.projectAccess()[this.ctx.projectId]);
+  protected readonly access = computed(
+    () => this.store.projectAccess()[this.ctx.projectId],
+  );
 
-  protected setOverride(access: ProjectAccess, key: keyof PortalCapabilities, value: boolean): void {
-    this.store.setProjectAccess(this.ctx.projectId, { overrides: { ...access.overrides, [key]: value } });
+  protected setOverride(
+    access: ProjectAccess,
+    key: keyof PortalCapabilities,
+    value: boolean,
+  ): void {
+    this.store.setProjectAccess(this.ctx.projectId, {
+      overrides: { ...access.overrides, [key]: value },
+    });
   }
 }

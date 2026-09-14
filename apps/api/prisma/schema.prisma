@@ -146,6 +146,8 @@ model Workspace {
   address            String?      @db.VarChar(500)
   postCode           String?      @db.VarChar(500)
   taxCode            String?      @db.VarChar(500)
+  // todo: carry workspace theme to client portal
+  // theme              String?      @db.VarChar(150)
   invoicePrefix      String?
   quotePrefix        String?
   footerNote         String?

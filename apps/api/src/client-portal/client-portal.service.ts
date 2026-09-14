@@ -17,7 +17,7 @@ import { ClientsService } from '../clients/clients.service';
 import { PortalUsersService } from '../portal-users/portal-users.service';
 
 const MAX_SLUG_ATTEMPTS = 5;
-// claude --resume c5add1a7-14fc-40af-8df9-7d93e226c678
+
 @Injectable()
 export class ClientPortalService {
   constructor(
@@ -105,7 +105,7 @@ export class ClientPortalService {
               email: true,
               status: true,
               emailVerifiedAt: true,
-            }
+            },
           },
           clientPortalProjects: {
             select: {

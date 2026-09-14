@@ -9,7 +9,6 @@ describe('PortalUsersController', () => {
       undefined as any,
       undefined as any,
       undefined as any,
-      undefined as any,
     );
     controller = new PortalUsersController(service);
   });

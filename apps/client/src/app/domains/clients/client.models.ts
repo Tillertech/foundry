@@ -1,5 +1,4 @@
-import { PaginationQuery } from '../../core/http/api.types';
-import { ClientStatus, Currency } from '../shared/models';
+import { PaginationQuery, ClientStatus, Currency } from '@foundry/shared-util';
 
 export interface ApiClient {
   id: string;
@@ -33,7 +32,7 @@ export interface CreateClientRequest {
 
 export type UpdateClientRequest = Partial<
   Omit<CreateClientRequest, 'workspaceId'>
-  >;
+>;
 
 export interface ListClientsQuery extends PaginationQuery {
   workspaceId?: string;

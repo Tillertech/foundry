@@ -5,6 +5,7 @@ import {
   DocumentEvents,
   InvoiceEvents,
   PaymentEvents,
+  PortalEvents,
   QuoteEvents,
   type DocumentSharedEvent,
   type EmailVerificationRequestedEvent,
@@ -15,6 +16,8 @@ import {
   type LoginOtpRequestedEvent,
   type PasswordResetRequestedEvent,
   type PaymentReceivedEvent,
+  type PortalPasswordResetRequestedEvent,
+  type PortalUserInvitedEvent,
   type QuoteSentEvent,
 } from '../common/events';
 import { MailService } from './mail/mail.service';
@@ -113,5 +116,24 @@ export class NotificationListener {
     return this.mail
       .sendLoginOtp(payload.email, payload.name, payload.otp)
       .catch((err) => this.logger.error('login otp mail failed', err));
+  }
+
+  @OnEvent(PortalEvents.USER_INVITED, { async: true })
+  handlePortalUserInvited(payload: PortalUserInvitedEvent) {
+    return this.mail
+      .sendUserInvite(
+        payload.email,
+        payload.name,
+        payload.portalSlug,
+        payload.token,
+      )
+      .catch((err) => this.logger.error('user invite mail failed', err));
+  }
+
+  @OnEvent(PortalEvents.PASSWORD_RESET_REQUESTED, { async: true })
+  handlePortalPasswordResetRequested(payload: PortalPasswordResetRequestedEvent) {
+    return this.mail
+      .sendPasswordReset(payload.email, payload.name, payload.token)
+      .catch((err) => this.logger.error('portal password reset mail failed', err));
   }
 }

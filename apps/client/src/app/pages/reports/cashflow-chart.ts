@@ -24,13 +24,22 @@ const EXPENSES_DARK = '#3987e5';
     provideEchartsCore({
       echarts: async () => {
         const echarts = await import('echarts/core');
-        const [{ BarChart }, { GridComponent, LegendComponent, TooltipComponent }, { CanvasRenderer }] =
-          await Promise.all([
-            import('echarts/charts'),
-            import('echarts/components'),
-            import('echarts/renderers'),
-          ]);
-        echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+        const [
+          { BarChart },
+          { GridComponent, LegendComponent, TooltipComponent },
+          { CanvasRenderer },
+        ] = await Promise.all([
+          import('echarts/charts'),
+          import('echarts/components'),
+          import('echarts/renderers'),
+        ]);
+        echarts.use([
+          BarChart,
+          GridComponent,
+          LegendComponent,
+          TooltipComponent,
+          CanvasRenderer,
+        ]);
         return echarts;
       },
     }),
@@ -72,7 +81,10 @@ export class CashflowChart {
         backgroundColor: isDark ? '#1c1f24' : '#ffffff',
         borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
         borderWidth: 1,
-        textStyle: { color: isDark ? '#e6e8eb' : '#111418', fontFamily: 'Inter' },
+        textStyle: {
+          color: isDark ? '#e6e8eb' : '#111418',
+          fontFamily: 'Inter',
+        },
         valueFormatter: (v: unknown) =>
           `${currency} ${Number(v).toLocaleString()}`,
       },

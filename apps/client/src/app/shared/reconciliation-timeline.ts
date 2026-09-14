@@ -9,7 +9,7 @@ import {
 import { HlmDialogService } from '@spartan-ng/helm/dialog';
 import { InvoicesApiService } from '../domains/invoices';
 import { ProjectsApiService } from '../domains/projects';
-import { ReconciliationEntry, isoDay, money, num } from '../domains/shared';
+import { ReconciliationEntry, isoDay, money, num } from '@foundry/shared-util';
 import { InvoiceDetailsDialog } from './invoice-details-dialog';
 
 @Component({
@@ -57,7 +57,9 @@ import { InvoiceDetailsDialog } from './invoice-details-dialog';
               class="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-background"
               [class]="num(e.amount) < 0 ? 'bg-destructive' : 'bg-success'"
             ></span>
-            <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <div
+              class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"
+            >
               <div class="flex min-w-0 max-w-full items-center gap-2">
                 <p class="min-w-0 truncate text-sm font-medium">
                   {{ e.note || label(e) }}
@@ -173,7 +175,8 @@ export class ReconciliationTimeline {
   /** Labels the balance with the owning invoice's number once entries can belong to more than one invoice. */
   protected invoiceBalanceLabel(e: ReconciliationEntry): string {
     const ambiguous =
-      !!this.projectId() && (!this.invoiceId() || e.invoiceId !== this.invoiceId());
+      !!this.projectId() &&
+      (!this.invoiceId() || e.invoiceId !== this.invoiceId());
     return ambiguous && e.invoiceNumber
       ? `${e.invoiceNumber} balance`
       : 'Invoice balance';

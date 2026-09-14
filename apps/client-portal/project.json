@@ -4,7 +4,7 @@
   "projectType": "application",
   "prefix": "app",
   "sourceRoot": "apps/client-portal/src",
-  "tags": [],
+  "tags": ["scope:client"],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
@@ -13,6 +13,7 @@
       "options": {
         "outputPath": "dist/apps/client-portal",
         "browser": "apps/client-portal/src/main.ts",
+        "polyfills": ["zone.js"],
         "tsConfig": "apps/client-portal/tsconfig.app.json",
         "assets": [
           {

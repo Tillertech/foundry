@@ -1,5 +1,4 @@
-import { PaginationQuery } from '../../core/http/api.types';
-import { Currency } from '../shared/models';
+import { PaginationQuery, Currency } from '@foundry/shared-util';
 
 export type PaymentMethod =
   | 'card'
