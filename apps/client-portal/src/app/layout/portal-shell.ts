@@ -27,7 +27,7 @@ import {
 } from '@ng-icons/lucide';
 import { PortalAuthService } from '../domains/auth';
 import { ThemeService } from '../core/theme.service';
-import { ToastService } from '../core/toast.service';
+import { ToastService } from '@foundry/shared-ui';
 
 interface NavItem {
   to: string;

@@ -22,8 +22,7 @@ import {
   setPendingLogin,
   setPendingVerification,
 } from '../../domains/auth';
-import { ToastService } from '../../core/toast.service';
-import { Field, fieldError } from '@foundry/shared-ui';
+import { Field, fieldError, ToastService } from '@foundry/shared-ui';
 
 @Component({
   selector: 'app-login',

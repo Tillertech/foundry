@@ -23,7 +23,6 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmDialogService } from '@spartan-ng/helm/dialog';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
-import { toast } from '@spartan-ng/brain/sonner';
 import { Project, ProjectsApiService } from '../../domains/projects';
 import { InviteClientDialog } from '../settings/portal/invite-client-dialog';
 import { ProjectPermissionsDialog } from '../settings/portal/project-permissions-dialog';
@@ -35,7 +34,7 @@ import {
 } from '../../domains/client-portals';
 import { PortalUser, PortalUsersApiService } from '../../domains/portal-users';
 import { apiErrorMessage } from '@foundry/shared-util';
-import { ToastService } from '../../core/toast.service';
+import { ToastService } from '@foundry/shared-ui';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -83,6 +82,7 @@ export class PortalAccessPanel {
   private readonly portalApi = inject(ClientPortalApiService);
   private readonly portalUsersApi = inject(PortalUsersApiService);
   private readonly dialogService = inject(HlmDialogService);
+  private readonly toast = inject(ToastService);
 
   readonly clientId = input.required<string>();
   readonly clientName = input.required<string>();
@@ -155,7 +155,7 @@ export class PortalAccessPanel {
           this.projects.set([]);
           this.loadingProjects.set(false);
           const description = apiErrorMessage(err);
-          toast.error('Could not load clients', { description });
+          this.toast.error('Could not load clients', description);
         },
       });
 
@@ -169,22 +169,22 @@ export class PortalAccessPanel {
       this.portalApi.update(this.clientPortal().id, body).subscribe({
         next: (portal) => {
           this.clientPortal.set(portal);
-          toast.success(`Updated the client portal`);
+          this.toast.success(`Updated the client portal`);
         },
         error: (err) => {
           const error = apiErrorMessage(err);
-          toast.error('Could not update client portal', { description: error });
+          this.toast.error('Could not update client portal', error);
         },
       });
     } else {
       this.portalApi.create({ clientId: this.clientId() }).subscribe({
         next: (res) => {
           this.clientPortal.set(res);
-          toast.success(`Portal created`);
+          this.toast.success(`Portal created`);
         },
         error: (err) => {
           const error = apiErrorMessage(err);
-          toast.error('Could not create client portal', { description: error });
+          this.toast.error('Could not create client portal', error);
         },
       });
     }

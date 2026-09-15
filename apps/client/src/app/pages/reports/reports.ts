@@ -18,10 +18,9 @@ import {
 } from '@ng-icons/lucide';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { apiErrorMessage, money } from '@foundry/shared-util';
-import { ToastService } from '../../core/toast.service';
 import { ReportSummary, ReportsApiService } from '../../domains/reports';
 import { ListSkeleton } from '../../shared/list-skeleton';
-import { PageHeader } from '@foundry/shared-ui';
+import { PageHeader, ToastService } from '@foundry/shared-ui';
 import { CashflowChart } from './cashflow-chart';
 
 type PeriodId =

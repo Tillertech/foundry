@@ -26,8 +26,7 @@ import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmInputOtpImports } from '@spartan-ng/helm/input-otp';
 import { apiErrorMessage } from '@foundry/shared-util';
 import { AuthApiService } from '../../domains/auth';
-import { ToastService } from '../../core/toast.service';
-import { Field, fieldError } from '@foundry/shared-ui';
+import { Field, fieldError, ToastService } from '@foundry/shared-ui';
 
 /**
  * Two-step reset: request a 6-digit code by email, then exchange the

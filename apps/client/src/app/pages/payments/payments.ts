@@ -30,10 +30,9 @@ import {
   PaymentsApiService,
   UpdatePaymentRequest,
 } from '../../domains/payments';
-import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader } from '@foundry/shared-ui';
+import { Field, fieldError, PageHeader, ToastService } from '@foundry/shared-ui';
 import { ListSkeleton } from '../../shared/list-skeleton';
 
 interface PaymentForm {

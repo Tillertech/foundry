@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 
-/** Central wrapper around ngx-sonner so pages never import the lib directly. */
 @Injectable({ providedIn: 'root' })
 export class ToastService {
   success(message: string, description?: string): void {

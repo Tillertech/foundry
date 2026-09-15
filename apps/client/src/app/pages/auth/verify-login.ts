@@ -13,7 +13,7 @@ import { BrnInputOtp } from '@spartan-ng/brain/input-otp';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInputOtpImports } from '@spartan-ng/helm/input-otp';
 import { apiErrorMessage } from '@foundry/shared-util';
-import { ToastService } from '../../core/toast.service';
+import { ToastService } from '@foundry/shared-ui';
 import {
   AuthService,
   clearPendingLogin,

@@ -43,10 +43,8 @@ import {
   Workspace,
   WorkspacesApiService,
 } from '../../domains/workspaces';
-import { ToastService } from '../../core/toast.service';
-import { toast } from '@spartan-ng/brain/sonner';
 import { Accent, ThemeService } from '../../core/theme.service';
-import { Field, fieldError } from '@foundry/shared-ui';
+import { Field, fieldError, ToastService } from '@foundry/shared-ui';
 import { PortalSettings } from './portal/portal-settings';
 
 const LOGO_TYPES = ['image/png', 'image/jpeg'];
