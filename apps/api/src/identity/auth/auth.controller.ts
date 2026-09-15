@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -36,11 +37,14 @@ import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
 import { SignupDto } from './dto/signup.dto';
 import { JwtAuthGuard, JwtPayload } from './jwt-auth.guard';
 
+const AUTH_THROTTLE = { default: { limit: 5, ttl: 900000 } };
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Throttle(AUTH_THROTTLE)
   @Post('signup')
   @ApiOperation({
     summary:
@@ -52,6 +56,7 @@ export class AuthController {
     return this.authService.signup(dto);
   }
 
+  @Throttle(AUTH_THROTTLE)
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Confirm the emailed code and receive a JWT' })
@@ -61,6 +66,7 @@ export class AuthController {
     return this.authService.verifyEmail(dto);
   }
 
+  @Throttle(AUTH_THROTTLE)
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Re-send the email verification code' })
@@ -71,6 +77,7 @@ export class AuthController {
     return this.authService.resendVerification(dto);
   }
 
+  @Throttle(AUTH_THROTTLE)
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -83,6 +90,7 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Throttle(AUTH_THROTTLE)
   @Post('verify-login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Exchange the emailed sign-in code for a JWT' })
@@ -101,6 +109,7 @@ export class AuthController {
     return this.authService.me(user.sub);
   }
 
+  @Throttle(AUTH_THROTTLE)
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Email a 6-digit password reset code' })
@@ -109,6 +118,7 @@ export class AuthController {
     return this.authService.forgotPassword(dto);
   }
 
+  @Throttle(AUTH_THROTTLE)
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset the password using the emailed code' })
