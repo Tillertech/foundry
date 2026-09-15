@@ -25,8 +25,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { apiErrorMessage } from '@foundry/shared-util';
 import { AuthService, setPendingVerification } from '../../domains/auth';
-import { ToastService } from '../../core/toast.service';
-import { Field, fieldError } from '@foundry/shared-ui';
+import { Field, fieldError, ToastService } from '@foundry/shared-ui';
 
 @Component({
   selector: 'app-signup',

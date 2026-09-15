@@ -27,10 +27,9 @@ import {
   ProjectsApiService,
   UpdateProjectRequest,
 } from '../../domains/projects';
-import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader, StatusBadge } from '@foundry/shared-ui';
+import { Field, fieldError, PageHeader, StatusBadge, ToastService } from '@foundry/shared-ui';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { ReconciliationTimeline } from '../../shared/reconciliation-timeline';
 

@@ -13,7 +13,7 @@ import {
   minLength,
   required,
 } from '@angular/forms/signals';
-import { fieldError, Field, PageHeader, StatusBadge } from '@foundry/shared-ui';
+import { fieldError, Field, PageHeader, StatusBadge, ToastService } from '@foundry/shared-ui';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBuilding2,
@@ -42,7 +42,6 @@ import {
 } from '../../domains/clients';
 import { ClientPortalApiService } from '../../domains/client-portals';
 import { Invoice, InvoicesApiService } from '../../domains/invoices';
-import { ToastService } from '../../core/toast.service';
 import { EntitySheet } from '../../shared/entity-sheet';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { PortalAccessPanel } from './portal-access-panel';

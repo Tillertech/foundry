@@ -35,9 +35,8 @@ import {
   DocumentsApiService,
 } from '../../domains/documents';
 import { Project, ProjectsApiService } from '../../domains/projects';
-import { ToastService } from '../../core/toast.service';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader } from '@foundry/shared-ui';
+import { Field, fieldError, PageHeader, ToastService } from '@foundry/shared-ui';
 import { ListSkeleton } from '../../shared/list-skeleton';
 
 interface DocumentForm {

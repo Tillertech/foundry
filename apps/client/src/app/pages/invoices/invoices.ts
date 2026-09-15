@@ -32,10 +32,9 @@ import {
 } from '../../domains/invoices';
 import { Project, ProjectsApiService } from '../../domains/projects';
 import { Workspace, WorkspacesApiService } from '../../domains/workspaces';
-import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader, StatusBadge } from '@foundry/shared-ui';
+import { Field, fieldError, PageHeader, StatusBadge, ToastService } from '@foundry/shared-ui';
 import { LineItemDraft, LineItemsEditor } from '../../shared/line-items-editor';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { ReconciliationTimeline } from '../../shared/reconciliation-timeline';
