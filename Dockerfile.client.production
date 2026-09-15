@@ -20,7 +20,14 @@ COPY . .
 
 ENV NX_DAEMON=false
 
-RUN npx nx build $PROJECT --configuration=production
+# client-portal is reverse-proxied under /portal/ on the same domain as
+# foundry-client (see nginx.conf's /portal/ location), so its build needs a
+# matching base href for asset/script src
+RUN if [ "$PROJECT" = "client-portal" ]; then \
+      npx nx build $PROJECT --configuration=production --base-href=/portal/; \
+    else \
+      npx nx build $PROJECT --configuration=production; \
+    fi
 
 FROM nginx:alpine AS runner
 
@@ -28,10 +35,6 @@ LABEL maintainer="hello@tillertech.io"
 
 ARG PROJECT=client
 
-# "client" is reverse-proxied to a fixed in-network upstream (nginx.conf, baked
-# in at build time); "client-portal" instead uses nginx.conf.template's
-# ${API_URL} so the same image can point at any API host, substituted by the
-# nginx image's entrypoint at container start (docker-entrypoint.d envsubst).
 COPY nginx.conf /tmp/nginx.conf.client
 COPY apps/client-portal/nginx.conf.template /tmp/nginx.conf.template.client-portal
 RUN mkdir -p /etc/nginx/templates && \

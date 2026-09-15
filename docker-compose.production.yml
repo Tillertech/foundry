@@ -49,20 +49,23 @@ services:
     depends_on:
       foundryapi:
         condition: service_started
+      foundryportal:
+        condition: service_started
     restart: always
     networks:
       - foundry
 
+  # Not port-published: reached only via foundryclient's /portal/ reverse
+  # proxy, so it shares foundryclient's domain instead of needing its own.
+  # todo: change in future?
   foundryportal:
       image: ghcr.io/tillertech/foundry-portal:latest
       container_name: foundry-portal
-      ports:
-        - '4001:80'
+      environment:
+        API_URL: http://foundryapi:3000
       depends_on:
         foundryapi:
           condition: service_started
-        foundryclient:
-            condition: service_started
       restart: always
       networks:
         - foundry

@@ -258,9 +258,11 @@ export class MailService {
     token: string,
     email: string,
   ): string {
-    const portalAppUrl = this.config
+    const explicitPortalUrl = this.config
       .get<string>('PORTAL_APP_URL')
       ?.replace(/\/+$/, '');
+    const appUrl = this.config.get<string>('APP_URL')?.replace(/\/+$/, '');
+    const portalAppUrl = explicitPortalUrl ?? (appUrl && `${appUrl}/portal`);
     if (!portalAppUrl) return '';
     return `${portalAppUrl}/${portalSlug}${path}?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
   }
