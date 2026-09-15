@@ -20,7 +20,21 @@ export class ProjectsService {
 
   async create(ownerId: string, dto: CreateProjectDto): Promise<Project> {
     await this.clients.findOne(ownerId, dto.clientId);
-    return this.prisma.project.create({ data: dto });
+    // If this client already has a portal, share the new project into it by
+    // default - otherwise it silently never shows up until someone manually
+    // toggles it on, which defeats the "portal reflects reality" point.
+    const portal = await this.prisma.clientPortal.findUnique({
+      where: { clientId: dto.clientId },
+      select: { id: true },
+    });
+    return this.prisma.project.create({
+      data: {
+        ...dto,
+        ...(portal
+          ? { clientPortalProjects: { create: { clientPortalId: portal.id } } }
+          : {}),
+      },
+    });
   }
 
   findAll(

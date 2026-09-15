@@ -1,0 +1,56 @@
+<div class="mx-auto max-w-[1200px] px-4 py-8 md:px-8">
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Quotes</h1>
+    <p class="mt-1 text-sm text-muted-foreground">
+      Review proposals and estimates from your team.
+    </p>
+  </div>
+
+  @if (loading()) {
+    <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
+      Loading…
+    </div>
+  } @else if (quotes().length === 0) {
+    <app-empty-state
+      title="No quotes yet"
+      description="Quotes sent to you will appear here."
+    />
+  } @else {
+    <div class="grid gap-3 md:grid-cols-2">
+      @for (q of quotes(); track q.id) {
+        <button
+          type="button"
+          (click)="open(q)"
+          class="surface-card hover-lift flex flex-col p-5 text-left transition"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="font-mono text-sm font-semibold">{{ q.number }}</p>
+              <p class="mt-0.5 text-xs text-muted-foreground">
+                {{ q.items[0]?.description ?? 'Proposal' }}{{ q.items.length > 1 ? '
+                +' + (q.items.length - 1) + ' more' : '' }}
+              </p>
+            </div>
+            <app-status-badge [status]="q.status" />
+          </div>
+          <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <p class="text-muted-foreground">Amount</p>
+              <p class="mt-0.5 text-sm font-semibold tabular-nums">
+                {{ money(quoteTotal(q).total, q.currency) }}
+              </p>
+            </div>
+            <div>
+              <p class="text-muted-foreground">Issued</p>
+              <p class="mt-0.5 font-medium">{{ isoDay(q.issueDate) }}</p>
+            </div>
+            <div>
+              <p class="text-muted-foreground">Valid until</p>
+              <p class="mt-0.5 font-medium">{{ isoDay(q.validUntil) }}</p>
+            </div>
+          </div>
+        </button>
+      }
+    </div>
+  }
+</div>

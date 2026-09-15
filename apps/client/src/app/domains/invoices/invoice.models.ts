@@ -1,7 +1,6 @@
-import { PaginationQuery } from '../../core/http/api.types';
-import { Currency, LineItemRequest } from '../shared/models';
+import { Currency, LineItemRequest, PaginationQuery } from '@foundry/shared-util';
 
-export type { ReconciliationEntry, ReconciliationKind } from '../shared/models';
+export type { ReconciliationEntry, ReconciliationKind } from '@foundry/shared-util';
 
 export type InvoiceStatus =
   | 'draft'

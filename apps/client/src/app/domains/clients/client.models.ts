@@ -1,5 +1,4 @@
-import { PaginationQuery } from '../../core/http/api.types';
-import { ClientStatus, Currency } from '../shared/models';
+import { PaginationQuery, ClientStatus, Currency } from '@foundry/shared-util';
 
 export interface ApiClient {
   id: string;

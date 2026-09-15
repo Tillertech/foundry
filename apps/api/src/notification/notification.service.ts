@@ -107,6 +107,40 @@ export class NotificationService {
     this.logger.log(`Invoice ${invoice.number} sent to ${client.email}`);
   }
 
+  /**
+   * On-demand invoice PDF (no email/websocket/in-app-notification side
+   * effects) - used by the client-portal download endpoint. Reuses the same
+   * PDF-building helpers as onInvoiceSent; the caller is responsible for
+   * ownership checks before fetching the invoice/client passed in here.
+   */
+  async invoicePdfBuffer(
+    invoice: InvoiceSentEvent['invoice'],
+    client: Client,
+  ): Promise<Buffer> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: client.workspaceId },
+      select: NotificationService.BILLER_SELECT,
+    });
+    const context = this.invoiceContext(invoice, client.name, workspace?.name);
+    return this.pdfService.invoicePdf({
+      number: invoice.number,
+      biller: this.billerParty(workspace),
+      billedTo: this.clientParty(client),
+      issueDate: context.issueDate,
+      dueDate: context.dueDate,
+      currency: invoice.currency,
+      items: invoice.items.map((item) => ({
+        description: item.description,
+        quantity: Number(item.quantity),
+        rate: Number(item.rate),
+      })),
+      taxRate: Number(invoice.taxRate),
+      discount: Number(invoice.discount),
+      notes: invoice.notes ?? undefined,
+      brand: await this.pdfBrand(workspace),
+    });
+  }
+
   async onInvoicePaid({
     invoice,
     client,
@@ -424,7 +458,6 @@ export class NotificationService {
     taxCode: true,
   } as const;
 
-
   private billerParty(workspace: BillerWorkspace | null): PdfParty {
     if (!workspace) return { name: 'Foundry' };
     return {
@@ -442,7 +475,7 @@ export class NotificationService {
     };
   }
 
-// billed to
+  // billed to
   private clientParty(client: Client): PdfParty {
     return {
       name: client.name,

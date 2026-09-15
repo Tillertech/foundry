@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f4f5;font-family:Helvetica,Arial,sans-serif;color:#18181b;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
+            <tr>
+              <td style="padding:32px 40px;border-bottom:1px solid #e4e4e7;">
+                <h1 style="margin:0;font-size:20px;">Foundry</h1>
+                <p style="margin:8px 0 0;color:#71717a;font-size:14px;">Client portal invitation</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px 40px;">
+                <p style="margin:0 0 16px;font-size:14px;">Hi {{name}},</p>
+                <p style="margin:0 0 24px;font-size:14px;">
+                  You've been invited to the <strong>{{portalSlug}}</strong>
+                  client portal, where you can track projects, review
+                  quotes and invoices, and see payment history. The link
+                  below expires in 7 days.
+                </p>
+                {{#if acceptUrl}}
+                  <p style="margin:0;text-align:center;">
+                    <a href="{{acceptUrl}}" style="display:inline-block;padding:12px 28px;background:#18181b;color:#ffffff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
+                      Set up your account
+                    </a>
+                  </p>
+                {{/if}}
+                <p style="margin:24px 0 0;font-size:13px;color:#71717a;">
+                  If you weren't expecting this invitation, you can safely
+                  ignore this email.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -34,9 +34,9 @@ import {
   isoDay,
   money,
   num,
-} from '../../domains/shared';
+} from '@foundry/shared-util';
 import { Workspace, WorkspacesApiService } from '../../domains/workspaces';
-import { StatusBadge } from '../../shared/status-badge';
+import { StatusBadge } from '@foundry/shared-ui';
 import { RevenueChart } from './revenue-chart';
 
 const methodLabels: Record<string, string> = {

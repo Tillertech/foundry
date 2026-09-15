@@ -13,7 +13,14 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
-import { apiErrorMessage } from '../../core/http';
+import {
+  apiErrorMessage,
+  Currency,
+  isoDay,
+  money,
+  num,
+  toApiDate,
+} from '@foundry/shared-util';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
 import { Invoice, InvoicesApiService } from '../../domains/invoices';
 import {
@@ -23,14 +30,11 @@ import {
   PaymentsApiService,
   UpdatePaymentRequest,
 } from '../../domains/payments';
-import { Currency, isoDay, money, num, toApiDate } from '../../domains/shared';
 import { ToastService } from '../../core/toast.service';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field } from '../../shared/field';
-import { fieldError } from '../../shared/field-error';
+import { Field, fieldError, PageHeader } from '@foundry/shared-ui';
 import { ListSkeleton } from '../../shared/list-skeleton';
-import { PageHeader } from '../../shared/page-header';
 
 interface PaymentForm {
   id: string;

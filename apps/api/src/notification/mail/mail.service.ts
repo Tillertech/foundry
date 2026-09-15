@@ -86,12 +86,17 @@ export class MailService {
       ? `${appUrl}/auth/verify?email=${encodeURIComponent(to)}`
       : '';
 
-    await this.send(to, 'Confirm your email for Foundry', 'email-verification-otp', {
-      name,
-      otp,
-      email: to,
-      verifyUrl,
-    });
+    await this.send(
+      to,
+      'Confirm your email for Foundry',
+      'email-verification-otp',
+      {
+        name,
+        otp,
+        email: to,
+        verifyUrl,
+      },
+    );
   }
 
   async sendLoginOtp(to: string, name: string, otp: string) {
@@ -207,6 +212,59 @@ export class MailService {
       { ...context },
       [attachment],
     );
+  }
+
+  sendUserInvite(
+    to: string,
+    name: string,
+    portalSlug: string,
+    token: string,
+  ): Promise<boolean> {
+    // client-portal is one shared deployment for every tenant - the slug in
+    // the path is what tells it (and the person clicking the link) which
+    // client's portal this is, until it gets its own per-tenant domain.
+    const acceptUrl = this.portalUrl(portalSlug, '/accept-invite', token, to);
+
+    return this.send(
+      to,
+      'Welcome to your client portal',
+      'portal-user-invite',
+      {
+        name,
+        portalSlug,
+        acceptUrl,
+      },
+    );
+  }
+
+  sendPasswordReset(
+    to: string,
+    name: string,
+    portalSlug: string,
+    token: string,
+  ): Promise<boolean> {
+    const resetUrl = this.portalUrl(portalSlug, '/reset-password', token, to);
+
+    return this.send(to, 'Reset your client portal password', 'portal-password-reset', {
+      name,
+      resetUrl,
+    });
+  }
+
+  /** Builds a `${PORTAL_APP_URL}/:slug${path}?token=...&email=...` deep link for the client-portal SPA. */
+  private portalUrl(
+    portalSlug: string,
+    path: string,
+    token: string,
+    email: string,
+  ): string {
+    const explicitPortalUrl = this.config
+      .get<string>('PORTAL_APP_URL')
+      ?.replace(/\/+$/, '');
+    const appUrl = this.config.get<string>('APP_URL')?.replace(/\/+$/, '');
+    const portalAppUrl = explicitPortalUrl ?? (appUrl && `${appUrl}/portal`);
+    if (!portalAppUrl) return '';
+    return `${portalAppUrl}/${portalSlug}${path}?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
   }
 
   /** Resolves true when the transport accepted the mail, false otherwise. */

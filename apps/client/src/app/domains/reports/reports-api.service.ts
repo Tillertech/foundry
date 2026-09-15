@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { API_BASE, toParams } from '../../core/http/api-base';
+import { API_BASE, toParams } from '@foundry/shared-util';
 import { ReportSummary, ReportSummaryQuery } from './report.models';
 
 @Injectable({ providedIn: 'root' })

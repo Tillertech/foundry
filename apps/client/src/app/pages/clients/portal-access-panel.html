@@ -1,0 +1,217 @@
+<div class="space-y-5">
+  <!-- Status -->
+  <div class="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+    <div class="min-w-0">
+      <p class="text-sm font-medium">
+        {{ portalActive() ? 'Portal access is on' : 'Portal access is off' }}
+      </p>
+      <p class="text-xs text-muted-foreground">
+        {{ activeUsers() + invitedUsers() }} user{{ activeUsers() + invitedUsers() === 1 ? '' : 's' }} ·
+        {{ sharedProjectCount() }} of {{ projects().length }} project{{ projects().length === 1 ? '' : 's' }} shared
+      </p>
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+      <span
+        class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset"
+        [class]="
+          portalActive()
+            ? 'bg-success/12 text-success ring-success/20'
+            : 'bg-muted text-muted-foreground ring-border'
+        "
+      >
+        <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
+        {{ portalActive() ? 'On' : 'Off' }}
+      </span>
+      <hlm-switch
+        [checked]="portalActive()"
+        (checkedChange)="togglePortalActive($event)"
+        aria-label="Toggle client portal access"
+      />
+    </div>
+  </div>
+  @if (!portalActive()) {
+    <p class="-mt-3 text-[11px] text-muted-foreground">
+      {{ clientName() }} cannot sign in to the portal while access is off. Users and shared projects stay
+      configured underneath.
+    </p>
+  }
+
+  <!-- Portal projects -->
+  <div>
+    <div class="mb-2 flex items-center justify-between gap-2">
+      <p class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <ng-icon name="lucideFolderKanban" size="13" />
+        Portal projects
+      </p>
+      @if (projects().length > 0) {
+        <div class="relative w-40">
+          <ng-icon
+            name="lucideSearch"
+            size="13"
+            class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+          <input
+            #projectSearch
+            hlmInput
+            type="text"
+            placeholder="Search projects…"
+            class="h-7 w-full pl-7 text-xs"
+            [value]="projectQuery()"
+            (input)="projectQuery.set(projectSearch.value)"
+          />
+        </div>
+      }
+    </div>
+
+    @if (loadingProjects()) {
+      <p class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+        Loading projects…
+      </p>
+    } @else if (projects().length === 0) {
+      <p class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+        This client has no projects yet.
+      </p>
+    } @else if (filteredProjects().length === 0) {
+      <p class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+        No projects match “{{ projectQuery() }}”.
+      </p>
+    } @else {
+      <div class="divide-y divide-border/60 rounded-lg border border-border">
+        @for (p of filteredProjects(); track p.id) {
+          <div class="flex flex-wrap items-center gap-3 px-3 py-2.5">
+            <hlm-switch
+              [checked]="p.active"
+              (checkedChange)="toggleProjectShared(p.id, $event)"
+              [attr.aria-label]="'Share ' + p.project.name + ' to the portal'"
+            />
+            <p class="min-w-0 flex-1 truncate text-sm font-medium">{{ p.project.name }}</p>
+            <span
+              class="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline"
+            >
+              <!--{{ p.active && !access.useDefaults ? 'Custom permissions' : 'Workspace defaults' }}-->
+              Workspace defaults
+            </span>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              class="h-7 shrink-0 gap-1.5 text-[11px]"
+              type="button"
+              [disabled]="!p.active"
+              (click)="customizeProject(p.id, p.project.name)"
+            >
+              <ng-icon name="lucideSettings2" size="13" />
+              Customize
+            </button>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Portal users -->
+  <div>
+    <div class="mb-2 flex items-center justify-between gap-2">
+      <p class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <ng-icon name="lucideUsers" size="13" />
+        Portal users
+      </p>
+      @if (users().length > 0) {
+        <div class="relative w-40">
+          <ng-icon
+            name="lucideSearch"
+            size="13"
+            class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+          <input
+            #userSearch
+            hlmInput
+            type="text"
+            placeholder="Search users…"
+            class="h-7 w-full pl-7 text-xs"
+            [value]="userQuery()"
+            (input)="userQuery.set(userSearch.value)"
+          />
+        </div>
+      }
+    </div>
+
+    @if (users().length === 0) {
+      <p class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+        No portal users yet. Invite the first one below.
+      </p>
+    } @else if (filteredUsers().length === 0) {
+      <p class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+        No users match “{{ userQuery() }}”.
+      </p>
+    } @else {
+      <div class="divide-y divide-border/60 rounded-lg border border-border">
+        @for (u of filteredUsers(); track u.id) {
+          <div class="flex flex-wrap items-center gap-2.5 px-3 py-2.5">
+            <div class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-muted text-[10px] font-semibold">
+              {{ initials(u.name) }}
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">{{ u.name }}</p>
+              <p class="truncate text-[11px] text-muted-foreground">{{ u.email }}</p>
+            </div>
+            <p class="hidden shrink-0 text-[11px] text-muted-foreground sm:inline">
+              <!--{{ u.status === 'active' ? 'Last login ' + (u.lastLogin ? timeAgo(u.lastLogin) : '-') : 'Awaiting activation' }}-->
+              Awaiting activation
+            </p>
+            <span
+              class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium capitalize"
+              [class]="u.status === 'active' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
+            >
+              {{ u.status }}
+            </span>
+            @if (u.status === 'invited') {
+              <button hlmBtn variant="ghost" size="sm" class="h-7 shrink-0 gap-1 text-[11px]" type="button">
+                <ng-icon name="lucideMailCheck" size="13" />
+                Resend
+              </button>
+            }
+            <hlm-alert-dialog>
+              <button
+                hlmAlertDialogTrigger
+                hlmBtn
+                variant="ghost"
+                size="sm"
+                class="h-7 shrink-0 gap-1 text-[11px] text-destructive hover:text-destructive"
+                type="button"
+              >
+                <ng-icon name="lucideShieldAlert" size="13" />
+                Revoke
+              </button>
+              <hlm-alert-dialog-content *brnAlertDialogContent="let dialogCtx">
+                <div hlmAlertDialogHeader>
+                  <h3 hlmAlertDialogTitle>Revoke portal access?</h3>
+                  <p hlmAlertDialogDescription>
+                    {{ u.name }} will immediately lose access to the portal for {{ clientName() }}. You can
+                    re-invite them later.
+                  </p>
+                </div>
+                <div hlmAlertDialogFooter>
+                  <button hlmAlertDialogCancel type="button" (click)="dialogCtx.close()">Cancel</button>
+                  <button
+                    hlmAlertDialogAction
+                    type="button"
+                    class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    (click)="store.revokeUser(u.id); dialogCtx.close()"
+                  >
+                    Revoke access
+                  </button>
+                </div>
+              </hlm-alert-dialog-content>
+            </hlm-alert-dialog>
+          </div>
+        }
+      </div>
+    }
+
+    <button hlmBtn size="sm" class="mt-3 gap-1.5 shadow-[var(--shadow-glow)]" type="button" (click)="openInvite()">
+      <ng-icon name="lucideUserPlus" size="16" />
+      Invite to portal
+    </button>
+  </div>
+</div>

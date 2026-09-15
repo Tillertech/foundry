@@ -8,7 +8,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGripVertical, lucidePlus, lucideTrash2 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { money, newId, Currency } from '../domains/shared';
+import { money, newId, Currency } from '@foundry/shared-util';
 
 /** Editable line item; ids are local until the API replaces them on save. */
 export interface LineItemDraft {

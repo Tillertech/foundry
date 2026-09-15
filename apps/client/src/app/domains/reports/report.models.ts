@@ -1,4 +1,4 @@
-import { Currency } from '../shared/models';
+import { Currency } from '@foundry/shared-util';
 import { InvoiceStatus } from '../invoices/invoice.models';
 
 export interface ReportStatusCount {

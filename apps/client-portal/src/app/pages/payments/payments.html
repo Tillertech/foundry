@@ -1,0 +1,83 @@
+<div class="mx-auto max-w-[1200px] px-4 py-8 md:px-8">
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">
+      Payments
+    </h1>
+    <p class="mt-1 text-sm text-muted-foreground">
+      Your payment history.
+    </p>
+  </div>
+
+  @if (loading()) {
+    <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
+      Loading…
+    </div>
+  } @else if (payments().length === 0) {
+    <app-empty-state
+      title="No payments yet"
+      description="Payments will appear here once recorded."
+    />
+  } @else {
+    <div
+      class="mb-4 flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3"
+    >
+      <div
+        class="grid h-9 w-9 place-items-center rounded-lg bg-success/15 text-success"
+      >
+        <ng-icon name="lucideWallet" size="18" />
+      </div>
+      <div>
+        <p class="text-xs text-muted-foreground">Total paid to date</p>
+        <p class="text-lg font-semibold tabular-nums">
+          {{ money(totalPaid(), currency()) }}
+        </p>
+      </div>
+    </div>
+
+    <div class="surface-card overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr
+            class="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground"
+          >
+            <th class="px-4 py-2.5 font-medium">Date</th>
+            <th class="px-4 py-2.5 font-medium">Method</th>
+            <th class="px-4 py-2.5 font-medium">Reference</th>
+            <th class="px-4 py-2.5 text-right font-medium">Amount</th>
+            <th class="px-4 py-2.5"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of payments(); track p.id) {
+            <tr class="border-b border-border/50 last:border-0">
+              <td class="px-4 py-3 text-muted-foreground">{{ isoDay(p.date) }}</td>
+              <td class="px-4 py-3 text-muted-foreground">
+                {{ methodLabel[p.method] ?? p.method }}
+              </td>
+              <td class="px-4 py-3 font-mono text-xs text-muted-foreground">
+                {{ p.reference ?? '—' }}
+              </td>
+              <td class="px-4 py-3 text-right font-medium tabular-nums">
+                {{ money(p.amount, p.currency) }}
+              </td>
+              <td class="px-4 py-3 text-right">
+                @if (p.invoiceId) {
+                  <button
+                    hlmBtn
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    class="h-7 gap-1.5 text-xs"
+                    (click)="downloadReceipt(p)"
+                  >
+                    <ng-icon name="lucideDownload" size="12" /> Receipt
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

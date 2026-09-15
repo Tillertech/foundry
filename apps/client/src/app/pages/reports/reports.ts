@@ -17,20 +17,15 @@ import {
   lucideWallet,
 } from '@ng-icons/lucide';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
-import { apiErrorMessage } from '../../core/http';
+import { apiErrorMessage, money } from '@foundry/shared-util';
 import { ToastService } from '../../core/toast.service';
 import { ReportSummary, ReportsApiService } from '../../domains/reports';
-import { money } from '../../domains/shared';
 import { ListSkeleton } from '../../shared/list-skeleton';
-import { PageHeader } from '../../shared/page-header';
+import { PageHeader } from '@foundry/shared-ui';
 import { CashflowChart } from './cashflow-chart';
 
 type PeriodId =
-  | 'this_month'
-  | 'last_3_months'
-  | 'this_year'
-  | 'last_12_months'
-  | 'all';
+  'this_month' | 'last_3_months' | 'this_year' | 'last_12_months' | 'all';
 
 interface Period {
   id: PeriodId;
@@ -44,7 +39,8 @@ const PERIODS: Period[] = [
   {
     id: 'this_month',
     label: 'This month',
-    from: () => day(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+    from: () =>
+      day(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
   },
   {
     id: 'last_3_months',

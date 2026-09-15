@@ -1,10 +1,19 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { forkJoin } from 'rxjs';
 import { ApiClient, ClientsApiService } from '../domains/clients';
-import { Invoice, InvoicesApiService, ReconciliationEntry } from '../domains/invoices';
-import { invoiceTotal, isoDay, money } from '../domains/shared';
-import { StatusBadge } from './status-badge';
+import {
+  Invoice,
+  InvoicesApiService,
+  ReconciliationEntry,
+} from '../domains/invoices';
+import { invoiceTotal, isoDay, money } from '@foundry/shared-util';
+import { StatusBadge } from '@foundry/shared-ui';
 
 export interface InvoiceDetailsDialogContext {
   invoiceId: string;
@@ -23,7 +32,9 @@ export interface InvoiceDetailsDialogContext {
         <div class="skeleton-shimmer mt-4 h-24 w-full rounded-md"></div>
       </div>
     } @else if (!invoice()) {
-      <div class="min-w-[280px] p-1 text-sm text-muted-foreground sm:min-w-[420px]">
+      <div
+        class="min-w-[280px] p-1 text-sm text-muted-foreground sm:min-w-[420px]"
+      >
         This invoice could not be loaded.
       </div>
     } @else {
@@ -31,18 +42,26 @@ export interface InvoiceDetailsDialogContext {
         <!-- Header -->
         <div class="flex items-start justify-between gap-3 pr-6">
           <div>
-            <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <p
+              class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+            >
               Invoice
             </p>
-            <p class="font-mono text-lg font-semibold">{{ invoice()!.number }}</p>
+            <p class="font-mono text-lg font-semibold">
+              {{ invoice()!.number }}
+            </p>
           </div>
           <app-status-badge [status]="invoice()!.status" />
         </div>
 
         <!-- Parties + dates -->
-        <div class="grid grid-cols-2 gap-4 rounded-lg border border-border bg-muted/30 p-4 text-sm">
+        <div
+          class="grid grid-cols-2 gap-4 rounded-lg border border-border bg-muted/30 p-4 text-sm"
+        >
           <div>
-            <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <p
+              class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+            >
               Billed to
             </p>
             <p class="mt-1 font-medium">
@@ -54,20 +73,26 @@ export interface InvoiceDetailsDialogContext {
           </div>
           @if (invoice()!.project) {
             <div>
-              <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <p
+                class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+              >
                 Project
               </p>
               <p class="mt-1 font-medium">{{ invoice()!.project!.name }}</p>
             </div>
           }
           <div>
-            <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <p
+              class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+            >
               Issued
             </p>
             <p class="mt-1">{{ isoDay(invoice()!.issueDate) }}</p>
           </div>
           <div>
-            <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <p
+              class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+            >
               Due
             </p>
             <p class="mt-1">{{ isoDay(invoice()!.dueDate) }}</p>
@@ -96,15 +121,24 @@ export interface InvoiceDetailsDialogContext {
                   class="flex items-center justify-between text-xs text-muted-foreground sm:hidden"
                 >
                   <span class="tabular-nums"
-                    >{{ +item.quantity }} × {{ money(item.rate, invoice()!.currency) }}</span
+                    >{{ +item.quantity }} ×
+                    {{ money(item.rate, invoice()!.currency) }}</span
                   >
                   <span class="font-medium text-foreground tabular-nums">
-                    {{ money(+item.quantity * +item.rate, invoice()!.currency) }}
+                    {{
+                      money(+item.quantity * +item.rate, invoice()!.currency)
+                    }}
                   </span>
                 </div>
-                <span class="hidden text-right tabular-nums sm:block">{{ +item.quantity }}</span>
-                <span class="hidden text-right tabular-nums sm:block">{{ money(item.rate, invoice()!.currency) }}</span>
-                <span class="hidden text-right tabular-nums font-medium sm:block">
+                <span class="hidden text-right tabular-nums sm:block">{{
+                  +item.quantity
+                }}</span>
+                <span class="hidden text-right tabular-nums sm:block">{{
+                  money(item.rate, invoice()!.currency)
+                }}</span>
+                <span
+                  class="hidden text-right tabular-nums font-medium sm:block"
+                >
                   {{ money(+item.quantity * +item.rate, invoice()!.currency) }}
                 </span>
               </div>
@@ -116,32 +150,46 @@ export interface InvoiceDetailsDialogContext {
         <div class="rounded-lg border border-border bg-muted/30 p-4 text-sm">
           <div class="flex justify-between">
             <span class="text-muted-foreground">Subtotal</span>
-            <span class="tabular-nums">{{ money(totals().subtotal, invoice()!.currency) }}</span>
+            <span class="tabular-nums">{{
+              money(totals().subtotal, invoice()!.currency)
+            }}</span>
           </div>
           @if (totals().discount > 0) {
             <div class="mt-1 flex justify-between">
               <span class="text-muted-foreground">Discount</span>
-              <span class="tabular-nums">−{{ money(totals().discount, invoice()!.currency) }}</span>
+              <span class="tabular-nums"
+                >−{{ money(totals().discount, invoice()!.currency) }}</span
+              >
             </div>
           }
           <div class="mt-1 flex justify-between">
-            <span class="text-muted-foreground">Tax ({{ invoice()!.taxRate }}%)</span>
-            <span class="tabular-nums">{{ money(totals().tax, invoice()!.currency) }}</span>
+            <span class="text-muted-foreground"
+              >Tax ({{ invoice()!.taxRate }}%)</span
+            >
+            <span class="tabular-nums">{{
+              money(totals().tax, invoice()!.currency)
+            }}</span>
           </div>
-          <div class="mt-3 flex items-center justify-between border-t border-border pt-3">
+          <div
+            class="mt-3 flex items-center justify-between border-t border-border pt-3"
+          >
             <span class="text-sm font-semibold">Total</span>
             <span class="text-lg font-bold tabular-nums">
               {{ money(totals().total, invoice()!.currency) }}
             </span>
           </div>
           @if (latestEntry(); as e) {
-            <div class="mt-3 flex items-center justify-between border-t border-dashed border-border pt-3 text-xs">
+            <div
+              class="mt-3 flex items-center justify-between border-t border-dashed border-border pt-3 text-xs"
+            >
               <span class="text-muted-foreground">
                 {{ +e.invoiceBalance! > 0 ? 'Balance due' : 'Paid in full' }}
               </span>
               <span
                 class="tabular-nums font-medium"
-                [class]="+e.invoiceBalance! > 0 ? 'text-warning' : 'text-success'"
+                [class]="
+                  +e.invoiceBalance! > 0 ? 'text-warning' : 'text-success'
+                "
               >
                 {{ money(e.invoiceBalance!, invoice()!.currency) }}
               </span>
@@ -167,7 +215,12 @@ export class InvoiceDetailsDialog {
   /** Most recent timeline entry, for the current balance - null when nothing has been paid yet. */
   protected readonly latestEntry = signal<ReconciliationEntry | null>(null);
 
-  protected readonly totals = signal({ subtotal: 0, discount: 0, tax: 0, total: 0 });
+  protected readonly totals = signal({
+    subtotal: 0,
+    discount: 0,
+    tax: 0,
+    total: 0,
+  });
 
   constructor() {
     this.invoicesApi.get(this.ctx.invoiceId).subscribe({

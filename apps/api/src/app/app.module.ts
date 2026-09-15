@@ -10,6 +10,7 @@ import { CacheableMemory } from 'cacheable';
 import { BullModule } from '@nestjs/bullmq';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { ClientPortalModule } from '../client-portal/client-portal.module';
 import { ClientsModule } from '../clients/clients.module';
 import { PaginationModule } from '../common/pagination/pagination.module';
 import { DocumentsModule } from '../documents/documents.module';
@@ -19,6 +20,10 @@ import { AuthModule } from '../identity/auth/auth.module';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { NotificationModule } from '../notification/notification.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { PortalApiModule } from '../portal-api/portal-api.module';
+import { PortalAuthModule } from '../portal-auth/portal-auth.module';
+import { PortalPublicModule } from '../portal-public/portal-public.module';
+import { PortalUsersModule } from '../portal-users/portal-users.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { QuotesModule } from '../quotes/quotes.module';
@@ -86,6 +91,11 @@ import { APP_GUARD } from '@nestjs/core';
     ReportsModule,
     NotificationModule,
     EventsModule,
+    ClientPortalModule,
+    PortalUsersModule,
+    PortalAuthModule,
+    PortalApiModule,
+    PortalPublicModule,
   ],
   controllers: [AppController],
   providers: [

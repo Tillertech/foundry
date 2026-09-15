@@ -1,0 +1,71 @@
+<div class="mx-auto max-w-[1200px] px-4 py-8 md:px-8">
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">
+      Invoices
+    </h1>
+    <p class="mt-1 text-sm text-muted-foreground">
+      Invoice history and balances due.
+    </p>
+  </div>
+
+  @if (loading()) {
+    <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
+      Loading…
+    </div>
+  } @else if (invoices().length === 0) {
+    <app-empty-state
+      title="No invoices yet"
+      description="Issued invoices will appear here."
+    />
+  } @else {
+    <div class="surface-card overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr
+            class="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground"
+          >
+            <th class="px-4 py-2.5 font-medium">Invoice</th>
+            <th class="px-4 py-2.5 font-medium">Issued</th>
+            <th class="px-4 py-2.5 font-medium">Due</th>
+            <th class="px-4 py-2.5 text-right font-medium">Amount</th>
+            <th class="px-4 py-2.5 font-medium">Status</th>
+            <th class="px-4 py-2.5"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (inv of invoices(); track inv.id) {
+            <tr
+              class="cursor-pointer border-b border-border/50 transition-colors last:border-0 hover:bg-muted/40"
+              (click)="open(inv)"
+            >
+              <td class="px-4 py-3 font-mono text-xs font-semibold">
+                {{ inv.number }}
+              </td>
+              <td class="px-4 py-3 text-muted-foreground">
+                {{ isoDay(inv.issueDate) }}
+              </td>
+              <td class="px-4 py-3 text-muted-foreground">
+                {{ isoDay(inv.dueDate) }}
+              </td>
+              <td class="px-4 py-3 text-right font-medium tabular-nums">
+                {{ money(invoiceTotal(inv).total, inv.currency) }}
+              </td>
+              <td class="px-4 py-3"><app-status-badge [status]="inv.status" /></td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  class="h-7 text-xs"
+                >
+                  Open
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

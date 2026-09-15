@@ -1,0 +1,85 @@
+<div class="mx-auto max-w-[1120px] px-4 py-8 md:px-8 md:py-10">
+  <header class="mb-8">
+    <h1 class="text-2xl font-semibold sm:text-[28px]">
+      Welcome back, {{ firstName() }}
+    </h1>
+    <p class="mt-1.5 text-sm text-muted-foreground">
+      Here's what's happening with
+      {{ client()?.company ?? client()?.name ?? 'your account' }}.
+    </p>
+  </header>
+
+  @if (shortcuts().length > 0) {
+    <div class="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      @for (s of shortcuts(); track s.to) {
+        <a
+          [routerLink]="s.to"
+          class="surface-card hover-lift flex flex-col items-start gap-2 p-4 transition"
+        >
+          <div
+            class="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 text-primary"
+          >
+            <ng-icon [name]="s.icon" size="18" />
+          </div>
+          <span class="text-sm font-medium">{{ s.label }}</span>
+        </a>
+      }
+    </div>
+  }
+
+  @if (permission()?.viewProjects) {
+    <section>
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-semibold">Projects</h2>
+        <a
+          [routerLink]="projectsLink()"
+          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          All projects <ng-icon name="lucideArrowRight" size="14" />
+        </a>
+      </div>
+
+      @if (loading()) {
+        <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      } @else if (activeProjects().length === 0) {
+        <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
+          No active projects right now.
+        </div>
+      } @else {
+        <div class="space-y-3">
+          @for (project of activeProjects(); track project.id) {
+            <a
+              [routerLink]="[projectsLink(), project.id]"
+              class="surface-card hover-lift flex items-start justify-between gap-4 p-5 transition sm:p-6"
+            >
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2.5">
+                  <h3 class="text-base font-semibold">{{ project.name }}</h3>
+                  <app-status-badge [status]="project.status" />
+                </div>
+                @if (project.description) {
+                  <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                    {{ project.description }}
+                  </p>
+                }
+                <p class="mt-2 text-xs text-muted-foreground">
+                  Started {{ isoDay(project.startDate) }}
+                  @if (project.endDate) {
+                    · Ends {{ isoDay(project.endDate) }}
+                  }
+                </p>
+              </div>
+              <ng-icon
+                name="lucideArrowRight"
+                size="16"
+                class="mt-1 shrink-0 text-muted-foreground"
+              />
+            </a>
+          }
+        </div>
+      }
+    </section>
+  }
+</div>

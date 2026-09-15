@@ -8,7 +8,11 @@ import { ThemeService } from './core/theme.service';
   selector: 'app-root',
   template: `
     <router-outlet />
-    <hlm-toaster richColors [theme]="theme.dark() ? 'dark' : 'light'" position="bottom-right" />
+    <hlm-toaster
+      richColors
+      [theme]="theme.dark() ? 'dark' : 'light'"
+      position="bottom-right"
+    />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

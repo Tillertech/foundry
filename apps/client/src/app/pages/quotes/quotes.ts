@@ -15,7 +15,16 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
-import { apiErrorMessage } from '../../core/http';
+import {
+  apiErrorMessage,
+  Currency,
+  isoDay,
+  money,
+  newId,
+  num,
+  quoteTotal,
+  toApiDate,
+} from '@foundry/shared-util';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
 import { ProjectsApiService } from '../../domains/projects';
 import {
@@ -25,24 +34,12 @@ import {
   QuotesApiService,
   UpdateQuoteRequest,
 } from '../../domains/quotes';
-import {
-  Currency,
-  isoDay,
-  money,
-  newId,
-  num,
-  quoteTotal,
-  toApiDate,
-} from '../../domains/shared';
 import { toast } from '@spartan-ng/brain/sonner';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field } from '../../shared/field';
-import { fieldError } from '../../shared/field-error';
+import { Field, fieldError, PageHeader, StatusBadge } from '@foundry/shared-ui';
 import { LineItemDraft, LineItemsEditor } from '../../shared/line-items-editor';
 import { ListSkeleton } from '../../shared/list-skeleton';
-import { PageHeader } from '../../shared/page-header';
-import { StatusBadge } from '../../shared/status-badge';
 
 interface QuoteForm {
   id: string;
@@ -129,7 +126,9 @@ export class Quotes {
       },
       error: (err) => {
         this.loading.set(false);
-        toast.error('Could not load quotes', {description: apiErrorMessage(err)});
+        toast.error('Could not load quotes', {
+          description: apiErrorMessage(err),
+        });
       },
     });
     this.clientsApi.list({ take: 100 }).subscribe({
@@ -259,7 +258,9 @@ export class Quotes {
       },
       error: (err) => {
         this.saving.set(false);
-        toast.error('Could not save quote', {description: apiErrorMessage(err)});
+        toast.error('Could not save quote', {
+          description: apiErrorMessage(err),
+        });
       },
     });
   }
@@ -275,14 +276,15 @@ export class Quotes {
           list.map((q) => (q.id === quote.id ? quote : q)),
         );
         this.sheetOpen.set(false);
-        toast.success(
-          'Quote sent',
-          {description: `${quote.number} was emailed to the client.`},
-        );
+        toast.success('Quote sent', {
+          description: `${quote.number} was emailed to the client.`,
+        });
       },
       error: (err) => {
         this.sending.set(false);
-        toast.error('Could not send quote', {description: apiErrorMessage(err)});
+        toast.error('Could not send quote', {
+          description: apiErrorMessage(err),
+        });
       },
     });
   }
@@ -296,7 +298,9 @@ export class Quotes {
         toast.success('Quote deleted');
       },
       error: (err) =>
-        toast.error('Could not delete quote', {description: apiErrorMessage(err)}),
+        toast.error('Could not delete quote', {
+          description: apiErrorMessage(err),
+        }),
     });
   }
 
@@ -333,13 +337,14 @@ export class Quotes {
       })
       .subscribe({
         next: (project) => {
-          toast.success(
-            'Project created',
-            {description: `${project.name} is ready to go.`},
-          );
+          toast.success('Project created', {
+            description: `${project.name} is ready to go.`,
+          });
         },
         error: (err) => {
-          toast.error('Could not create project', {description: apiErrorMessage(err)});
+          toast.error('Could not create project', {
+            description: apiErrorMessage(err),
+          });
         },
       });
   }

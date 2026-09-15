@@ -3,6 +3,9 @@ FROM node:lts-slim AS builder
 LABEL maintainer="hello@tillertech.io"
 LABEL org.opencontainers.image.source = "https://github.com/Tillertech/foundry"
 
+# Which Angular app to build: "client" (the workspace app) or "client-portal".
+ARG PROJECT=client
+
 WORKDIR /foundry
 
 RUN apt-get update && \
@@ -17,14 +20,33 @@ COPY . .
 
 ENV NX_DAEMON=false
 
-RUN npx nx build client --configuration=production
+# client-portal is reverse-proxied under /portal/ on the same domain as
+# foundry-client (see nginx.conf's /portal/ location), so its build needs a
+# matching base href for asset/script src
+RUN if [ "$PROJECT" = "client-portal" ]; then \
+      npx nx build $PROJECT --configuration=production --base-href=/portal/; \
+    else \
+      npx nx build $PROJECT --configuration=production; \
+    fi
 
 FROM nginx:alpine AS runner
 
 LABEL maintainer="hello@tillertech.io"
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /foundry/dist/apps/client/browser /usr/share/nginx/html
+ARG PROJECT=client
+
+COPY nginx.conf /tmp/nginx.conf.client
+COPY apps/client-portal/nginx.conf.template /tmp/nginx.conf.template.client-portal
+RUN mkdir -p /etc/nginx/templates && \
+    if [ "$PROJECT" = "client-portal" ]; then \
+      rm -f /etc/nginx/conf.d/default.conf; \
+      mv /tmp/nginx.conf.template.client-portal /etc/nginx/templates/default.conf.template; \
+    else \
+      mv /tmp/nginx.conf.client /etc/nginx/conf.d/default.conf; \
+      rm -f /tmp/nginx.conf.template.client-portal; \
+    fi
+
+COPY --from=builder /foundry/dist/apps/${PROJECT}/browser /usr/share/nginx/html
 
 EXPOSE 80
 

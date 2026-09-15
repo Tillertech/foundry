@@ -15,7 +15,10 @@ type PendingPurpose = keyof typeof KEYS;
 
 function setPending(purpose: PendingPurpose, email: string): void {
   try {
-    localStorage.setItem(KEYS[purpose], JSON.stringify({ email, ts: Date.now() }));
+    localStorage.setItem(
+      KEYS[purpose],
+      JSON.stringify({ email, ts: Date.now() }),
+    );
   } catch {
     /* storage unavailable (private mode) - non-fatal */
   }
@@ -44,7 +47,8 @@ function clearPending(purpose: PendingPurpose): void {
   }
 }
 
-export const setPendingVerification = (email: string) => setPending('verify', email);
+export const setPendingVerification = (email: string) =>
+  setPending('verify', email);
 export const getPendingVerification = () => getPending('verify');
 export const clearPendingVerification = () => clearPending('verify');
 

@@ -26,7 +26,13 @@ export class JwtAuthGuard implements CanActivate {
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
     if (!token) throw new UnauthorizedException('Missing bearer token');
     try {
-      request.user = this.jwtService.verify<JwtPayload>(token);
+      const payload = this.jwtService.verify<JwtPayload & { kind?: string }>(
+        token,
+      );
+      // Portal-user tokens carry kind: 'portal_user' and must never
+      // authenticate a workspace-owner route (they share a JWT secret).
+      if (payload.kind) throw new UnauthorizedException('Invalid token');
+      request.user = payload;
       return true;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
