@@ -28,8 +28,6 @@ services:
       UPLOADS_DIR: /app/uploads
     env_file:
       - ./.env
-    ports:
-      - '3000:3000'
     # volumes:
     #   - uploads:/app/uploads
     depends_on:
@@ -44,8 +42,6 @@ services:
   foundryclient:
     image: ghcr.io/tillertech/foundry-client:latest
     container_name: foundry-client
-    ports:
-      - '4000:80'
     depends_on:
       foundryapi:
         condition: service_started

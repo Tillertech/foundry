@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -19,11 +20,14 @@ import { PortalMeEntity } from './entities/portal-me.entity';
 import { PortalAuthService } from './portal-auth.service';
 import { PortalJwtAuthGuard, PortalJwtPayload } from './portal-jwt-auth.guard';
 
+const PORTAL_AUTH_THROTTLE = { default: { limit: 5, ttl: 900000 } };
+
 @ApiTags('portal-auth')
 @Controller('portal-auth')
 export class PortalAuthController {
   constructor(private readonly portalAuthService: PortalAuthService) {}
 
+  @Throttle(PORTAL_AUTH_THROTTLE)
   @Post('accept-invite')
   @ApiOperation({ summary: 'Accept a client-portal invite, set a password, and sign in' })
   @ApiOkResponse({ type: PortalAuthResponseEntity })
@@ -32,6 +36,7 @@ export class PortalAuthController {
     return this.portalAuthService.acceptInvite(dto);
   }
 
+  @Throttle(PORTAL_AUTH_THROTTLE)
   @Post('login')
   @ApiOperation({ summary: 'Sign in to a client portal' })
   @ApiOkResponse({ type: PortalAuthResponseEntity })
@@ -40,6 +45,7 @@ export class PortalAuthController {
     return this.portalAuthService.login(dto);
   }
 
+  @Throttle(PORTAL_AUTH_THROTTLE)
   @Post('forgot-password')
   @ApiOperation({ summary: 'Request a client-portal password reset link' })
   @ApiOkResponse({ type: PortalMessageResponseEntity })
@@ -47,6 +53,7 @@ export class PortalAuthController {
     return this.portalAuthService.forgotPassword(dto);
   }
 
+  @Throttle(PORTAL_AUTH_THROTTLE)
   @Post('reset-password')
   @ApiOperation({ summary: 'Reset a client-portal password from an emailed link' })
   @ApiOkResponse({ type: PortalMessageResponseEntity })
