@@ -6,6 +6,7 @@ import {
   InvoiceEvents,
   PaymentEvents,
   PortalEvents,
+  ProjectEvents,
   QuoteEvents,
   type DocumentSharedEvent,
   type EmailVerificationRequestedEvent,
@@ -18,6 +19,7 @@ import {
   type PaymentReceivedEvent,
   type PortalPasswordResetRequestedEvent,
   type PortalUserInvitedEvent,
+  type ProjectStatusChangedEvent,
   type QuoteSentEvent,
 } from '../common/events';
 import { MailService } from './mail/mail.service';
@@ -88,6 +90,15 @@ export class NotificationListener {
       );
   }
 
+  @OnEvent(ProjectEvents.STATUS_CHANGED, { async: true })
+  handleProjectStatusChanged(payload: ProjectStatusChangedEvent) {
+    return this.notifications
+      .onProjectStatusChanged(payload)
+      .catch((err) =>
+        this.logger.error('project.status_changed notification failed', err),
+      );
+  }
+
   @OnEvent(PaymentEvents.RECEIVED, { async: true })
   handlePaymentReceived(payload: PaymentReceivedEvent) {
     return this.notifications
@@ -124,6 +135,7 @@ export class NotificationListener {
       .sendUserInvite(
         payload.email,
         payload.name,
+        payload.workspaceName,
         payload.portalSlug,
         payload.token,
       )

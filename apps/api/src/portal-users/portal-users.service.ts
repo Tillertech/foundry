@@ -40,7 +40,11 @@ export class PortalUsersService {
   async create(ownerId: string, dto: CreatePortalUserDto): Promise<SafePortalUser> {
     const portal = await this.prisma.clientPortal.findFirst({
       where: { id: dto.clientPortalId, client: { workspace: { ownerId } } },
-      select: { id: true, slug: true },
+      select: {
+        id: true,
+        slug: true,
+        client: { select: { workspace: { select: { name: true } } } },
+      },
     });
     if (!portal) throw new NotFoundException('Client portal not found');
 
@@ -73,6 +77,7 @@ export class PortalUsersService {
       email: user.email,
       name: user.name,
       portalSlug: portal.slug,
+      workspaceName: portal.client.workspace.name,
       token,
     });
 

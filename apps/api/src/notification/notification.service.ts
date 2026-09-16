@@ -5,13 +5,17 @@ import type {
   InvoicePartiallyPaidEvent,
   InvoiceReminderDueEvent,
   InvoiceSentEvent,
+  ProjectStatusChangedEvent,
   QuoteSentEvent,
 } from '../common/events';
 import {
   PaginationRes,
   PaginationService,
 } from '../common/pagination/pagination.service';
-import { NotificationKind } from '../generated/prisma/enums';
+import {
+  ClientPortalUserStatus,
+  NotificationKind,
+} from '../generated/prisma/enums';
 import type {
   NotificationModel as Notification,
   PaymentModel as Payment,
@@ -29,6 +33,7 @@ import {
   DocumentMailContext,
   InvoiceMailContext,
   MailService,
+  ProjectStatusMailContext,
   QuoteMailContext,
 } from './mail/mail.service';
 import { NotificationGateway } from './notification.gateway';
@@ -360,6 +365,68 @@ export class NotificationService {
     this.logger.log(`Document ${document.name} shared with ${client.email}`);
   }
 
+  async onProjectStatusChanged({
+    project,
+    previousStatus,
+    client,
+  }: ProjectStatusChangedEvent): Promise<void> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: client.workspaceId },
+      select: { ownerId: true, name: true },
+    });
+
+    const portal = await this.prisma.clientPortal.findUnique({
+      where: { clientId: client.id },
+      include: {
+        permission: true,
+        clientPortalUsers: {
+          where: { status: { not: ClientPortalUserStatus.suspended } },
+        },
+        clientPortalProjects: {
+          where: { projectId: project.id },
+          select: { active: true },
+        },
+      },
+    });
+
+    const shared = portal?.clientPortalProjects[0]?.active ?? false;
+    const notifiable =
+      !!portal?.active && !!portal.permission?.viewProjects && shared;
+
+    if (notifiable && portal) {
+      const context: ProjectStatusMailContext = {
+        clientName: client.name,
+        workspaceName: workspace?.name ?? 'Foundry',
+        projectName: project.name,
+        previousStatus: this.prettyProjectStatus(previousStatus),
+        status: this.prettyProjectStatus(project.status),
+      };
+      await Promise.all(
+        portal.clientPortalUsers.map((user) =>
+          this.mail.sendProjectStatusChanged(user.email, context),
+        ),
+      );
+    }
+
+    if (workspace) {
+      this.gateway.emitToUser(workspace.ownerId, 'project.status_changed', {
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        clientName: client.name,
+      });
+      await this.notify(workspace.ownerId, {
+        kind: NotificationKind.project_status_changed,
+        title: `${project.name} is now ${this.prettyProjectStatus(project.status)}`,
+        body: `${client.name}'s project "${project.name}" moved from ${this.prettyProjectStatus(previousStatus)} to ${this.prettyProjectStatus(project.status)}.`,
+        resourceId: project.id,
+      });
+    }
+    this.logger.log(
+      `Project ${project.name} status changed ${previousStatus} -> ${project.status}`,
+    );
+  }
+
   /** Pushes a realtime payment event to the owning user. */
   async onPaymentReceived(payment: Payment): Promise<void> {
     const client = await this.prisma.client.findUnique({
@@ -537,6 +604,12 @@ export class NotificationService {
   /** "bank_transfer" -> "Bank transfer". */
   private prettyPaymentMethod(method: string): string {
     const spaced = method.replace(/_/g, ' ');
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+  }
+
+  /** "on_hold" -> "On hold". */
+  private prettyProjectStatus(status: string): string {
+    const spaced = status.replace(/_/g, ' ');
     return spaced.charAt(0).toUpperCase() + spaced.slice(1);
   }
 

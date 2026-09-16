@@ -8,28 +8,20 @@
             <tr>
               <td style="padding:32px 40px;border-bottom:1px solid #e4e4e7;">
                 <h1 style="margin:0;font-size:20px;">{{workspaceName}}</h1>
-                <p style="margin:8px 0 0;color:#71717a;font-size:14px;">Client portal invitation</p>
+                <p style="margin:8px 0 0;color:#71717a;font-size:14px;">Project status update</p>
               </td>
             </tr>
             <tr>
               <td style="padding:32px 40px;">
-                <p style="margin:0 0 16px;font-size:14px;">Hi {{name}},</p>
+                <p style="margin:0 0 16px;font-size:14px;">Hi {{clientName}},</p>
                 <p style="margin:0 0 24px;font-size:14px;">
-                  <strong>{{workspaceName}}</strong> has invited you to
-                  their client portal, where you can track projects,
-                  review quotes and invoices, and see payment history.
-                  The link below expires in 7 days.
+                  {{workspaceName}} updated the status of
+                  <strong>{{projectName}}</strong> from
+                  {{previousStatus}} to <strong>{{status}}</strong>.
                 </p>
-                {{#if acceptUrl}}
-                  <p style="margin:0;text-align:center;">
-                    <a href="{{acceptUrl}}" style="display:inline-block;padding:12px 28px;background:#18181b;color:#ffffff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
-                      Set up your account
-                    </a>
-                  </p>
-                {{/if}}
-                <p style="margin:24px 0 0;font-size:13px;color:#71717a;">
-                  If you weren't expecting this invitation, you can safely
-                  ignore this email.
+                <p style="margin:0;font-size:14px;">
+                  Sign in to your client portal to see the full project
+                  details.
                 </p>
               </td>
             </tr>

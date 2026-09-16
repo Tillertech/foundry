@@ -63,6 +63,14 @@ export interface DocumentMailContext {
   notes: string;
 }
 
+export interface ProjectStatusMailContext {
+  clientName: string;
+  workspaceName: string;
+  projectName: string;
+  previousStatus: string;
+  status: string;
+}
+
 interface Attachment {
   filename: string;
   content: Buffer;
@@ -214,9 +222,22 @@ export class MailService {
     );
   }
 
+  sendProjectStatusChanged(
+    to: string,
+    context: ProjectStatusMailContext,
+  ): Promise<boolean> {
+    return this.send(
+      to,
+      `${context.projectName} is now ${context.status}`,
+      'project-status-changed',
+      { ...context },
+    );
+  }
+
   sendUserInvite(
     to: string,
     name: string,
+    workspaceName: string,
     portalSlug: string,
     token: string,
   ): Promise<boolean> {
@@ -227,10 +248,11 @@ export class MailService {
 
     return this.send(
       to,
-      'Welcome to your client portal',
+      `You've been invited to ${workspaceName}'s client portal`,
       'portal-user-invite',
       {
         name,
+        workspaceName,
         portalSlug,
         acceptUrl,
       },

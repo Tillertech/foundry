@@ -7,6 +7,7 @@ export interface PortalUserInvitedEvent {
   email: string;
   name: string;
   portalSlug: string;
+  workspaceName: string;
   /** Plaintext invite token - single use, expires like an OTP. Never persisted as-is. */
   token: string;
 }
