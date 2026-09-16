@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClientsService } from '../clients/clients.service';
 import {
   PaginationRes,
   PaginationService,
 } from '../common/pagination/pagination.service';
+import { ProjectEvents } from '../common/events';
 import type { ProjectModel as Project } from '../generated/prisma/models';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -16,6 +18,7 @@ export class ProjectsService {
     private readonly prisma: PrismaService,
     private readonly pagination: PaginationService,
     private readonly clients: ClientsService,
+    private readonly events: EventEmitter2,
   ) {}
 
   async create(ownerId: string, dto: CreateProjectDto): Promise<Project> {
@@ -75,8 +78,23 @@ export class ProjectsService {
     id: string,
     dto: UpdateProjectDto,
   ): Promise<Project> {
-    await this.findOne(ownerId, id);
-    return this.prisma.project.update({ where: { id }, data: dto });
+    const existing = await this.findOne(ownerId, id);
+    const project = await this.prisma.project.update({ where: { id }, data: dto });
+
+    if (dto.status && dto.status !== existing.status) {
+      const client = await this.prisma.client.findUnique({
+        where: { id: project.clientId },
+      });
+      if (client) {
+        this.events.emit(ProjectEvents.STATUS_CHANGED, {
+          project,
+          previousStatus: existing.status,
+          client,
+        });
+      }
+    }
+
+    return project;
   }
 
   async remove(ownerId: string, id: string): Promise<Project> {

@@ -89,6 +89,7 @@ enum NotificationKind {
   invoice_reminder
   quote_sent
   document_shared
+  project_status_changed
 }
 
 enum ClientPortalUserStatus {

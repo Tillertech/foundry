@@ -5,3 +5,4 @@ export * from './payment.events';
 export * from './file.events';
 export * from './document.events';
 export * from './portal.events';
+export * from './project.events';
