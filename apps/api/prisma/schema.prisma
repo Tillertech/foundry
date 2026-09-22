@@ -31,6 +31,14 @@ enum ProjectStatus {
   completed
 }
 
+enum MileStoneStatus {
+  not_started
+  in_progress
+  completed
+  on_hold
+  cancelled
+}
+
 enum InvoiceStatus {
   draft
   sent
@@ -218,9 +226,31 @@ model Project {
   documents            Document[]
   reconciliations      ReconciliationEntry[]
   clientPortalProjects ClientPortalProject[]
+  milestones           Milestone[]
 
   @@index([clientId])
   @@map("projects")
+}
+
+model Milestone {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  notes       String?
+  status      MileStoneStatus @default(not_started)
+  effort      Int?
+  dueDate     DateTime?
+
+  projectId String  @db.Uuid
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([status])
+  @@index([projectId])
+  @@map("milestone")
 }
 
 model Invoice {
