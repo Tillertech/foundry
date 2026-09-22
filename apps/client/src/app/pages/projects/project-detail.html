@@ -1,0 +1,354 @@
+@if (loading()) {
+  <div class="mx-auto max-w-[1400px] space-y-4 px-4 py-6 md:px-8 md:py-8">
+    <div class="skeleton-shimmer h-4 w-40 rounded-md"></div>
+    <div class="skeleton-shimmer h-8 w-72 rounded-md"></div>
+    <div class="skeleton-shimmer h-32 w-full rounded-xl"></div>
+    <div class="skeleton-shimmer h-64 w-full rounded-xl"></div>
+  </div>
+} @else if (notFound() || !project()) {
+  <div class="mx-auto max-w-xl px-6 py-24 text-center">
+    <app-empty-state
+      title="Project not found"
+      description="This project may have been deleted or is no longer available."
+    />
+    <a hlmBtn variant="outline" size="sm" class="mt-6" routerLink="/projects">Back to projects</a>
+  </div>
+} @else {
+  <input
+    #fileInput
+    type="file"
+    class="hidden"
+    (change)="onFileSelected($event)"
+  />
+
+  <div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
+    <div class="mb-5 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <a routerLink="/projects" class="transition-colors hover:text-foreground">All projects</a>
+      <ng-icon name="lucideChevronRight" size="14" />
+      <span class="truncate text-foreground">{{ project()!.name }}</span>
+    </div>
+
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-xl font-semibold tracking-tight">{{ project()!.name }}</h1>
+          <app-status-badge [status]="project()!.status" />
+        </div>
+        <p class="mt-1 text-sm text-muted-foreground">
+          {{ client()?.company || client()?.name || 'Unknown client' }}
+        </p>
+      </div>
+      <button hlmBtn variant="outline" size="sm" type="button" (click)="editOpen.set(true)">
+        <ng-icon name="lucidePencil" size="14" class="mr-1.5" />
+        Edit project
+      </button>
+    </div>
+
+    <hlm-tabs tab="overview" class="w-full">
+      <hlm-tabs-list class="mb-6 w-full max-w-3xl" aria-label="Project sections">
+        <button hlmTabsTrigger="overview" type="button">Overview</button>
+        <button hlmTabsTrigger="milestones" type="button">Milestones</button>
+        <button hlmTabsTrigger="invoices" type="button">Invoices</button>
+        <button hlmTabsTrigger="expenses" type="button">Expenses</button>
+        <button hlmTabsTrigger="documents" type="button">Documents</button>
+        <button hlmTabsTrigger="payments" type="button">Payments</button>
+      </hlm-tabs-list>
+
+      <!-- Overview -->
+      <div hlmTabsContent="overview" class="space-y-6">
+        <section class="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,.7fr)]">
+          <div class="surface-card p-5 sm:p-6">
+            <div class="flex items-start justify-between gap-5">
+              <div>
+                <p class="text-xs font-semibold uppercase text-muted-foreground">Delivery progress</p>
+                <p class="mt-2 text-3xl font-semibold tabular-nums">
+                  {{ progress() === null ? '—' : progress() + '%' }}
+                </p>
+              </div>
+              <p class="max-w-md text-sm leading-6 text-muted-foreground">
+                {{ project()!.description || 'No project description has been added yet.' }}
+              </p>
+            </div>
+            <div class="mt-5 h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div class="h-full rounded-full bg-primary transition-all" [style.width.%]="progress() ?? 0"></div>
+            </div>
+            <div class="mt-6 grid gap-4 border-t border-border pt-5 sm:grid-cols-3">
+              <div>
+                <p class="text-[11px] uppercase tracking-wider text-muted-foreground">Current milestone</p>
+                <p class="mt-1 text-sm font-semibold">{{ currentMilestone()?.name || 'None active' }}</p>
+              </div>
+              <div>
+                <p class="text-[11px] uppercase tracking-wider text-muted-foreground">Up next</p>
+                <p class="mt-1 text-sm font-semibold">{{ nextMilestone()?.name || 'No upcoming milestone' }}</p>
+              </div>
+              <div>
+                <p class="text-[11px] uppercase tracking-wider text-muted-foreground">Deadline</p>
+                <p class="mt-1 text-sm font-semibold">
+                  {{ project()!.endDate ? isoDay(project()!.endDate) : 'Not set' }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="surface-card p-5 sm:p-6">
+            <p class="text-xs font-semibold uppercase text-muted-foreground">Financial position</p>
+            <dl class="mt-4 divide-y divide-border">
+              <div class="flex items-center justify-between py-2.5 text-sm">
+                <dt class="text-muted-foreground">Project budget</dt>
+                <dd class="font-medium tabular-nums">{{ money(project()!.budget, client()?.currency || 'USD') }}</dd>
+              </div>
+              <div class="flex items-center justify-between py-2.5 text-sm">
+                <dt class="text-muted-foreground">Invoiced</dt>
+                <dd class="font-medium tabular-nums">{{ money(invoicedTotal(), client()?.currency || 'USD') }}</dd>
+              </div>
+              <div class="flex items-center justify-between py-2.5 text-sm">
+                <dt class="text-muted-foreground">Payments received</dt>
+                <dd class="font-medium tabular-nums">{{ money(paymentsReceived(), client()?.currency || 'USD') }}</dd>
+              </div>
+              <div class="flex items-center justify-between py-2.5 text-sm">
+                <dt class="font-medium">Remaining budget</dt>
+                <dd class="font-semibold tabular-nums">{{ money(remainingBudget(), client()?.currency || 'USD') }}</dd>
+              </div>
+            </dl>
+            @if (billableExpenses() > 0) {
+              <p class="mt-2 text-[11px] text-muted-foreground">
+                {{ money(billableExpenses(), 'USD') }} in linked expenses · billable
+              </p>
+            }
+          </div>
+        </section>
+
+        <section class="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,.65fr)]">
+          <div class="space-y-6">
+            <div>
+              <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-sm font-semibold">Milestone progress</h2>
+                <button hlmBtn variant="ghost" size="sm" type="button" class="h-7 gap-1.5 px-2 text-xs" (click)="openNewMilestone()">
+                  <ng-icon name="lucidePlus" size="13" />
+                  Add milestone
+                </button>
+              </div>
+              @if (milestonePreview().length === 0) {
+                <app-empty-state title="No milestones yet" description="Add the first milestone to structure this project's delivery." />
+              } @else {
+                <div class="surface-card divide-y divide-border">
+                  @for (m of milestonePreview(); track m.id) {
+                    <button type="button" (click)="openMilestone(m)" class="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted/40">
+                      <span
+                        class="h-2 w-2 shrink-0 rounded-full"
+                        [class]="m.status === 'completed' ? 'bg-success' : m.status === 'in_progress' ? 'bg-primary' : 'bg-muted-foreground/40'"
+                      ></span>
+                      <span class="min-w-0 flex-1">
+                        <span class="block truncate text-sm font-medium" [class.line-through]="m.status === 'completed'">{{ m.name }}</span>
+                        <span class="mt-0.5 block text-xs text-muted-foreground">{{ statusLabel(m.status) }} · Due {{ m.dueDate ? isoDay(m.dueDate) : 'not set' }}</span>
+                      </span>
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+
+            <div>
+              <h2 class="mb-3 text-sm font-semibold">Recent activity</h2>
+              @if (recentActivity().length === 0) {
+                <app-empty-state title="No activity yet" description="Project events will appear here as work progresses." />
+              } @else {
+                <div class="surface-card divide-y divide-border">
+                  @for (item of recentActivity(); track item.date + item.text) {
+                    <div class="flex gap-3 px-5 py-4">
+                      <div class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
+                        <ng-icon [name]="item.icon" size="15" />
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium">{{ item.text }}</p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">{{ item.detail }} · {{ isoDay(item.date) }}</p>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
+          <aside class="space-y-6">
+            <div>
+              <h2 class="mb-3 text-sm font-semibold">Project details</h2>
+              <div class="surface-card divide-y divide-border">
+                <div class="flex items-center justify-between px-4 py-3 text-sm">
+                  <span class="text-muted-foreground">Client</span>
+                  <span class="font-medium">{{ client()?.company || client()?.name || '—' }}</span>
+                </div>
+                <div class="flex items-center justify-between px-4 py-3 text-sm">
+                  <span class="text-muted-foreground">Billing rate</span>
+                  <span class="font-medium">
+                    @if (project()!.hourlyRate; as rate) {
+                      {{ money(rate, client()?.currency || 'USD') }}/hr
+                    } @else {
+                      Not set
+                    }
+                  </span>
+                </div>
+                <div class="flex items-center justify-between px-4 py-3 text-sm">
+                  <span class="text-muted-foreground">Files</span>
+                  <span class="font-medium">{{ documents().length }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h2 class="mb-3 text-sm font-semibold">Quick actions</h2>
+              <div class="grid grid-cols-2 gap-2">
+                <button hlmBtn variant="outline" size="sm" type="button" (click)="openNewMilestone()">
+                  <ng-icon name="lucidePlus" size="14" class="mr-1.5" />
+                  Milestone
+                </button>
+                <button hlmBtn variant="outline" size="sm" type="button" [disabled]="uploadingFile()" (click)="fileInput.click()">
+                  <ng-icon name="lucideFileText" size="14" class="mr-1.5" />
+                  File
+                </button>
+                <a hlmBtn variant="outline" size="sm" routerLink="/invoices">
+                  <ng-icon name="lucideReceipt" size="14" class="mr-1.5" />
+                  Invoice
+                </a>
+                <a hlmBtn variant="outline" size="sm" routerLink="/payments">
+                  <ng-icon name="lucideWallet" size="14" class="mr-1.5" />
+                  Payment
+                </a>
+              </div>
+            </div>
+          </aside>
+        </section>
+      </div>
+
+      <!-- Milestones -->
+      <div hlmTabsContent="milestones" class="surface-card p-5">
+        <app-milestones-panel
+          [projectId]="id()"
+          [milestones]="milestones()"
+          (milestonesChange)="milestones.set($event)"
+          (requestNew)="openNewMilestone()"
+          (requestEdit)="openMilestone($event)"
+        />
+      </div>
+
+      <!-- Invoices -->
+      <div hlmTabsContent="invoices">
+        @if (invoices().length === 0) {
+          <app-empty-state title="No invoices yet" description="Invoices linked to this project will show up here." />
+        } @else {
+          <div class="surface-card divide-y divide-border">
+            @for (inv of invoices(); track inv.id) {
+              <button
+                type="button"
+                (click)="openInvoice(inv.id)"
+                class="flex w-full flex-wrap items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/40"
+              >
+                <div class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                  <ng-icon name="lucideReceipt" size="16" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="font-mono text-sm font-medium">{{ inv.number }}</p>
+                  <p class="mt-0.5 text-xs text-muted-foreground">
+                    Issued {{ isoDay(inv.issueDate) }} · Due {{ isoDay(inv.dueDate) }}
+                  </p>
+                </div>
+                <app-status-badge [status]="inv.status" />
+                <p class="w-24 shrink-0 text-right text-sm font-semibold tabular-nums">
+                  {{ money(invoiceTotal(inv), inv.currency) }}
+                </p>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Expenses -->
+      <div hlmTabsContent="expenses">
+        @if (expenses().length === 0) {
+          <app-empty-state title="No expenses yet" description="Expenses linked to this project will show up here." />
+        } @else {
+          <div class="surface-card divide-y divide-border">
+            @for (e of expenses(); track e.id) {
+              <div class="flex flex-wrap items-center gap-3 px-5 py-4">
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-medium">{{ e.vendor }}</p>
+                  <p class="mt-0.5 text-xs text-muted-foreground">
+                    {{ expenseCategoryLabel(e.category) }} · {{ isoDay(e.date) }}
+                    @if (e.billable) {
+                      · Billable
+                    }
+                  </p>
+                </div>
+                <p class="shrink-0 text-sm font-semibold tabular-nums">{{ money(e.amount, e.currency) }}</p>
+              </div>
+            }
+          </div>
+          @if (billableExpenses() > 0) {
+            <p class="mt-3 text-right text-xs text-muted-foreground">
+              {{ money(billableExpenses(), 'USD') }} billable to the client
+            </p>
+          }
+        }
+      </div>
+
+      <!-- Documents -->
+      <div hlmTabsContent="documents">
+        <div class="mb-3 flex items-center justify-end">
+          <button hlmBtn variant="outline" size="sm" type="button" [disabled]="uploadingFile()" (click)="fileInput.click()">
+            <ng-icon name="lucideFileText" size="14" class="mr-1.5" />
+            {{ uploadingFile() ? 'Uploading…' : 'Upload file' }}
+          </button>
+        </div>
+        @if (documents().length === 0) {
+          <app-empty-state title="No documents yet" description="Files shared or stored against this project will show up here." />
+        } @else {
+          <div class="surface-card divide-y divide-border">
+            @for (doc of documents(); track doc.id) {
+              <div class="flex flex-wrap items-center gap-3 px-5 py-4">
+                <div class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                  <ng-icon name="lucideFileText" size="16" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium">{{ doc.name }}</p>
+                  <p class="mt-0.5 text-xs text-muted-foreground">
+                    {{ documentTypeLabel(doc.type) }} · {{ fileSize(doc.size) }} · {{ isoDay(doc.uploadedAt) }}
+                  </p>
+                </div>
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  (click)="downloadDocument(doc)"
+                  [attr.aria-label]="'Download ' + doc.name"
+                >
+                  <ng-icon name="lucideDownload" size="15" />
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Payments -->
+      <div hlmTabsContent="payments" class="surface-card p-5">
+        <app-reconciliation-timeline [projectId]="id()" />
+      </div>
+    </hlm-tabs>
+  </div>
+
+  <app-project-form-sheet
+    [project]="project()"
+    [(open)]="editOpen"
+    (saved)="onProjectSaved($event)"
+    (deleted)="onProjectDeleted()"
+  />
+
+  <app-milestone-form-sheet
+    [projectId]="id()"
+    [milestone]="editingMilestone()"
+    [(open)]="milestoneFormOpen"
+    (saved)="onMilestoneSaved($event)"
+    (deleted)="onMilestoneDeleted($event)"
+  />
+}

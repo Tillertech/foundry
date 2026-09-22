@@ -1,78 +1,33 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
-import { FormField, form, minLength, required } from '@angular/forms/signals';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus, lucideSearch } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
-import { HlmTextarea } from '@spartan-ng/helm/textarea';
-import {
-  apiErrorMessage,
-  isoDay,
-  money,
-  num,
-  toApiDate,
-} from '@foundry/shared-util';
+import { RouterLink } from '@angular/router';
+import { apiErrorMessage, isoDay, money } from '@foundry/shared-util';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
 import {
-  CreateProjectRequest,
-  Project,
-  ProjectStatus,
-  ProjectsApiService,
-  UpdateProjectRequest,
-} from '../../domains/projects';
-import { DateField } from '../../shared/date-field';
-import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader, StatusBadge, ToastService } from '@foundry/shared-ui';
+  MilestonesApiService,
+  ProjectMilestonesSummary,
+} from '../../domains/milestones';
+import { Project, ProjectsApiService } from '../../domains/projects';
+import { PageHeader, StatusBadge, ToastService } from '@foundry/shared-ui';
 import { ListSkeleton } from '../../shared/list-skeleton';
-import { ReconciliationTimeline } from '../../shared/reconciliation-timeline';
-
-interface ProjectForm {
-  id: string;
-  name: string;
-  clientId: string;
-  status: ProjectStatus;
-  budget: number;
-  hourlyRate: number;
-  startDate: string;
-  endDate: string;
-  description: string;
-}
-
-const emptyProject = (): ProjectForm => ({
-  id: '',
-  name: '',
-  clientId: '',
-  status: 'planning',
-  budget: 0,
-  hourlyRate: 0,
-  startDate: new Date().toISOString().slice(0, 10),
-  endDate: '',
-  description: '',
-});
+import { ProjectFormSheet } from '../../shared/project-form-sheet';
 
 @Component({
   selector: 'app-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    FormField,
     NgIcon,
     HlmButton,
     HlmInput,
-    HlmTextarea,
     HlmSelectImports,
-    DateField,
-    EntitySheet,
-    Field,
+    RouterLink,
     ListSkeleton,
     PageHeader,
-    ReconciliationTimeline,
+    ProjectFormSheet,
     StatusBadge,
   ],
   providers: [provideIcons({ lucidePlus, lucideSearch })],
@@ -81,26 +36,22 @@ const emptyProject = (): ProjectForm => ({
 export class Projects {
   private readonly projectsApi = inject(ProjectsApiService);
   private readonly clientsApi = inject(ClientsApiService);
+  private readonly milestonesApi = inject(MilestonesApiService);
   private readonly toast = inject(ToastService);
 
   protected readonly loading = signal(true);
   protected readonly projects = signal<Project[]>([]);
   protected readonly clients = signal<ApiClient[]>([]);
+  protected readonly milestonesSummary = signal<
+    Record<string, ProjectMilestonesSummary>
+  >({});
 
   protected readonly query = signal('');
   protected readonly statusFilter = signal('all');
   protected readonly clientFilter = signal('all');
-  protected readonly sheetOpen = signal(false);
-  protected readonly saving = signal(false);
-  protected isNew = true;
 
-  protected readonly model = signal<ProjectForm>(emptyProject());
-  protected readonly f = form(this.model, (p) => {
-    required(p.name, { message: 'Project name is required' });
-    minLength(p.name, 2, { message: 'Use at least 2 characters' });
-    required(p.clientId, { message: 'Select a client' });
-  });
-  protected readonly fieldError = fieldError;
+  protected readonly sheetOpen = signal(false);
+  protected readonly editingProject = signal<Project | null>(null);
 
   constructor() {
     this.refresh();
@@ -111,6 +62,7 @@ export class Projects {
       next: (res) => {
         this.projects.set(res.results);
         this.loading.set(false);
+        this.refreshMilestonesSummary(res.results.map((p) => p.id));
       },
       error: (err) => {
         this.loading.set(false);
@@ -119,6 +71,18 @@ export class Projects {
     });
     this.clientsApi.list({ take: 100 }).subscribe({
       next: (res) => this.clients.set(res.results),
+      error: () => undefined,
+    });
+  }
+
+  /** One bulk call for every visible card's progress bar, instead of one per card. */
+  private refreshMilestonesSummary(projectIds: string[]): void {
+    if (!projectIds.length) return;
+    this.milestonesApi.summary(projectIds).subscribe({
+      next: (rows) =>
+        this.milestonesSummary.set(
+          Object.fromEntries(rows.map((r) => [r.projectId, r])),
+        ),
       error: () => undefined,
     });
   }
@@ -156,79 +120,21 @@ export class Projects {
   });
 
   protected openNew(): void {
-    this.model.set({
-      ...emptyProject(),
-      clientId: this.clients()[0]?.id ?? '',
-    });
-    this.isNew = true;
+    this.editingProject.set(null);
     this.sheetOpen.set(true);
   }
 
-  protected openEdit(p: Project): void {
-    this.model.set({
-      id: p.id,
-      name: p.name,
-      clientId: p.clientId,
-      status: p.status,
-      budget: num(p.budget),
-      hourlyRate: num(p.hourlyRate),
-      startDate: isoDay(p.startDate),
-      endDate: isoDay(p.endDate),
-      description: p.description ?? '',
-    });
-    this.isNew = false;
-    this.sheetOpen.set(true);
-  }
-
-  protected save(): void {
-    if (this.f().invalid() || this.saving()) return;
-    const v = this.model();
-    const common: UpdateProjectRequest = {
-      name: v.name.trim(),
-      status: v.status,
-      budget: num(v.budget),
-      hourlyRate: num(v.hourlyRate),
-      startDate: toApiDate(v.startDate),
-      endDate: v.endDate ? toApiDate(v.endDate) : undefined,
-      description: v.description.trim() || undefined,
-    };
-    this.saving.set(true);
-    const request = this.isNew
-      ? this.projectsApi.create({
-          ...common,
-          clientId: v.clientId,
-        } as CreateProjectRequest)
-      : this.projectsApi.update(v.id, common);
-    request.subscribe({
-      next: (project) => {
-        this.saving.set(false);
-        this.projects.update((list) =>
-          this.isNew
-            ? [project, ...list]
-            : list.map((p) => (p.id === project.id ? project : p)),
-        );
-        this.sheetOpen.set(false);
-        if (this.isNew) this.toast.created('Project');
-        else this.toast.updated('Project');
-      },
-      error: (err) => {
-        this.saving.set(false);
-        this.toast.error('Could not save project', apiErrorMessage(err));
-      },
+  protected onProjectSaved(project: Project): void {
+    this.projects.update((list) => {
+      const exists = list.some((p) => p.id === project.id);
+      return exists
+        ? list.map((p) => (p.id === project.id ? project : p))
+        : [project, ...list];
     });
   }
 
-  protected removeCurrent(): void {
-    const id = this.model().id;
-    this.projectsApi.delete(id).subscribe({
-      next: () => {
-        this.projects.update((list) => list.filter((p) => p.id !== id));
-        this.sheetOpen.set(false);
-        this.toast.deleted('Project');
-      },
-      error: (err) =>
-        this.toast.error('Could not delete project', apiErrorMessage(err)),
-    });
+  protected onProjectDeleted(id: string): void {
+    this.projects.update((list) => list.filter((p) => p.id !== id));
   }
 
   protected readonly money = money;

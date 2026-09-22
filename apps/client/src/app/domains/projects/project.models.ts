@@ -25,9 +25,7 @@ export interface CreateProjectRequest {
   description?: string;
 }
 
-export type UpdateProjectRequest = Partial<
-  Omit<CreateProjectRequest, 'clientId'>
->;
+export type UpdateProjectRequest = Partial<CreateProjectRequest>;
 
 export interface ListProjectsQuery extends PaginationQuery {
   clientId?: string;

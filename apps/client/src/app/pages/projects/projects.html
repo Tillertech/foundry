@@ -76,10 +76,9 @@
   } @else {
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       @for (p of filtered(); track p.id) {
-        <button
-          type="button"
-          (click)="openEdit(p)"
-          class="surface-card hover-lift group p-5 text-left"
+        <a
+          [routerLink]="['/projects', p.id]"
+          class="surface-card hover-lift group block p-5 text-left"
         >
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
@@ -90,6 +89,28 @@
             </div>
             <app-status-badge [status]="p.status" />
           </div>
+          @if (milestonesSummary()[p.id]; as summary) {
+            @if (summary.total) {
+              <div class="mt-4 border-t border-border pt-4">
+                <div class="flex items-center justify-between gap-3 text-[11px]">
+                  <span class="truncate text-muted-foreground">
+                    {{ summary.currentMilestoneName ?? (summary.completed + ' of ' + summary.total + ' milestones') }}
+                  </span>
+                  <span class="font-medium tabular-nums">{{ summary.progress }}%</span>
+                </div>
+                <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    class="h-full rounded-full bg-primary transition-all"
+                    [style.width.%]="summary.progress"
+                  ></div>
+                </div>
+              </div>
+            } @else {
+              <p class="mt-4 border-t border-border pt-4 text-[11px] text-muted-foreground">
+                No milestones added
+              </p>
+            }
+          }
           <div class="mt-5 grid grid-cols-2 gap-3">
             <div>
               <p class="text-[11px] uppercase tracking-wider text-muted-foreground">Budget</p>
@@ -116,85 +137,16 @@
               <span>Ended {{ day(p.endDate) }}</span>
             }
           </div>
-        </button>
+        </a>
       }
     </div>
   }
   }
 
-  <app-entity-sheet
+  <app-project-form-sheet
+    [project]="editingProject()"
     [(open)]="sheetOpen"
-    [title]="isNew ? 'New project' : 'Edit ' + model().name"
-    [canSave]="f().valid()"
-    [showDelete]="!isNew"
-    (saved)="save()"
-    (deleted)="removeCurrent()"
-  >
-    <div class="grid gap-4">
-      <app-field label="Project name" [error]="fieldError(f.name())">
-        <input hlmInput class="w-full" [formField]="f.name" placeholder="Marketing site redesign" />
-      </app-field>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Client" [error]="fieldError(f.clientId())">
-          <hlm-select class="w-full" [formField]="f.clientId" [itemToString]="clientLabel">
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value placeholder="Select a client" />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              @for (c of clients(); track c.id) {
-                <hlm-select-item [value]="c.id">{{ c.company || c.name }}</hlm-select-item>
-              }
-            </hlm-select-content>
-          </hlm-select>
-        </app-field>
-        <app-field label="Status">
-          <hlm-select class="w-full" [formField]="f.status" [itemToString]="statusLabel">
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              <hlm-select-item value="planning">Planning</hlm-select-item>
-              <hlm-select-item value="active">Active</hlm-select-item>
-              <hlm-select-item value="on_hold">On hold</hlm-select-item>
-              <hlm-select-item value="completed">Completed</hlm-select-item>
-            </hlm-select-content>
-          </hlm-select>
-        </app-field>
-      </div>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Budget">
-          <input hlmInput type="number" class="w-full" [formField]="f.budget" />
-        </app-field>
-        <app-field label="Hourly rate">
-          <input hlmInput type="number" class="w-full" [formField]="f.hourlyRate" />
-        </app-field>
-      </div>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Start date">
-          <app-date-field
-            [value]="f.startDate().value()"
-            (valueChange)="f.startDate().value.set($event ?? '')"
-          />
-        </app-field>
-        <app-field label="End date">
-          <app-date-field
-            [value]="f.endDate().value()"
-            (valueChange)="f.endDate().value.set($event ?? '')"
-          />
-        </app-field>
-      </div>
-      <app-field label="Description">
-        <textarea hlmTextarea rows="3" class="w-full" [formField]="f.description"></textarea>
-      </app-field>
-
-      @if (!isNew) {
-        <div class="min-w-0 rounded-lg border border-border p-4">
-          <p class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Payment timeline
-          </p>
-          <app-reconciliation-timeline [projectId]="model().id" />
-        </div>
-      }
-    </div>
-  </app-entity-sheet>
+    (saved)="onProjectSaved($event)"
+    (deleted)="onProjectDeleted($event)"
+  />
 </div>

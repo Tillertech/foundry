@@ -1,0 +1,116 @@
+<div class="space-y-3">
+  <div class="flex items-center justify-between gap-3">
+    <p class="text-xs text-muted-foreground">
+      @if (milestones().length) {
+        {{ completedCount() }} of {{ milestones().length }} completed
+      } @else {
+        No milestones yet
+      }
+    </p>
+    <button
+      hlmBtn
+      variant="ghost"
+      size="sm"
+      type="button"
+      class="h-7 gap-1.5 px-2 text-xs"
+      (click)="requestNew.emit()"
+    >
+      <ng-icon name="lucidePlus" size="13" />
+      Add milestone
+    </button>
+  </div>
+
+  @if (milestones().length === 0) {
+    <p class="text-xs text-muted-foreground">
+      Add the first milestone to structure this project's delivery.
+    </p>
+  } @else {
+    <div
+      cdkDropList
+      (cdkDropListDropped)="drop($event)"
+      class="divide-y divide-border rounded-lg border border-border"
+    >
+      @for (m of milestones(); track m.id) {
+        <div
+          cdkDrag
+          [cdkDragData]="m"
+          class="flex items-start gap-3 bg-card px-3 py-2.5"
+          [class.opacity-60]="m.status === 'completed'"
+        >
+          <button
+            cdkDragHandle
+            type="button"
+            class="mt-1 shrink-0 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+            [attr.aria-label]="'Reorder ' + m.name"
+          >
+            <ng-icon name="lucideGripVertical" size="15" />
+          </button>
+          <span
+            class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+            [class]="
+              m.status === 'completed'
+                ? 'bg-success'
+                : m.status === 'in_progress'
+                  ? 'bg-primary'
+                  : 'bg-muted-foreground/40'
+            "
+          ></span>
+          <div class="min-w-0 flex-1">
+            <p
+              class="truncate text-sm font-medium"
+              [class.line-through]="m.status === 'completed'"
+            >
+              {{ m.name }}
+            </p>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              {{ statusLabel(m.status) }}
+              @if (m.dueDate) {
+                · Due {{ isoDay(m.dueDate) }}
+              }
+              @if (m.estimatedHours) {
+                · {{ m.estimatedHours }}h
+              }
+            </p>
+          </div>
+          <div class="flex shrink-0 items-center gap-0.5">
+            @if (m.status !== 'completed') {
+              <button
+                hlmBtn
+                variant="ghost"
+                size="icon"
+                type="button"
+                class="h-7 w-7"
+                (click)="markComplete(m)"
+                [attr.aria-label]="'Mark ' + m.name + ' complete'"
+              >
+                <ng-icon name="lucideCheck" size="13" />
+              </button>
+            }
+            <button
+              hlmBtn
+              variant="ghost"
+              size="icon"
+              type="button"
+              class="h-7 w-7"
+              (click)="requestEdit.emit(m)"
+              [attr.aria-label]="'Edit ' + m.name"
+            >
+              <ng-icon name="lucidePencil" size="13" />
+            </button>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="icon"
+              type="button"
+              class="h-7 w-7 text-destructive"
+              (click)="remove(m)"
+              [attr.aria-label]="'Delete ' + m.name"
+            >
+              <ng-icon name="lucideTrash2" size="13" />
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

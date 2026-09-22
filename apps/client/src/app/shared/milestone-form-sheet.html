@@ -1,0 +1,73 @@
+<app-entity-sheet
+  [(open)]="open"
+  [title]="isNew ? 'Add milestone' : 'Edit ' + draft().name"
+  [canSave]="!!draft().name.trim()"
+  [showDelete]="!isNew"
+  (saved)="save()"
+  (deleted)="removeCurrent()"
+>
+  <div class="grid gap-4">
+    <app-field label="Milestone name">
+      <input
+        hlmInput
+        class="w-full"
+        [value]="draft().name"
+        (input)="patch({ name: $any($event.target).value })"
+        placeholder="Design approval"
+      />
+    </app-field>
+    <app-field label="Description">
+      <textarea
+        hlmTextarea
+        rows="3"
+        class="w-full"
+        [value]="draft().description"
+        (input)="patch({ description: $any($event.target).value })"
+      ></textarea>
+    </app-field>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <app-field label="Due date">
+        <app-date-field
+          [value]="draft().dueDate"
+          (valueChange)="patch({ dueDate: $event ?? '' })"
+        />
+      </app-field>
+      <app-field label="Status">
+        <hlm-select
+          class="w-full"
+          [value]="draft().status"
+          (valueChange)="patch({ status: $event ?? 'not_started' })"
+          [itemToString]="statusLabel"
+        >
+          <hlm-select-trigger class="w-full">
+            <hlm-select-value />
+          </hlm-select-trigger>
+          <hlm-select-content *hlmSelectPortal>
+            @for (opt of statusOptions; track opt[0]) {
+              <hlm-select-item [value]="opt[0]">{{ opt[1] }}</hlm-select-item>
+            }
+          </hlm-select-content>
+        </hlm-select>
+      </app-field>
+    </div>
+    <app-field label="Estimated effort" hint="Optional hours estimate">
+      <input
+        hlmInput
+        type="number"
+        min="0"
+        class="w-full"
+        [value]="draft().estimatedHours"
+        (input)="patch({ estimatedHours: +$any($event.target).value || 0 })"
+      />
+    </app-field>
+    <app-field label="Notes">
+      <textarea
+        hlmTextarea
+        rows="3"
+        class="w-full"
+        [value]="draft().notes"
+        (input)="patch({ notes: $any($event.target).value })"
+      ></textarea>
+    </app-field>
+  </div>
+</app-entity-sheet>

@@ -11,6 +11,16 @@ datasource db {
   provider = "postgresql"
 }
 
+enum NotificationKind {
+  invoice_sent
+  invoice_paid
+  invoice_partially_paid
+  invoice_reminder
+  quote_sent
+  document_shared
+  project_status_changed
+}
+
 enum Currency {
   USD
   EUR
@@ -31,7 +41,7 @@ enum ProjectStatus {
   completed
 }
 
-enum MileStoneStatus {
+enum MilestoneStatus {
   not_started
   in_progress
   completed
@@ -68,6 +78,11 @@ enum PaymentMethod {
   other
 }
 
+enum ReconciliationKind {
+  payment_applied
+  payment_reversed
+}
+
 enum ExpenseCategory {
   software
   travel
@@ -83,21 +98,6 @@ enum DocumentType {
   receipt
   report
   other
-}
-
-enum ReconciliationKind {
-  payment_applied
-  payment_reversed
-}
-
-enum NotificationKind {
-  invoice_sent
-  invoice_paid
-  invoice_partially_paid
-  invoice_reminder
-  quote_sent
-  document_shared
-  project_status_changed
 }
 
 enum ClientPortalUserStatus {
@@ -233,24 +233,25 @@ model Project {
 }
 
 model Milestone {
-  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  description String?
-  notes       String?
-  status      MileStoneStatus @default(not_started)
-  effort      Int?
-  dueDate     DateTime?
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  description    String?
+  status         MilestoneStatus @default(not_started)
+  dueDate        DateTime?
+  completedAt    DateTime?
+  estimatedHours Int?
+  notes          String?
+  /// Manual position within the project's milestone list (lower sorts first); reordered in whole-list swaps, not a priority ranking.
+  order          Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   projectId String  @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([name])
-  @@index([status])
   @@index([projectId])
-  @@map("milestone")
+  @@index([status])
+  @@map("milestones")
 }
 
 model Invoice {

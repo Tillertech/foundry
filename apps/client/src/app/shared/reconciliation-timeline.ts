@@ -11,6 +11,7 @@ import { InvoicesApiService } from '../domains/invoices';
 import { ProjectsApiService } from '../domains/projects';
 import { ReconciliationEntry, isoDay, money, num } from '@foundry/shared-util';
 import { InvoiceDetailsDialog } from './invoice-details-dialog';
+import { PaymentDetailsDialog } from './payment-details-dialog';
 
 @Component({
   selector: 'app-reconciliation-timeline',
@@ -58,42 +59,52 @@ import { InvoiceDetailsDialog } from './invoice-details-dialog';
               [class]="num(e.amount) < 0 ? 'bg-destructive' : 'bg-success'"
             ></span>
             <div
-              class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"
+              class="-mx-2 flex flex-col gap-0.5 rounded-md px-2 py-1 transition-colors"
+              [class]="e.paymentId ? 'cursor-pointer hover:bg-muted/40' : ''"
+              [attr.role]="e.paymentId ? 'button' : null"
+              [attr.tabindex]="e.paymentId ? 0 : null"
+              [attr.aria-label]="e.paymentId ? 'View payment' : null"
+              (click)="e.paymentId && openPayment(e)"
+              (keydown.enter)="e.paymentId && openPayment(e)"
             >
-              <div class="flex min-w-0 max-w-full items-center gap-2">
-                <p class="min-w-0 truncate text-sm font-medium">
-                  {{ e.note || label(e) }}
-                </p>
-                @if (showInvoiceBadge(e)) {
-                  <button
-                    type="button"
-                    (click)="openInvoice(e)"
-                    class="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
-                  >
-                    {{ e.invoiceNumber }}
-                  </button>
-                }
-              </div>
-              <p
-                class="shrink-0 text-sm font-semibold tabular-nums"
-                [class]="
-                  num(e.amount) < 0 ? 'text-destructive' : 'text-success'
-                "
+              <div
+                class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"
               >
-                {{ num(e.amount) < 0 ? '−' : '+'
-                }}{{ money(abs(e.amount), e.currency) }}
+                <div class="flex min-w-0 max-w-full items-center gap-2">
+                  <p class="min-w-0 truncate text-sm font-medium">
+                    {{ e.note || label(e) }}
+                  </p>
+                  @if (showInvoiceBadge(e)) {
+                    <button
+                      type="button"
+                      (click)="$event.stopPropagation(); openInvoice(e)"
+                      class="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
+                    >
+                      {{ e.invoiceNumber }}
+                    </button>
+                  }
+                </div>
+                <p
+                  class="shrink-0 text-sm font-semibold tabular-nums"
+                  [class]="
+                    num(e.amount) < 0 ? 'text-destructive' : 'text-success'
+                  "
+                >
+                  {{ num(e.amount) < 0 ? '−' : '+'
+                  }}{{ money(abs(e.amount), e.currency) }}
+                </p>
+              </div>
+              <p class="text-xs text-muted-foreground">
+                {{ isoDay(e.createdAt) }}
+                @if (e.invoiceBalance !== null) {
+                  · {{ invoiceBalanceLabel(e) }}
+                  {{ money(e.invoiceBalance, e.currency) }}
+                }
+                @if (e.projectBalance !== null && showProjectBalance(e)) {
+                  · Project budget left {{ money(e.projectBalance, e.currency) }}
+                }
               </p>
             </div>
-            <p class="mt-0.5 text-xs text-muted-foreground">
-              {{ isoDay(e.createdAt) }}
-              @if (e.invoiceBalance !== null) {
-                · {{ invoiceBalanceLabel(e) }}
-                {{ money(e.invoiceBalance, e.currency) }}
-              }
-              @if (e.projectBalance !== null && showProjectBalance(e)) {
-                · Project budget left {{ money(e.projectBalance, e.currency) }}
-              }
-            </p>
           </li>
         }
       </ol>
@@ -197,6 +208,14 @@ export class ReconciliationTimeline {
     this.dialogService.open(InvoiceDetailsDialog, {
       contentClass: 'sm:max-w-lg',
       context: { invoiceId: e.invoiceId },
+    });
+  }
+
+  protected openPayment(e: ReconciliationEntry): void {
+    if (!e.paymentId) return;
+    this.dialogService.open(PaymentDetailsDialog, {
+      contentClass: 'sm:max-w-lg',
+      context: { paymentId: e.paymentId },
     });
   }
 

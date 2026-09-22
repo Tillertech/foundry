@@ -18,7 +18,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { PortalAuthService } from '../../domains/auth';
 import { DocumentItem, DocumentsApiService } from '../../domains/documents';
-import { Project, ProjectsApiService } from '../../domains/projects';
+import { Project, ProjectsApiService, projectProgress } from '../../domains/projects';
 import { isoDay, money } from '@foundry/shared-util';
 import { saveBlob } from '../../core/download-file';
 import { StatusBadge } from '@foundry/shared-ui';
@@ -59,6 +59,11 @@ export class ProjectDetail {
   protected readonly projectDocs = computed(() =>
     this.documents().filter((d) => d.projectId === this.id()),
   );
+
+  protected readonly progress = computed(() => {
+    const project = this.project();
+    return project ? projectProgress(project.milestones) : null;
+  });
 
   constructor() {
     // Signal inputs aren't guaranteed set until after the constructor runs -

@@ -79,6 +79,11 @@ export class ProjectsService {
     dto: UpdateProjectDto,
   ): Promise<Project> {
     const existing = await this.findOne(ownerId, id);
+    // Reassigning to a different client - confirm it belongs to this
+    // workspace too, same check as create().
+    if (dto.clientId && dto.clientId !== existing.clientId) {
+      await this.clients.findOne(ownerId, dto.clientId);
+    }
     const project = await this.prisma.project.update({ where: { id }, data: dto });
 
     if (dto.status && dto.status !== existing.status) {

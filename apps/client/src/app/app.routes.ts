@@ -64,6 +64,14 @@ export const appRoutes: Route[] = [
           import('./pages/projects/projects').then((m) => m.Projects),
       },
       {
+        path: 'projects/:id',
+        title: 'Project - Foundry',
+        loadComponent: () =>
+          import('./pages/projects/project-detail').then(
+            (m) => m.ProjectDetail,
+          ),
+      },
+      {
         path: 'invoices',
         title: 'Invoices - Foundry',
         loadComponent: () =>
