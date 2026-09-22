@@ -14,17 +14,25 @@ import {
 } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideActivity,
+  lucideBadgeCheck,
   lucideBell,
   lucideBellRing,
   lucideBuilding2,
   lucideCheck,
+  lucideClock,
+  lucideCreditCard,
+  lucideFileSignature,
   lucideFileText,
   lucideImage,
+  lucideMail,
   lucideMapPin,
   lucideMonitor,
   lucideMoon,
   lucidePalette,
   lucideReceipt,
+  lucideSend,
+  lucideShare2,
   lucideShieldAlert,
   lucideSun,
   lucideTrash2,
@@ -38,6 +46,7 @@ import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { apiErrorMessage, Currency } from '@foundry/shared-util';
+import { NotificationKind } from '../../domains/notifications';
 import {
   UpdateWorkspaceRequest,
   Workspace,
@@ -75,17 +84,25 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
   ],
   providers: [
     provideIcons({
+      lucideActivity,
+      lucideBadgeCheck,
       lucideBell,
       lucideBellRing,
       lucideBuilding2,
       lucideCheck,
+      lucideClock,
+      lucideCreditCard,
+      lucideFileSignature,
       lucideFileText,
       lucideImage,
+      lucideMail,
       lucideMapPin,
       lucideMonitor,
       lucideMoon,
       lucidePalette,
       lucideReceipt,
+      lucideSend,
+      lucideShare2,
       lucideShieldAlert,
       lucideSun,
       lucideTrash2,
@@ -115,12 +132,98 @@ export class Settings {
       description:
         'Configure branded layouts and copy for invoices, quotes, receipts and emails.',
     },
+  ];
+
+  /**
+   * thought; add email to toggles
+   */
+  protected readonly automaticEmails: {
+    kinds: NotificationKind[];
+    icon: string;
+    label: string;
+    desc: string;
+  }[] = [
     {
-      id: 'notifications',
-      icon: 'lucideBell',
-      title: 'Notification preferences',
-      description:
-        'Choose which emails and in-app alerts you receive - payments, overdue invoices, weekly summaries.',
+      kinds: ['invoice_sent'],
+      icon: 'lucideSend',
+      label: 'Invoices',
+      desc: 'Emailed to the client (with PDF) when you send an invoice.',
+    },
+    {
+      kinds: ['invoice_paid', 'invoice_partially_paid'],
+      icon: 'lucideBadgeCheck',
+      label: 'Payment receipts',
+      desc: 'Emailed to the client when a payment is recorded against an invoice.',
+    },
+    {
+      kinds: ['quote_sent'],
+      icon: 'lucideFileSignature',
+      label: 'Quotes',
+      desc: 'Emailed to the client (with PDF) when you send a quote.',
+    },
+    {
+      kinds: ['document_shared'],
+      icon: 'lucideShare2',
+      label: 'Shared documents',
+      desc: 'Emailed to the client when you share a document with them.',
+    },
+  ];
+
+
+  protected readonly reminderKind: {
+    kind: NotificationKind;
+    icon: string;
+    label: string;
+  } = { kind: 'invoice_reminder', icon: 'lucideClock', label: 'Invoice reminders' };
+
+
+  protected readonly inAppKinds: {
+    kind: NotificationKind;
+    icon: string;
+    label: string;
+    desc: string;
+  }[] = [
+    {
+      kind: 'invoice_sent',
+      icon: 'lucideSend',
+      label: 'Invoice sent',
+      desc: 'When you send an invoice to a client.',
+    },
+    {
+      kind: 'invoice_paid',
+      icon: 'lucideBadgeCheck',
+      label: 'Invoice paid',
+      desc: "When a client's payment settles an invoice in full.",
+    },
+    {
+      kind: 'invoice_partially_paid',
+      icon: 'lucideCreditCard',
+      label: 'Partial payment',
+      desc: 'When a client pays part of an invoice.',
+    },
+    {
+      kind: 'invoice_reminder',
+      icon: 'lucideClock',
+      label: 'Reminder sent',
+      desc: 'When a due-date reminder is emailed to a client.',
+    },
+    {
+      kind: 'quote_sent',
+      icon: 'lucideFileSignature',
+      label: 'Quote sent',
+      desc: 'When you send a quote to a client.',
+    },
+    {
+      kind: 'document_shared',
+      icon: 'lucideShare2',
+      label: 'Document shared',
+      desc: 'When you share a document with a client.',
+    },
+    {
+      kind: 'project_status_changed',
+      icon: 'lucideActivity',
+      label: 'Project status changed',
+      desc: "When a project's status moves to a new stage.",
     },
   ];
 
@@ -270,10 +373,8 @@ export class Settings {
     this.savingWorkspace.set(true);
     this.workspacesApi.update(ws.id, body).subscribe({
       next: (updated) => {
-        console.log('hahahaha');
         this.savingWorkspace.set(false);
         this.workspace.set(updated);
-        // todo: figure out fail
         this.toast.success(
           'Settings saved',
           'Your workspace details have been updated.',

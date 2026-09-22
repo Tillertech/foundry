@@ -182,38 +182,6 @@
             </div>
           </section>
 
-          <section class="surface-card p-6">
-            <div class="mb-5 flex items-center gap-2">
-              <ng-icon name="lucideBellRing" size="16" class="text-primary" />
-              <h2 class="text-sm font-semibold">Invoice reminders</h2>
-            </div>
-            <div class="grid gap-4 sm:grid-cols-2">
-              <div class="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3">
-                <div>
-                  <p class="text-sm font-medium">Email reminders</p>
-                  <p class="text-xs text-muted-foreground">
-                    Nudge clients when invoices come due.
-                  </p>
-                </div>
-                <hlm-switch
-                  [formField]="f.remindersEnabled"
-                  aria-label="Send invoice reminder emails"
-                />
-              </div>
-              <app-field
-                label="Days before due date"
-                hint="Reminders start this many days ahead and repeat at the same interval while unpaid."
-              >
-                <input
-                  hlmInput
-                  type="number"
-                  class="w-full"
-                  [formField]="f.reminderDaysBefore"
-                />
-              </app-field>
-            </div>
-          </section>
-
           <div class="flex items-center justify-between">
             <p class="text-xs text-muted-foreground">
               Slug: <span class="font-mono">{{ ws.slug }}</span>
@@ -317,6 +285,121 @@
         </section>
       </div>
     }
+
+    <div hlmTabsContent="notifications">
+      @if (workspace()) {
+        <form class="space-y-4" (submit)="$event.preventDefault(); saveWorkspace()">
+          <section class="surface-card p-6">
+            <div class="mb-1 flex items-center gap-2">
+              <ng-icon name="lucideMail" size="16" class="text-primary" />
+              <h2 class="text-sm font-semibold">Email notifications</h2>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              What Foundry emails to clients, and the one send you can turn off.
+            </p>
+
+            <div class="mt-5 divide-y divide-border rounded-lg border border-border">
+              @for (row of automaticEmails; track row.label) {
+                <div class="flex items-center justify-between gap-4 px-4 py-3">
+                  <div class="flex min-w-0 items-center gap-3">
+                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                      <ng-icon [name]="row.icon" size="15" />
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium">{{ row.label }}</p>
+                      <p class="mt-0.5 text-xs text-muted-foreground">{{ row.desc }}</p>
+                    </div>
+                  </div>
+                  <span
+                    class="inline-flex shrink-0 items-center rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                  >
+                    Automatic
+                  </span>
+                </div>
+              }
+              <div class="flex flex-wrap items-center justify-between gap-4 px-4 py-3">
+                <div class="flex min-w-0 items-center gap-3">
+                  <div class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                    <ng-icon [name]="reminderKind.icon" size="15" />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium">{{ reminderKind.label }}</p>
+                    <p class="mt-0.5 text-xs text-muted-foreground">
+                      Nudge clients by email when an invoice comes due - the only
+                      email you control here.
+                    </p>
+                  </div>
+                </div>
+                <hlm-switch
+                  [formField]="f.remindersEnabled"
+                  aria-label="Send invoice reminder emails"
+                />
+              </div>
+              @if (f.remindersEnabled().value()) {
+                <div class="px-4 py-3">
+                  <app-field
+                    label="Days before due date"
+                    hint="Reminders start this many days ahead and repeat at the same interval while unpaid."
+                  >
+                    <input
+                      hlmInput
+                      type="number"
+                      class="w-full max-w-40"
+                      [formField]="f.reminderDaysBefore"
+                    />
+                  </app-field>
+                </div>
+              }
+            </div>
+          </section>
+
+          <section class="surface-card p-6">
+            <div class="mb-1 flex items-center gap-2">
+              <ng-icon name="lucideBellRing" size="16" class="text-primary" />
+              <h2 class="text-sm font-semibold">In-app notifications</h2>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              Shown behind the bell in the top bar. These track your own
+              workspace activity and are always on for now.
+            </p>
+
+            <div class="mt-5 divide-y divide-border rounded-lg border border-border">
+              @for (row of inAppKinds; track row.kind) {
+                <div class="flex items-center justify-between gap-4 px-4 py-3">
+                  <div class="flex min-w-0 items-center gap-3">
+                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                      <ng-icon [name]="row.icon" size="15" />
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium">{{ row.label }}</p>
+                      <p class="mt-0.5 text-xs text-muted-foreground">{{ row.desc }}</p>
+                    </div>
+                  </div>
+                  <span
+                    class="inline-flex shrink-0 items-center rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                  >
+                    Always on
+                  </span>
+                </div>
+              }
+            </div>
+          </section>
+
+          <div class="flex justify-end">
+            <button
+              hlmBtn
+              size="sm"
+              type="submit"
+              [disabled]="savingWorkspace() || f().invalid()"
+            >
+              {{ savingWorkspace() ? 'Saving…' : 'Save notification settings' }}
+            </button>
+          </div>
+        </form>
+      } @else {
+        <p class="text-xs text-muted-foreground">Loading workspace…</p>
+      }
+    </div>
 
     <div hlmTabsContent="advanced">
       <section class="surface-card border-destructive/30 p-6">

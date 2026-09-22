@@ -38,7 +38,7 @@ export class PortalSettings {
   });
 
   protected readonly portalUrl = computed(
-    () => `https://portal.foundry.app/${this.store.slug()}`,
+    () => `https://foundryinstance/${this.store.slug()}`,
   );
   protected readonly activeUsers = computed(
     () => this.store.clientUsers().filter((u) => u.status === 'active').length,

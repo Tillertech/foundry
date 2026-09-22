@@ -138,7 +138,7 @@ export interface InviteClientDialogContext {
           class="rounded-lg bg-muted/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground"
         >
           Portal permissions inherit your workspace defaults. You can override
-          them per project in Settings → Client Portal.
+          them per project in Settings - Client Portal.
         </p>
 
         <div hlmDialogFooter>
