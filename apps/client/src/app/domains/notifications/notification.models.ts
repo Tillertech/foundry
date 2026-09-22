@@ -3,9 +3,11 @@ import { PaginationQuery } from '@foundry/shared-util';
 export type NotificationKind =
   | 'invoice_sent'
   | 'invoice_paid'
+  | 'invoice_partially_paid'
   | 'invoice_reminder'
   | 'quote_sent'
-  | 'document_shared';
+  | 'document_shared'
+  | 'project_status_changed';
 
 /** In-app notification shown behind the header bell. */
 export interface AppNotification {
