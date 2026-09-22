@@ -169,7 +169,7 @@ export class Settings {
     },
   ];
 
-  /** The one email preference that actually exists today - workspace-level, not per-client. */
+
   protected readonly reminderKind: {
     kind: NotificationKind;
     icon: string;
@@ -373,10 +373,8 @@ export class Settings {
     this.savingWorkspace.set(true);
     this.workspacesApi.update(ws.id, body).subscribe({
       next: (updated) => {
-        console.log('hahahaha');
         this.savingWorkspace.set(false);
         this.workspace.set(updated);
-        // todo: figure out fail
         this.toast.success(
           'Settings saved',
           'Your workspace details have been updated.',
