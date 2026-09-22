@@ -13,6 +13,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { Project, ProjectsApiService } from '../../domains/projects';
 import { isoDay, money } from '@foundry/shared-util';
 import { EmptyState, StatusBadge } from '@foundry/shared-ui';
+import { PortalAuthService } from '../../domains/auth';
 
 @Component({
   selector: 'app-portal-projects',
@@ -30,12 +31,15 @@ import { EmptyState, StatusBadge } from '@foundry/shared-ui';
 })
 export class Projects {
   private readonly projectsApi = inject(ProjectsApiService);
+  protected readonly auth = inject(PortalAuthService);
 
   protected readonly isoDay = isoDay;
   protected readonly money = money;
 
   protected readonly loading = signal(true);
   protected readonly projects = signal<Project[]>([]);
+  protected readonly base = computed(() => `/${this.auth.slug() ?? ''}`);
+  protected readonly projectsLink = computed(() => `${this.base()}/projects`);
 
   protected readonly active = computed(() =>
     this.projects().filter((p) => p.status !== 'completed'),

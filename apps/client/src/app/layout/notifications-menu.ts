@@ -187,7 +187,7 @@ export class NotificationsMenu {
 
   private refreshList(): void {
     this.loading.set(true);
-    this.api.list({ take: 15 }).subscribe({
+    this.api.list({ take: 15, unread: true }).subscribe({
       next: (res) => {
         this.notifications.set(res.results);
         this.loading.set(false);
