@@ -11,7 +11,9 @@ export class DocumentEntity {
   @ApiProperty({ enum: Object.values(DocumentType), enumName: 'DocumentType' })
   type: DocumentType;
 
-  @ApiProperty({ description: 'Storage key assigned when the file is uploaded' })
+  @ApiProperty({
+    description: 'Storage key assigned when the file is uploaded',
+  })
   storageKey: string;
 
   @ApiProperty({ description: 'Bytes' })
@@ -28,6 +30,9 @@ export class DocumentEntity {
 
   @ApiPropertyOptional({ nullable: true, type: String, format: 'uuid' })
   projectId: string | null;
+
+  @ApiProperty({ format: 'uuid', description: 'Owning workspace' })
+  workspaceId: string;
 
   @ApiProperty()
   uploadedAt: Date;

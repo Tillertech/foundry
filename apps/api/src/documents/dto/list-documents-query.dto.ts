@@ -4,6 +4,14 @@ import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { DocumentType } from '../../generated/prisma/enums';
 
 export class ListDocumentsQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Only documents in this one of your workspaces',
+  })
+  @IsOptional()
+  @IsUUID()
+  workspaceId?: string;
+
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID()
@@ -14,7 +22,10 @@ export class ListDocumentsQueryDto extends PaginationQueryDto {
   @IsUUID()
   projectId?: string;
 
-  @ApiPropertyOptional({ enum: Object.values(DocumentType), enumName: 'DocumentType' })
+  @ApiPropertyOptional({
+    enum: Object.values(DocumentType),
+    enumName: 'DocumentType',
+  })
   @IsOptional()
   @IsEnum(DocumentType)
   type?: DocumentType;

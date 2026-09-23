@@ -172,11 +172,13 @@ model Workspace {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  ownerId  String    @db.Uuid
-  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  clients  Client[]
+  ownerId   String     @db.Uuid
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  clients   Client[]
+  expenses  Expense[]
+  documents Document[]
   /// Denormalized for the per-workspace invoice numbering sequence and its uniqueness constraint.
-  invoices Invoice[]
+  invoices  Invoice[]
 
   @@map("workspace")
 }
@@ -398,13 +400,16 @@ model Expense {
   billable Boolean         @default(false)
   notes    String?
 
-  projectId String?  @db.Uuid
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId   String?    @db.Uuid
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  workspaceId String?    @db.Uuid
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   // invoice line this expense was billed on, if any.
   invoiceItem InvoiceItem?
 
   @@index([projectId])
+  @@index([workspaceId])
   @@map("expenses")
 }
 
@@ -419,13 +424,16 @@ model Document {
   notes      String?
   uploadedAt DateTime     @default(now())
 
-  clientId  String?  @db.Uuid
-  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  projectId String?  @db.Uuid
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clientId    String?    @db.Uuid
+  client      Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId   String?    @db.Uuid
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  workspaceId String?    @db.Uuid
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
   @@index([projectId])
+  @@index([workspaceId])
   @@map("documents")
 }
 

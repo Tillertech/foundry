@@ -9,10 +9,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { PortalContextService } from '../portal-context.service';
 
-export type SafeDocument = Omit<Document, 'storageKey'>;
+export type SafeDocument = Omit<Document, 'storageKey' | 'workspaceId'>;
 
-/** storageKey is a raw filesystem path / S3 object key - never return it to a portal user. */
-const SAFE_OMIT = { storageKey: true } as const;
+/**
+ * storageKey is a raw filesystem path / S3 object key, and workspaceId an
+ * internal identifier of the biller's own account - never return either to a
+ * portal user.
+ */
+const SAFE_OMIT = { storageKey: true, workspaceId: true } as const;
 
 @Injectable()
 export class PortalDocumentsService {

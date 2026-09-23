@@ -12,6 +12,8 @@ export interface ApiDocument {
   notes: string | null;
   clientId: string | null;
   projectId: string | null;
+  /** Owning workspace - follows the client/project when one is linked. */
+  workspaceId: string;
   uploadedAt: string;
 }
 

@@ -182,7 +182,7 @@
             </hlm-select-trigger>
             <hlm-select-content *hlmSelectPortal>
               <hlm-select-item value="">Not linked</hlm-select-item>
-              @for (p of projects(); track p.id) {
+              @for (p of linkableProjects(); track p.id) {
                 <hlm-select-item [value]="p.id">{{ p.name }}</hlm-select-item>
               }
             </hlm-select-content>

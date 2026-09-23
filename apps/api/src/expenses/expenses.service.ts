@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   PaginationRes,
   PaginationService,
@@ -6,6 +10,7 @@ import {
 import type { ExpenseModel } from '../generated/prisma/models';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
+import { WorkspacesService } from '../workspaces/workspaces.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { ListExpensesQueryDto } from './dto/list-expenses-query.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -20,8 +25,9 @@ const EXPENSE_INCLUDE = {
 } as const;
 
 /**
- * Expenses without a project have no ownership chain in the schema, so they
- * are visible workspace-wide; project-linked ones are scoped to the owner.
+ * Every expense belongs to exactly one workspace (its own `workspaceId`,
+ * kept in step with its project's), and every query is scoped through that
+ * workspace's owner
  */
 @Injectable()
 export class ExpensesService {
@@ -29,21 +35,22 @@ export class ExpensesService {
     private readonly prisma: PrismaService,
     private readonly pagination: PaginationService,
     private readonly projects: ProjectsService,
+    private readonly workspaces: WorkspacesService,
   ) {}
 
   private scope(ownerId: string) {
-    return {
-      OR: [
-        { projectId: null },
-        { project: { client: { workspace: { ownerId } } } },
-      ],
-    };
+    return { workspace: { ownerId } };
   }
 
   async create(ownerId: string, dto: CreateExpenseDto): Promise<Expense> {
-    if (dto.projectId) await this.projects.findOne(ownerId, dto.projectId);
+    const { workspaceId: requested, ...data } = dto;
+    const workspaceId = await this.resolveWorkspace(
+      ownerId,
+      dto.projectId,
+      requested,
+    );
     return this.prisma.expense.create({
-      data: dto,
+      data: { ...data, workspaceId },
       include: EXPENSE_INCLUDE,
     });
   }
@@ -53,20 +60,24 @@ export class ExpensesService {
     query: ListExpensesQueryDto,
     baseUrl: string,
   ): Promise<PaginationRes<Expense>> {
-    const { cursor, take, projectId, clientId, category, billable } = query;
+    const {
+      cursor,
+      take,
+      projectId,
+      clientId,
+      workspaceId,
+      category,
+      billable,
+    } = query;
     return this.pagination.paginate<Expense>(
       this.prisma.expense,
       {
         where: {
-          AND: [
-            this.scope(ownerId),
-            {
-              ...(projectId ? { projectId } : {}),
-              ...(clientId ? { project: { clientId } } : {}),
-              ...(category ? { category } : {}),
-              ...(billable !== undefined ? { billable } : {}),
-            },
-          ],
+          workspace: { ownerId, ...(workspaceId ? { id: workspaceId } : {}) },
+          ...(projectId ? { projectId } : {}),
+          ...(clientId ? { project: { clientId } } : {}),
+          ...(category ? { category } : {}),
+          ...(billable !== undefined ? { billable } : {}),
         },
         include: EXPENSE_INCLUDE,
       },
@@ -82,7 +93,7 @@ export class ExpensesService {
 
   async findOne(ownerId: string, id: string): Promise<Expense> {
     const expense = await this.prisma.expense.findFirst({
-      where: { AND: [{ id }, this.scope(ownerId)] },
+      where: { id, ...this.scope(ownerId) },
       include: EXPENSE_INCLUDE,
     });
     if (!expense) throw new NotFoundException('Expense not found');
@@ -95,10 +106,14 @@ export class ExpensesService {
     dto: UpdateExpenseDto,
   ): Promise<Expense> {
     await this.findOne(ownerId, id);
-    if (dto.projectId) await this.projects.findOne(ownerId, dto.projectId);
+    // Moving onto a project moves the expense into that project's
+    // workspace too; unlinking the project leaves it where it is.
+    const workspaceId = dto.projectId
+      ? await this.projectWorkspaceId(ownerId, dto.projectId)
+      : undefined;
     return this.prisma.expense.update({
       where: { id },
-      data: dto,
+      data: { ...dto, ...(workspaceId ? { workspaceId } : {}) },
       include: EXPENSE_INCLUDE,
     });
   }
@@ -109,5 +124,44 @@ export class ExpensesService {
       where: { id },
       include: EXPENSE_INCLUDE,
     });
+  }
+
+  /**
+   * The workspace a new expense lands in: its project's when it has one
+   * (an explicitly requested workspace must agree), else the requested
+   * workspace, else the caller's default - each checked to be the caller's.
+   */
+  private async resolveWorkspace(
+    ownerId: string,
+    projectId: string | undefined,
+    requested: string | undefined,
+  ): Promise<string> {
+    if (projectId) {
+      const workspaceId = await this.projectWorkspaceId(ownerId, projectId);
+      if (requested && requested !== workspaceId) {
+        throw new BadRequestException(
+          'The project belongs to a different workspace than the one requested',
+        );
+      }
+      return workspaceId;
+    }
+    const workspace = requested
+      ? await this.workspaces.findOne(ownerId, requested)
+      : await this.workspaces.findDefault(ownerId);
+    return workspace.id;
+  }
+
+  /** The workspace of one of the caller's projects (404 if not theirs). */
+  private async projectWorkspaceId(
+    ownerId: string,
+    projectId: string,
+  ): Promise<string> {
+    const project = await this.projects.findOne(ownerId, projectId);
+    const client = await this.prisma.client.findUnique({
+      where: { id: project.clientId },
+      select: { workspaceId: true },
+    });
+    if (!client) throw new NotFoundException('Project not found');
+    return client.workspaceId;
   }
 }

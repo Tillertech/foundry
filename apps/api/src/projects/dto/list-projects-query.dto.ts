@@ -9,7 +9,10 @@ export class ListProjectsQueryDto extends PaginationQueryDto {
   @IsUUID()
   clientId?: string;
 
-  @ApiPropertyOptional({ enum: Object.values(ProjectStatus), enumName: 'ProjectStatus' })
+  @ApiPropertyOptional({
+    enum: Object.values(ProjectStatus),
+    enumName: 'ProjectStatus',
+  })
   @IsOptional()
   @IsEnum(ProjectStatus)
   status?: ProjectStatus;

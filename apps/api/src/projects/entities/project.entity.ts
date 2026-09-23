@@ -8,10 +8,17 @@ export class ProjectEntity {
   @ApiProperty()
   name: string;
 
-  @ApiProperty({ enum: Object.values(ProjectStatus), enumName: 'ProjectStatus' })
+  @ApiProperty({
+    enum: Object.values(ProjectStatus),
+    enumName: 'ProjectStatus',
+  })
   status: ProjectStatus;
 
-  @ApiProperty({ type: String, description: 'Decimal serialized as string', example: '24000' })
+  @ApiProperty({
+    type: String,
+    description: 'Decimal serialized as string',
+    example: '24000',
+  })
   budget: string;
 
   @ApiPropertyOptional({ nullable: true, type: String, example: '150' })

@@ -3,8 +3,10 @@ import {
   Component,
   PLATFORM_ID,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 
 import { FormField, form, minLength } from '@angular/forms/signals';
@@ -140,7 +142,25 @@ export class Documents {
   protected readonly projectLabel = (v: string) =>
     v ? (this.projects().find((p) => p.id === v)?.name ?? v) : 'Not linked';
 
+  /**
+   * Projects the document can be linked to: the chosen client's own, or any
+   * when no client is chosen.
+   */
+  protected readonly linkableProjects = computed(() => {
+    const clientId = this.model().clientId;
+    return this.projects().filter((p) => !clientId || p.clientId === clientId);
+  });
+
   constructor() {
+    // Switching client drops a project that belonged to the previous one.
+    effect(() => {
+      const { clientId, projectId } = this.model();
+      if (!clientId || !projectId) return;
+      const project = untracked(this.projects).find((p) => p.id === projectId);
+      if (project && project.clientId !== clientId) {
+        this.model.update((m) => ({ ...m, projectId: '' }));
+      }
+    });
     this.refresh();
   }
 

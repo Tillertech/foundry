@@ -1,5 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MinLength,
+} from 'class-validator';
 import { DocumentType } from '../../generated/prisma/enums';
 
 /**
@@ -17,7 +23,10 @@ export class CreateDocumentDto {
   @MinLength(1)
   name?: string;
 
-  @ApiPropertyOptional({ enum: Object.values(DocumentType), enumName: 'DocumentType' })
+  @ApiPropertyOptional({
+    enum: Object.values(DocumentType),
+    enumName: 'DocumentType',
+  })
   @IsOptional()
   @IsEnum(DocumentType)
   type?: DocumentType;
@@ -36,4 +45,13 @@ export class CreateDocumentDto {
   @IsOptional()
   @IsUUID()
   projectId?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      "Workspace the document belongs to. Derived from the client/project when one is given (and must match it if both are sent); defaults to the caller's default workspace otherwise.",
+  })
+  @IsOptional()
+  @IsUUID()
+  workspaceId?: string;
 }
