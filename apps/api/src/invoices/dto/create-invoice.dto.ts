@@ -15,6 +15,17 @@ import {
 import { LineItemDto } from '../../common/dto/line-item.dto';
 import { Currency, InvoiceStatus } from '../../generated/prisma/enums';
 
+export class InvoiceLineItemDto extends LineItemDto {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      "Billable expense this line re-bills. Must be one of the invoice client's unbilled billable expenses in the invoice currency; quantity/rate are then taken from the expense (1 x amount) rather than the request.",
+  })
+  @IsOptional()
+  @IsUUID()
+  expenseId?: string;
+}
+
 export class CreateInvoiceDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
@@ -65,10 +76,10 @@ export class CreateInvoiceDto {
   @IsString()
   notes?: string;
 
-  @ApiProperty({ type: [LineItemDto] })
+  @ApiProperty({ type: [InvoiceLineItemDto] })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => LineItemDto)
-  items: LineItemDto[];
+  @Type(() => InvoiceLineItemDto)
+  items: InvoiceLineItemDto[];
 }

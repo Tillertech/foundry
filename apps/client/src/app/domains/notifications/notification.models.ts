@@ -7,7 +7,8 @@ export type NotificationKind =
   | 'invoice_reminder'
   | 'quote_sent'
   | 'document_shared'
-  | 'project_status_changed';
+  | 'project_status_changed'
+  | 'milestone_completed';
 
 /** In-app notification shown behind the header bell. */
 export interface AppNotification {
@@ -15,7 +16,7 @@ export interface AppNotification {
   kind: NotificationKind;
   title: string;
   body: string;
-  /** Id of the invoice, quote or document the notification is about. */
+  /** Id of the invoice, quote, document or project the notification is about. */
   resourceId: string | null;
   readAt: string | null;
   userId: string;

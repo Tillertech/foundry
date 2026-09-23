@@ -7,14 +7,21 @@ import {
 } from '@angular/core';
 import { FormField, form, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus, lucideSearch, lucideSend } from '@ng-icons/lucide';
+import {
+  lucidePlus,
+  lucideReceipt,
+  lucideSearch,
+  lucideSend,
+} from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import {
   apiErrorMessage,
   Currency,
+  humanize,
   invoiceTotal,
   isoDay,
   money,
@@ -23,6 +30,7 @@ import {
   toApiDate,
 } from '@foundry/shared-util';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
+import { Expense, ExpensesApiService } from '../../domains/expenses';
 import {
   CreateInvoiceRequest,
   Invoice,
@@ -39,6 +47,15 @@ import { LineItemDraft, LineItemsEditor } from '../../shared/line-items-editor';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { ReconciliationTimeline } from '../../shared/reconciliation-timeline';
 
+/** A billable expense re-billed on the invoice, kept apart from the editable lines. */
+interface ExpenseLineDraft {
+  expenseId: string;
+  description: string;
+  amount: number;
+  currency: Currency;
+  date: string;
+}
+
 interface InvoiceForm {
   id: string;
   number: string;
@@ -49,6 +66,7 @@ interface InvoiceForm {
   dueDate: string;
   currency: Currency;
   items: LineItemDraft[];
+  expenseLines: ExpenseLineDraft[];
   taxRate: number;
   discount: number;
   notes: string;
@@ -64,6 +82,7 @@ const emptyInvoice = (): InvoiceForm => ({
   dueDate: new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10),
   currency: 'USD',
   items: [],
+  expenseLines: [],
   taxRate: 0,
   discount: 0,
   notes: '',
@@ -81,6 +100,7 @@ const emptyInvoice = (): InvoiceForm => ({
     HlmSelectImports,
     DateField,
     EntitySheet,
+    HlmCheckboxImports,
     Field,
     LineItemsEditor,
     ListSkeleton,
@@ -88,7 +108,9 @@ const emptyInvoice = (): InvoiceForm => ({
     ReconciliationTimeline,
     StatusBadge,
   ],
-  providers: [provideIcons({ lucidePlus, lucideSearch, lucideSend })],
+  providers: [
+    provideIcons({ lucidePlus, lucideReceipt, lucideSearch, lucideSend }),
+  ],
   templateUrl: './invoices.html',
 })
 export class Invoices {
@@ -96,12 +118,16 @@ export class Invoices {
   private readonly clientsApi = inject(ClientsApiService);
   private readonly projectsApi = inject(ProjectsApiService);
   private readonly workspacesApi = inject(WorkspacesApiService);
+  private readonly expensesApi = inject(ExpensesApiService);
   private readonly toast = inject(ToastService);
 
   protected readonly loading = signal(true);
   protected readonly invoices = signal<Invoice[]>([]);
   protected readonly clients = signal<ApiClient[]>([]);
   private readonly projects = signal<Project[]>([]);
+  /** The selected client's billable expenses, for the sheet's expense picker. */
+  private readonly clientExpenses = signal<Expense[]>([]);
+  protected readonly expensesLoading = signal(false);
   /** Default workspace: reminder cadence for the reminder column. */
   protected readonly workspace = signal<Workspace | null>(null);
 
@@ -212,7 +238,75 @@ export class Invoices {
   }
 
   protected get totals() {
-    return invoiceTotal(this.model());
+    return invoiceTotal({ ...this.model(), items: this.allLines() });
+  }
+
+  /** Regular lines plus re-billed expenses (1 x amount) - what the API totals over. */
+  private allLines() {
+    const m = this.model();
+    return [
+      ...m.items,
+      ...m.expenseLines.map((e) => ({ quantity: 1, rate: e.amount })),
+    ];
+  }
+
+  /**
+   * Expenses the picker offers: the client's billable ones not yet billed
+   * elsewhere (the invoice being edited keeps its own), plus any already on
+   * this invoice that the list didn't return.
+   */
+  protected readonly billableExpenses = computed(() => {
+    const m = this.model();
+    const available: ExpenseLineDraft[] = this.clientExpenses()
+      .filter((e) => !e.invoiceItem || e.invoiceItem.invoice.id === m.id)
+      .map((e) => this.toExpenseLine(e));
+    const listed = new Set(available.map((e) => e.expenseId));
+    return [
+      ...m.expenseLines.filter((e) => !listed.has(e.expenseId)),
+      ...available,
+    ];
+  });
+
+  protected readonly expensesTotal = computed(() =>
+    this.model().expenseLines.reduce((sum, e) => sum + e.amount, 0),
+  );
+
+  protected isExpenseSelected(expenseId: string): boolean {
+    return this.model().expenseLines.some((e) => e.expenseId === expenseId);
+  }
+
+  protected toggleExpense(line: ExpenseLineDraft, checked: boolean): void {
+    this.model.update((m) => ({
+      ...m,
+      expenseLines: checked
+        ? [...m.expenseLines, line]
+        : m.expenseLines.filter((e) => e.expenseId !== line.expenseId),
+    }));
+  }
+
+  private toExpenseLine(e: Expense): ExpenseLineDraft {
+    return {
+      expenseId: e.id,
+      description: `${e.vendor} · ${humanize(e.category)}`,
+      amount: num(e.amount),
+      currency: e.currency,
+      date: isoDay(e.date),
+    };
+  }
+
+  private loadClientExpenses(clientId: string): void {
+    this.clientExpenses.set([]);
+    if (!clientId) return;
+    this.expensesLoading.set(true);
+    this.expensesApi.list({ clientId, billable: true, take: 100 }).subscribe({
+      next: (res) => {
+        // Ignore a late response for a client the sheet has since moved off.
+        if (this.model().clientId !== clientId) return;
+        this.clientExpenses.set(res.results);
+        this.expensesLoading.set(false);
+      },
+      error: () => this.expensesLoading.set(false),
+    });
   }
 
   protected openNew(): void {
@@ -224,6 +318,7 @@ export class Invoices {
       items: [{ id: newId(), description: '', quantity: 1, rate: 0 }],
     });
     this.isNew = true;
+    this.loadClientExpenses(c?.id ?? '');
     this.sheetOpen.set(true);
   }
 
@@ -237,23 +332,48 @@ export class Invoices {
       issueDate: isoDay(i.issueDate),
       dueDate: isoDay(i.dueDate),
       currency: i.currency,
-      items: i.items.map((it) => ({
-        id: it.id,
-        description: it.description,
-        quantity: num(it.quantity),
-        rate: num(it.rate),
-      })),
+      items: i.items
+        .filter((it) => !it.expenseId)
+        .map((it) => ({
+          id: it.id,
+          description: it.description,
+          quantity: num(it.quantity),
+          rate: num(it.rate),
+        })),
+      expenseLines: i.items.flatMap((it) =>
+        it.expenseId
+          ? [
+              {
+                expenseId: it.expenseId,
+                description: it.description,
+                amount: num(it.quantity) * num(it.rate),
+                currency: i.currency,
+                date: it.expense ? isoDay(it.expense.date) : '',
+              },
+            ]
+          : [],
+      ),
       taxRate: num(i.taxRate),
       discount: num(i.discount),
       notes: i.notes ?? '',
     });
     this.isNew = false;
+    this.loadClientExpenses(i.clientId);
     this.sheetOpen.set(true);
   }
 
   protected save(): void {
     const v = this.model();
-    if (this.f().invalid() || v.items.length === 0 || this.saving()) return;
+    const lineCount = v.items.length + v.expenseLines.length;
+    if (this.f().invalid() || lineCount === 0 || this.saving()) return;
+    const mismatched = v.expenseLines.find((e) => e.currency !== v.currency);
+    if (mismatched) {
+      this.toast.error(
+        'Expense currency mismatch',
+        `${mismatched.description} is in ${mismatched.currency} - untick it or switch the invoice to ${mismatched.currency}.`,
+      );
+      return;
+    }
     const common: UpdateInvoiceRequest = {
       projectId: v.projectId || undefined,
       number: v.number.trim() || undefined,
@@ -264,11 +384,19 @@ export class Invoices {
       taxRate: num(v.taxRate),
       discount: num(v.discount),
       notes: v.notes.trim() || undefined,
-      items: v.items.map(({ description, quantity, rate }) => ({
-        description,
-        quantity,
-        rate,
-      })),
+      items: [
+        ...v.items.map(({ description, quantity, rate }) => ({
+          description,
+          quantity,
+          rate,
+        })),
+        ...v.expenseLines.map(({ expenseId, description, amount }) => ({
+          description,
+          quantity: 1,
+          rate: amount,
+          expenseId,
+        })),
+      ],
     };
     this.saving.set(true);
     const request = this.isNew
@@ -280,6 +408,8 @@ export class Invoices {
     request.subscribe({
       next: (invoice) => {
         this.saving.set(false);
+        // Billed-on markers moved - reload so the picker reflects them.
+        this.loadClientExpenses(invoice.clientId);
         this.invoices.update((list) =>
           this.isNew
             ? [invoice, ...list]
@@ -339,7 +469,10 @@ export class Invoices {
       clientId,
       projectId: '',
       currency: c?.currency ?? m.currency,
+      // Expenses belong to one client's projects - never carry them across.
+      expenseLines: clientId === m.clientId ? m.expenseLines : [],
     }));
+    this.loadClientExpenses(clientId);
   }
 
   protected onItemsChange(items: LineItemDraft[]): void {

@@ -18,6 +18,7 @@
                   Please find invoice <strong>{{number}}</strong> below. It was issued on
                   {{issueDate}} and is due by <strong>{{dueDate}}</strong>. A PDF copy is attached.
                 </p>
+                {{#if hasItems}}
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;border-collapse:collapse;">
                   <tr style="border-bottom:2px solid #e4e4e7;color:#71717a;text-align:left;">
                     <th style="padding:8px 0;">Description</th>
@@ -34,7 +35,36 @@
                   </tr>
                   {{/each}}
                 </table>
+                {{/if}}
+                {{#if hasExpenses}}
+                <p style="margin:24px 0 4px;font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#a1a1aa;">Billable expenses</p>
+                <p style="margin:0 0 8px;font-size:12px;color:#71717a;">Costs incurred on your behalf, billed at cost.</p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;border-collapse:collapse;">
+                  <tr style="border-bottom:2px solid #e4e4e7;color:#71717a;text-align:left;">
+                    <th style="padding:8px 0;">Expense</th>
+                    <th style="padding:8px 0;text-align:right;">Date</th>
+                    <th style="padding:8px 0;text-align:right;">Amount</th>
+                  </tr>
+                  {{#each expenses}}
+                  <tr style="border-bottom:1px solid #f4f4f5;">
+                    <td style="padding:8px 0;">{{this.description}}</td>
+                    <td style="padding:8px 0;text-align:right;color:#71717a;">{{this.date}}</td>
+                    <td style="padding:8px 0;text-align:right;">{{../currency}} {{this.amount}}</td>
+                  </tr>
+                  {{/each}}
+                </table>
+                {{/if}}
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;margin-top:16px;">
+                  {{#if hasExpenses}}
+                  <tr>
+                    <td style="color:#71717a;padding:4px 0;">Services</td>
+                    <td style="text-align:right;padding:4px 0;">{{currency}} {{itemsTotal}}</td>
+                  </tr>
+                  <tr>
+                    <td style="color:#71717a;padding:4px 0;">Billable expenses</td>
+                    <td style="text-align:right;padding:4px 0;">{{currency}} {{expensesTotal}}</td>
+                  </tr>
+                  {{/if}}
                   <tr>
                     <td style="color:#71717a;padding:4px 0;">Subtotal</td>
                     <td style="text-align:right;padding:4px 0;">{{currency}} {{subtotal}}</td>

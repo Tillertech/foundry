@@ -19,6 +19,7 @@ enum NotificationKind {
   quote_sent
   document_shared
   project_status_changed
+  milestone_completed
 }
 
 enum Currency {
@@ -295,6 +296,11 @@ model InvoiceItem {
   invoiceId String  @db.Uuid
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
+  // Billable expense this line re-bills to the client. Expense is only ever billed once;
+  // quantity/rate are a snapshot of it: later edits or deletion of the expense never change an issued invoice.
+  expenseId String?  @unique @db.Uuid
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
   @@index([invoiceId])
   @@map("invoice_items")
 }
@@ -394,6 +400,9 @@ model Expense {
 
   projectId String?  @db.Uuid
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // invoice line this expense was billed on, if any.
+  invoiceItem InvoiceItem?
 
   @@index([projectId])
   @@map("expenses")

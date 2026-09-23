@@ -5,6 +5,7 @@ import type {
   InvoicePartiallyPaidEvent,
   InvoiceReminderDueEvent,
   InvoiceSentEvent,
+  MilestoneCompletedEvent,
   ProjectStatusChangedEvent,
   QuoteSentEvent,
 } from '../common/events';
@@ -14,6 +15,7 @@ import {
 } from '../common/pagination/pagination.service';
 import {
   ClientPortalUserStatus,
+  MilestoneStatus,
   NotificationKind,
 } from '../generated/prisma/enums';
 import type {
@@ -21,6 +23,7 @@ import type {
   PaymentModel as Payment,
 } from '../generated/prisma/models';
 import {
+  InvoicePdfData,
   PdfBrand,
   PdfGeneratorService,
   PdfParty,
@@ -33,6 +36,8 @@ import {
   DocumentMailContext,
   InvoiceMailContext,
   MailService,
+  MilestoneCompletedMailContext,
+  ProjectProgressMailContext,
   ProjectStatusMailContext,
   QuoteMailContext,
 } from './mail/mail.service';
@@ -82,11 +87,7 @@ export class NotificationService {
       issueDate: context.issueDate,
       dueDate: context.dueDate,
       currency: invoice.currency,
-      items: invoice.items.map((item) => ({
-        description: item.description,
-        quantity: Number(item.quantity),
-        rate: Number(item.rate),
-      })),
+      items: this.pdfLines(invoice),
       taxRate: Number(invoice.taxRate),
       discount: Number(invoice.discount),
       notes: invoice.notes ?? undefined,
@@ -134,11 +135,7 @@ export class NotificationService {
       issueDate: context.issueDate,
       dueDate: context.dueDate,
       currency: invoice.currency,
-      items: invoice.items.map((item) => ({
-        description: item.description,
-        quantity: Number(item.quantity),
-        rate: Number(item.rate),
-      })),
+      items: this.pdfLines(invoice),
       taxRate: Number(invoice.taxRate),
       discount: Number(invoice.discount),
       notes: invoice.notes ?? undefined,
@@ -375,35 +372,22 @@ export class NotificationService {
       select: { ownerId: true, name: true },
     });
 
-    const portal = await this.prisma.clientPortal.findUnique({
-      where: { clientId: client.id },
-      include: {
-        permission: true,
-        clientPortalUsers: {
-          where: { status: { not: ClientPortalUserStatus.suspended } },
-        },
-        clientPortalProjects: {
-          where: { projectId: project.id },
-          select: { active: true },
-        },
-      },
-    });
-
-    const shared = portal?.clientPortalProjects[0]?.active ?? false;
-    const notifiable =
-      !!portal?.active && !!portal.permission?.viewProjects && shared;
-
-    if (notifiable && portal) {
+    const recipients = await this.portalProjectRecipients(
+      client.id,
+      project.id,
+    );
+    if (recipients) {
       const context: ProjectStatusMailContext = {
         clientName: client.name,
         workspaceName: workspace?.name ?? 'Foundry',
         projectName: project.name,
         previousStatus: this.prettyProjectStatus(previousStatus),
         status: this.prettyProjectStatus(project.status),
+        ...(await this.projectProgress(project.id, recipients.slug)),
       };
       await Promise.all(
-        portal.clientPortalUsers.map((user) =>
-          this.mail.sendProjectStatusChanged(user.email, context),
+        recipients.emails.map((email) =>
+          this.mail.sendProjectStatusChanged(email, context),
         ),
       );
     }
@@ -424,6 +408,73 @@ export class NotificationService {
     }
     this.logger.log(
       `Project ${project.name} status changed ${previousStatus} -> ${project.status}`,
+    );
+  }
+
+  /**
+   * Emails the client's portal users that a milestone was completed (with
+   * the project's overall progress) and notifies the owner in-app.
+   */
+  async onMilestoneCompleted({
+    milestone,
+    project,
+    client,
+  }: MilestoneCompletedEvent): Promise<void> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: client.workspaceId },
+      select: { ownerId: true, name: true },
+    });
+
+    const recipients = await this.portalProjectRecipients(
+      client.id,
+      project.id,
+    );
+    const progress = await this.projectProgress(
+      project.id,
+      recipients?.slug ?? null,
+    );
+    if (recipients) {
+      const context: MilestoneCompletedMailContext = {
+        clientName: client.name,
+        workspaceName: workspace?.name ?? 'Foundry',
+        projectName: project.name,
+        milestoneName: milestone.name,
+        milestoneDescription: milestone.description ?? '',
+        completedDate: new Date(milestone.completedAt ?? Date.now())
+          .toISOString()
+          .slice(0, 10),
+        ...progress,
+      };
+      await Promise.all(
+        recipients.emails.map((email) =>
+          this.mail.sendMilestoneCompleted(email, context),
+        ),
+      );
+    }
+
+    if (workspace) {
+      this.gateway.emitToUser(workspace.ownerId, 'milestone.completed', {
+        id: milestone.id,
+        name: milestone.name,
+        projectId: project.id,
+        projectName: project.name,
+        progress: progress.hasProgress ? progress.progress : null,
+      });
+      const progressNote = progress.hasProgress
+        ? ` - ${progress.completedMilestones} of ${progress.totalMilestones} milestones done (${progress.progress}%)`
+        : '';
+      const clientNote = recipients
+        ? ` ${client.name} was notified.`
+        : '';
+      await this.notify(workspace.ownerId, {
+        kind: NotificationKind.milestone_completed,
+        title: `Milestone completed: ${milestone.name}`,
+        body: `"${milestone.name}" on ${project.name}${progressNote}.${clientNote}`,
+        resourceId: project.id,
+      });
+    }
+    this.logger.log(
+      `Milestone ${milestone.name} completed on project ${project.name}`,
     );
   }
 
@@ -601,6 +652,88 @@ export class NotificationService {
     });
   }
 
+  /** Invoice lines for the PDF, with re-billed expenses flagged for their own section. */
+  private pdfLines(invoice: InvoiceSentEvent['invoice']): InvoicePdfData['items'] {
+    return invoice.items.map((item) => ({
+      description: item.description,
+      quantity: Number(item.quantity),
+      rate: Number(item.rate),
+      ...(item.expenseId
+        ? {
+            expense: {
+              date: item.expense
+                ? new Date(item.expense.date).toISOString().slice(0, 10)
+                : '',
+            },
+          }
+        : {}),
+    }));
+  }
+
+  /**
+   * Portal users to email about a project, or null when the client
+   * shouldn't hear about it: no active portal, project visibility turned
+   * off, or this particular project not shared on the portal.
+   */
+  private async portalProjectRecipients(
+    clientId: string,
+    projectId: string,
+  ): Promise<{ slug: string; emails: string[] } | null> {
+    const portal = await this.prisma.clientPortal.findUnique({
+      where: { clientId },
+      include: {
+        permission: true,
+        clientPortalUsers: {
+          where: { status: { not: ClientPortalUserStatus.suspended } },
+          select: { email: true },
+        },
+        clientPortalProjects: {
+          where: { projectId },
+          select: { active: true },
+        },
+      },
+    });
+    const shared = portal?.clientPortalProjects[0]?.active ?? false;
+    if (!portal?.active || !portal.permission?.viewProjects || !shared) {
+      return null;
+    }
+    return {
+      slug: portal.slug,
+      emails: portal.clientPortalUsers.map((user) => user.email),
+    };
+  }
+
+  /** Milestone progress for project mails - same rules as the milestones summary (cancelled ones don't count). */
+  private async projectProgress(
+    projectId: string,
+    portalSlug: string | null,
+  ): Promise<ProjectProgressMailContext> {
+    const milestones = await this.prisma.milestone.findMany({
+      where: { projectId, status: { not: MilestoneStatus.cancelled } },
+      orderBy: { order: 'asc' },
+      select: { name: true, status: true },
+    });
+    const completed = milestones.filter(
+      (m) => m.status === MilestoneStatus.completed,
+    ).length;
+    const progress = milestones.length
+      ? Math.round((completed / milestones.length) * 100)
+      : 0;
+    return {
+      hasProgress: milestones.length > 0,
+      progress,
+      remaining: 100 - progress,
+      completedMilestones: completed,
+      totalMilestones: milestones.length,
+      nextMilestoneName:
+        milestones.find((m) => m.status !== MilestoneStatus.completed)?.name ??
+        '',
+      projectUrl: portalSlug
+        ? this.mail.portalProjectUrl(portalSlug, projectId)
+        : '',
+    };
+  }
+
   /** "bank_transfer" -> "Bank transfer". */
   private prettyPaymentMethod(method: string): string {
     const spaced = method.replace(/_/g, ' ');
@@ -620,10 +753,13 @@ export class NotificationService {
     /** Balance still owed; negative when overpaid (settlement mails). */
     balance = 0,
   ): InvoiceMailContext {
-    const subtotal = invoice.items.reduce(
-      (sum, item) => sum + Number(item.quantity) * Number(item.rate),
-      0,
-    );
+    const lineAmount = (item: { quantity: unknown; rate: unknown }) =>
+      Number(item.quantity) * Number(item.rate);
+    const regular = invoice.items.filter((item) => !item.expenseId);
+    const expenses = invoice.items.filter((item) => item.expenseId);
+    const sum = (items: typeof invoice.items) =>
+      items.reduce((acc, item) => acc + lineAmount(item), 0);
+    const subtotal = sum(invoice.items);
     const discount = Number(invoice.discount) || 0;
     const afterDiscount = Math.max(0, subtotal - discount);
     const taxRate = Number(invoice.taxRate) || 0;
@@ -643,12 +779,21 @@ export class NotificationService {
       issueDate: day(invoice.issueDate),
       dueDate: day(invoice.dueDate),
       currency: invoice.currency,
-      items: invoice.items.map((item) => ({
+      items: regular.map((item) => ({
         description: item.description,
         quantity: String(Number(item.quantity)),
         rate: money(Number(item.rate)),
-        amount: money(Number(item.quantity) * Number(item.rate)),
+        amount: money(lineAmount(item)),
       })),
+      hasItems: regular.length > 0,
+      expenses: expenses.map((item) => ({
+        description: item.description,
+        date: item.expense ? day(item.expense.date) : '',
+        amount: money(lineAmount(item)),
+      })),
+      hasExpenses: expenses.length > 0,
+      itemsTotal: money(sum(regular)),
+      expensesTotal: money(sum(expenses)),
       subtotal: money(subtotal),
       discount: money(discount),
       taxRate: String(taxRate),

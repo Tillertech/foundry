@@ -212,7 +212,10 @@ export class ReconciliationService {
   ): Promise<InvoiceForReconciliation | null> {
     return this.prisma.invoice.findUnique({
       where: { id },
-      include: { items: true, client: true },
+      include: {
+        items: { include: { expense: { select: { date: true } } } },
+        client: true,
+      },
     });
   }
 

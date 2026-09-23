@@ -42,6 +42,14 @@ export interface PdfParty {
   taxId?: string | null;
 }
 
+export interface PdfLineItem {
+  description: string;
+  quantity: number;
+  rate: number;
+  /** Set on lines re-billing a billable expense - rendered in their own section. */
+  expense?: { date: string };
+}
+
 export interface InvoicePdfData {
   number: string;
   biller: PdfParty;
@@ -49,7 +57,7 @@ export interface InvoicePdfData {
   issueDate: string;
   dueDate: string;
   currency: string;
-  items: { description: string; quantity: number; rate: number }[];
+  items: PdfLineItem[];
   taxRate: number;
   discount: number;
   notes?: string;
@@ -96,7 +104,7 @@ interface DocumentPdfData {
   billedTo: PdfParty;
   dates: { label: string; value: string }[];
   currency: string;
-  items: { description: string; quantity: number; rate: number }[];
+  items: PdfLineItem[];
   taxRate: number;
   discount: number;
   notes?: string;
@@ -415,12 +423,30 @@ export class PdfGeneratorService {
       paddingBottom: (i) => (i === 0 ? 9 : 7),
     };
 
-    const totalsBody: TableCell[][] = [
-      [
-        { text: 'Subtotal', style: 'sumLabel' },
-        { text: money(subtotal), style: 'sumValue' },
-      ],
-    ];
+    const regular = data.items.filter((it) => !it.expense);
+    const expenses = data.items.filter((it) => it.expense);
+    const lineSum = (items: PdfLineItem[]) =>
+      items.reduce((s, it) => s + it.quantity * it.rate, 0);
+
+    const totalsBody: TableCell[][] = [];
+    // With re-billed expenses on the invoice, break the subtotal down so the
+    // pass-through costs are visible at a glance.
+    if (expenses.length > 0) {
+      totalsBody.push(
+        [
+          { text: 'Services', style: 'sumLabel' },
+          { text: money(lineSum(regular)), style: 'sumValue' },
+        ],
+        [
+          { text: 'Billable expenses', style: 'sumLabel' },
+          { text: money(lineSum(expenses)), style: 'sumValue' },
+        ],
+      );
+    }
+    totalsBody.push([
+      { text: 'Subtotal', style: 'sumLabel' },
+      { text: money(subtotal), style: 'sumValue' },
+    ]);
     if (discount > 0) {
       totalsBody.push([
         { text: 'Discount', style: 'sumLabel' },
@@ -521,27 +547,58 @@ export class PdfGeneratorService {
       },
 
       // Line items.
-      {
-        table: {
-          widths: ['*', 'auto', 'auto', 'auto'],
-          headerRows: 1,
-          body: [
-            [
-              th('Description'),
-              th('Qty', 'right'),
-              th('Rate', 'right'),
-              th('Amount', 'right'),
-            ],
-            ...data.items.map((it) => [
-              td(it.description),
-              td(qty(it.quantity), 'right'),
-              td(money(it.rate), 'right'),
-              td(money(it.quantity * it.rate), 'right'),
-            ]),
-          ],
-        },
-        layout: itemsLayout,
-      },
+      ...(regular.length > 0 || expenses.length === 0
+        ? [
+            {
+              table: {
+                widths: ['*', 'auto', 'auto', 'auto'],
+                headerRows: 1,
+                body: [
+                  [
+                    th('Description'),
+                    th('Qty', 'right'),
+                    th('Rate', 'right'),
+                    th('Amount', 'right'),
+                  ],
+                  ...regular.map((it) => [
+                    td(it.description),
+                    td(qty(it.quantity), 'right'),
+                    td(money(it.rate), 'right'),
+                    td(money(it.quantity * it.rate), 'right'),
+                  ]),
+                ],
+              },
+              layout: itemsLayout,
+            } as Content,
+          ]
+        : []),
+
+      // Re-billed expenses, charged at cost - their own table so they read
+      // as pass-through costs rather than billed work.
+      ...(expenses.length > 0
+        ? [
+            {
+              text: 'BILLABLE EXPENSES',
+              style: 'eyebrow',
+              margin: [0, regular.length > 0 ? 20 : 0, 0, 6],
+            } as Content,
+            {
+              table: {
+                widths: ['*', 'auto', 'auto'],
+                headerRows: 1,
+                body: [
+                  [th('Expense'), th('Date', 'right'), th('Amount', 'right')],
+                  ...expenses.map((it) => [
+                    td(it.description),
+                    td(it.expense?.date || '-', 'right'),
+                    td(money(it.quantity * it.rate), 'right'),
+                  ]),
+                ],
+              },
+              layout: itemsLayout,
+            } as Content,
+          ]
+        : []),
 
       // Totals, right-aligned in a fixed-width panel.
       {

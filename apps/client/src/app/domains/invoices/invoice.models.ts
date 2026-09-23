@@ -18,6 +18,15 @@ export interface InvoiceItem {
   quantity: string;
   rate: string;
   invoiceId: string;
+  /** Set when this line re-bills a billable expense. */
+  expenseId: string | null;
+  /** The billed expense's summary; null for regular lines or a since-deleted expense. */
+  expense: { vendor: string; category: string; date: string } | null;
+}
+
+/** A line to save; `expenseId` re-bills that expense (the API fixes it to 1 x the expense amount). */
+export interface InvoiceLineItemRequest extends LineItemRequest {
+  expenseId?: string;
 }
 
 export interface Invoice {
@@ -51,7 +60,7 @@ export interface CreateInvoiceRequest {
   taxRate?: number;
   discount?: number;
   notes?: string;
-  items: LineItemRequest[];
+  items: InvoiceLineItemRequest[];
 }
 
 export type UpdateInvoiceRequest = Partial<

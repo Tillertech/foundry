@@ -5,6 +5,14 @@ import type {
   PaymentModel as Payment,
 } from '../../generated/prisma/models';
 
+/**
+ * An invoice line; `expense` is loaded where the emitter included it (the
+ * send path does) and only feeds the expense date shown in mails/PDFs.
+ */
+export type InvoiceEventItem = InvoiceItem & {
+  expense?: { date: Date } | null;
+};
+
 export const InvoiceEvents = {
   SENT: 'invoice.sent',
   PAID: 'invoice.paid',
@@ -13,13 +21,13 @@ export const InvoiceEvents = {
 } as const;
 
 export interface InvoiceSentEvent {
-  invoice: Invoice & { items: InvoiceItem[] };
+  invoice: Invoice & { items: InvoiceEventItem[] };
   client: Client;
 }
 
 /** Emitted when reconciliation settles an invoice in full (or it is force-marked paid). */
 export interface InvoicePaidEvent {
-  invoice: Invoice & { items: InvoiceItem[] };
+  invoice: Invoice & { items: InvoiceEventItem[] };
   client: Client;
   /** Amount still owed in the invoice currency; negative when overpaid. */
   balance: number;
@@ -34,7 +42,7 @@ export interface InvoicePaidEvent {
 
 /** Emitted when a payment leaves the invoice still owing a balance (previous or first partial payment). */
 export interface InvoicePartiallyPaidEvent {
-  invoice: Invoice & { items: InvoiceItem[] };
+  invoice: Invoice & { items: InvoiceEventItem[] };
   client: Client;
   /** The payment that triggered this update. */
   payment: Payment;
@@ -44,6 +52,6 @@ export interface InvoicePartiallyPaidEvent {
 
 /** Emitted by the reminder schedule for invoices approaching or past their due date. */
 export interface InvoiceReminderDueEvent {
-  invoice: Invoice & { items: InvoiceItem[] };
+  invoice: Invoice & { items: InvoiceEventItem[] };
   client: Client;
 }

@@ -33,6 +33,12 @@
                     <td style="color:#71717a;padding:4px 0;">Due</td>
                     <td style="text-align:right;padding:4px 0;">{{dueDate}}</td>
                   </tr>
+                  {{#if hasExpenses}}
+                  <tr>
+                    <td style="color:#71717a;padding:4px 0;">Includes billable expenses</td>
+                    <td style="text-align:right;padding:4px 0;">{{currency}} {{expensesTotal}}</td>
+                  </tr>
+                  {{/if}}
                   <tr style="border-top:2px solid #e4e4e7;">
                     <td style="padding:8px 0;font-weight:bold;">Amount due</td>
                     <td style="text-align:right;padding:8px 0;font-weight:bold;">{{currency}} {{total}}</td>

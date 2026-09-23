@@ -15,6 +15,7 @@ import {
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideActivity,
+  lucideFlag,
   lucideBadgeCheck,
   lucideBell,
   lucideBellRing,
@@ -85,6 +86,7 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
   providers: [
     provideIcons({
       lucideActivity,
+      lucideFlag,
       lucideBadgeCheck,
       lucideBell,
       lucideBellRing,
@@ -224,6 +226,12 @@ export class Settings {
       icon: 'lucideActivity',
       label: 'Project status changed',
       desc: "When a project's status moves to a new stage.",
+    },
+    {
+      kind: 'milestone_completed',
+      icon: 'lucideFlag',
+      label: 'Milestone completed',
+      desc: "When a project milestone is marked complete - the client's portal users are emailed the project's progress too.",
     },
   ];
 

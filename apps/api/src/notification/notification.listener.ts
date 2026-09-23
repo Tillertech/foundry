@@ -4,6 +4,7 @@ import {
   AuthEvents,
   DocumentEvents,
   InvoiceEvents,
+  MilestoneEvents,
   PaymentEvents,
   PortalEvents,
   ProjectEvents,
@@ -15,6 +16,7 @@ import {
   type InvoiceReminderDueEvent,
   type InvoiceSentEvent,
   type LoginOtpRequestedEvent,
+  type MilestoneCompletedEvent,
   type PasswordResetRequestedEvent,
   type PaymentReceivedEvent,
   type PortalPasswordResetRequestedEvent,
@@ -96,6 +98,15 @@ export class NotificationListener {
       .onProjectStatusChanged(payload)
       .catch((err) =>
         this.logger.error('project.status_changed notification failed', err),
+      );
+  }
+
+  @OnEvent(MilestoneEvents.COMPLETED, { async: true })
+  handleMilestoneCompleted(payload: MilestoneCompletedEvent) {
+    return this.notifications
+      .onMilestoneCompleted(payload)
+      .catch((err) =>
+        this.logger.error('milestone.completed notification failed', err),
       );
   }
 

@@ -13,6 +13,7 @@ export interface Expense {
   billable: boolean;
   notes: string | null;
   projectId: string | null;
+  invoiceItem: { invoice: { id: string; number: string } } | null;
 }
 
 export interface CreateExpenseRequest {
@@ -30,6 +31,8 @@ export type UpdateExpenseRequest = Partial<CreateExpenseRequest>;
 
 export interface ListExpensesQuery extends PaginationQuery {
   projectId?: string;
+  /** Only expenses on this client's projects. */
+  clientId?: string;
   category?: ExpenseCategory;
   billable?: boolean;
 }
