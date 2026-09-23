@@ -144,9 +144,7 @@ export class Documents {
 
   /**
    * Projects the document can be linked to: the chosen client's own, or any
-   * when no client is chosen. The API rejects a project from a different
-   * client than the document's (it would leak into that other client's
-   * portal), so the picker never offers one.
+   * when no client is chosen.
    */
   protected readonly linkableProjects = computed(() => {
     const clientId = this.model().clientId;

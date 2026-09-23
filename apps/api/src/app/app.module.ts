@@ -37,10 +37,6 @@ import { APP_GUARD } from '@nestjs/core';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     EventEmitterModule.forRoot({ wildcard: true, delimiter: '.' }),
-    // No public static route for uploads: documents and logos are only ever
-    // served through their owner-scoped endpoints (/documents/:id/download,
-    // /workspaces/:id/logo, the portal's download routes). A ServeStatic
-    // /uploads mount made every stored file readable by anyone with its URL.
     CacheModule.registerAsync({
       isGlobal: true,
       inject: [ConfigService],

@@ -27,9 +27,7 @@ const EXPENSE_INCLUDE = {
 /**
  * Every expense belongs to exactly one workspace (its own `workspaceId`,
  * kept in step with its project's), and every query is scoped through that
- * workspace's owner - so an expense is never visible across tenants,
- * whether or not it's linked to a project. Legacy rows with no workspace
- * match no one.
+ * workspace's owner
  */
 @Injectable()
 export class ExpensesService {

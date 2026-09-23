@@ -39,8 +39,6 @@ export class NotificationGateway
       const payload = this.jwtService.verify<JwtPayload & { kind?: string }>(
         raw,
       );
-      // Same rule as JwtAuthGuard: tokens carrying `kind` are client-portal
-      // tokens and must never authenticate as a workspace owner.
       if (payload.kind) {
         this.logger.warn(`WS reject - portal token (${client.id})`);
         client.disconnect();

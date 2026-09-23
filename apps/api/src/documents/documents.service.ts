@@ -19,12 +19,6 @@ import { CreateDocumentDto } from './dto/create-document.dto';
 import { ListDocumentsQueryDto } from './dto/list-documents-query.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 
-/**
- * Every document belongs to exactly one workspace (its own `workspaceId`,
- * kept in step with its client/project), and every query is scoped through
- * that workspace's owner - so a document is never visible across tenants,
- * linked or not. Legacy rows with no workspace match no one.
- */
 @Injectable()
 export class DocumentsService {
   constructor(
@@ -136,13 +130,7 @@ export class DocumentsService {
     });
   }
 
-  /**
-   * The workspace implied by a client and/or project link, after checking
-   * both are the caller's - and, when both are set, that the project is that
-   * client's. (Otherwise a document filed under client B but on client A's
-   * project would show up in client A's portal, which lists documents on
-   * its shared projects.) null when neither is linked.
-   */
+
   private async linkedWorkspace(
     ownerId: string,
     clientId: string | null | undefined,
