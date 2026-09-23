@@ -14,25 +14,27 @@ import {
   lucidePlus,
   lucideTrash2,
 } from '@ng-icons/lucide';
+import { BrnAlertDialogContent } from '@spartan-ng/brain/alert-dialog';
+import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { apiErrorMessage, isoDay } from '@foundry/shared-util';
 import { Milestone, MilestonesApiService } from '../domains/milestones';
 import { ToastService } from '@foundry/shared-ui';
 import { milestoneStatusLabels } from './milestone-form-sheet';
 
-/**
- * Milestone list + drag-to-reorder/complete/delete actions. Read-only over
- * the `milestones` input - the parent owns the data (it's also needed for
- * the project overview) and the add/edit drawer lives at the parent level
- * too, so every mutation here just calls the API and reports the new list
- * back up via `milestonesChange`, mirroring `LineItemsEditor`'s two-way
- * pattern.
- */
 @Component({
   selector: 'app-milestones-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
-  imports: [NgIcon, HlmButton, CdkDrag, CdkDragHandle, CdkDropList],
+  imports: [
+    NgIcon,
+    HlmButton,
+    CdkDrag,
+    CdkDragHandle,
+    CdkDropList,
+    BrnAlertDialogContent,
+    HlmAlertDialogImports,
+  ],
   providers: [
     provideIcons({
       lucideCheck,
@@ -59,6 +61,16 @@ export class MilestonesPanel {
 
   protected readonly statusLabel = (v: string) =>
     milestoneStatusLabels[v as Milestone['status']] ?? v;
+
+  protected confirmComplete(m: Milestone, ctx: { close: () => void }): void {
+    ctx.close();
+    this.markComplete(m);
+  }
+
+  protected confirmDelete(m: Milestone, ctx: { close: () => void }): void {
+    ctx.close();
+    this.remove(m);
+  }
 
   protected remove(m: Milestone): void {
     this.api.delete(m.id).subscribe({

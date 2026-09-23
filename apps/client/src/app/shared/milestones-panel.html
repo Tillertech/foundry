@@ -74,17 +74,39 @@
           </div>
           <div class="flex shrink-0 items-center gap-0.5">
             @if (m.status !== 'completed') {
-              <button
-                hlmBtn
-                variant="ghost"
-                size="icon"
-                type="button"
-                class="h-7 w-7"
-                (click)="markComplete(m)"
-                [attr.aria-label]="'Mark ' + m.name + ' complete'"
-              >
-                <ng-icon name="lucideCheck" size="13" />
-              </button>
+              <hlm-alert-dialog>
+                <button
+                  hlmAlertDialogTrigger
+                  hlmBtn
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  class="h-7 w-7"
+                  [attr.aria-label]="'Mark ' + m.name + ' complete'"
+                >
+                  <ng-icon name="lucideCheck" size="13" />
+                </button>
+                <hlm-alert-dialog-content *brnAlertDialogContent="let dialogCtx">
+                  <div hlmAlertDialogHeader>
+                    <h3 hlmAlertDialogTitle>Mark "{{ m.name }}" complete?</h3>
+                    <p hlmAlertDialogDescription>
+                      This updates its status to completed. You can still edit it
+                      afterwards if you need to reopen it.
+                    </p>
+                  </div>
+                  <div hlmAlertDialogFooter>
+                    <button hlmAlertDialogCancel (click)="dialogCtx.close()">
+                      Cancel
+                    </button>
+                    <button
+                      hlmAlertDialogAction
+                      (click)="confirmComplete(m, dialogCtx)"
+                    >
+                      Mark complete
+                    </button>
+                  </div>
+                </hlm-alert-dialog-content>
+              </hlm-alert-dialog>
             }
             <button
               hlmBtn
@@ -97,17 +119,40 @@
             >
               <ng-icon name="lucidePencil" size="13" />
             </button>
-            <button
-              hlmBtn
-              variant="ghost"
-              size="icon"
-              type="button"
-              class="h-7 w-7 text-destructive"
-              (click)="remove(m)"
-              [attr.aria-label]="'Delete ' + m.name"
-            >
-              <ng-icon name="lucideTrash2" size="13" />
-            </button>
+            <hlm-alert-dialog>
+              <button
+                hlmAlertDialogTrigger
+                hlmBtn
+                variant="ghost"
+                size="icon"
+                type="button"
+                class="h-7 w-7 text-destructive"
+                [attr.aria-label]="'Delete ' + m.name"
+              >
+                <ng-icon name="lucideTrash2" size="13" />
+              </button>
+              <hlm-alert-dialog-content *brnAlertDialogContent="let dialogCtx">
+                <div hlmAlertDialogHeader>
+                  <h3 hlmAlertDialogTitle>Delete "{{ m.name }}"?</h3>
+                  <p hlmAlertDialogDescription>
+                    This can't be undone. The milestone will be permanently
+                    removed.
+                  </p>
+                </div>
+                <div hlmAlertDialogFooter>
+                  <button hlmAlertDialogCancel (click)="dialogCtx.close()">
+                    Cancel
+                  </button>
+                  <button
+                    hlmAlertDialogAction
+                    class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    (click)="confirmDelete(m, dialogCtx)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </hlm-alert-dialog-content>
+            </hlm-alert-dialog>
           </div>
         </div>
       }
