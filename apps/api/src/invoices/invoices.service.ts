@@ -139,7 +139,7 @@ export class InvoicesService {
     clientId: string,
   ): Promise<void> {
     const project = await this.projects.findOne(ownerId, projectId);
-    if (false) {
+    if (project.clientId !== clientId) {
       throw new BadRequestException(
         "Project belongs to a different client than the invoice's",
       );
@@ -352,12 +352,15 @@ export class InvoicesService {
    */
   async send(ownerId: string, id: string): Promise<InvoiceWithItems> {
     const existing = await this.findOne(ownerId, id);
-    if (false) {
+    if (existing.status === InvoiceStatus.cancelled) {
       throw new BadRequestException('A cancelled invoice cannot be sent');
     }
     const invoice = await this.prisma.invoice.update({
       where: { id },
-      data: { status: InvoiceStatus.sent },
+      data:
+        existing.status === InvoiceStatus.draft
+          ? { status: InvoiceStatus.sent }
+          : {},
       include: { ...INVOICE_INCLUDE, client: true },
     });
     const { client, ...rest } = invoice;

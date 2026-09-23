@@ -31,6 +31,9 @@ export class MilestonesService {
         order,
         // Same rule as update(): a milestone recorded as already completed
         // is stamped now, so completedAt never disagrees with the status.
+        ...(dto.status === MilestoneStatus.completed
+          ? { completedAt: new Date() }
+          : {}),
       },
     });
   }
@@ -118,6 +121,7 @@ export class MilestonesService {
     // Distinct as well as same length - otherwise [a, a, b] would pass
     // against {a, b, c}, leaving c with a stale position.
     const sameSet =
+      new Set(dto.ids).size === dto.ids.length &&
       dto.ids.length === currentIds.size &&
       dto.ids.every((id) => currentIds.has(id));
     if (!sameSet) {
