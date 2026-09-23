@@ -93,7 +93,10 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Get a document' })
   @ApiOkResponse({ type: DocumentEntity })
   @ApiNotFoundResponse()
-  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.documentsService.findOne(user.sub, id);
   }
 
@@ -113,7 +116,10 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Delete a document and its stored file' })
   @ApiOkResponse({ type: DocumentEntity })
   @ApiNotFoundResponse()
-  remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.documentsService.remove(user.sub, id);
   }
 
@@ -148,12 +154,15 @@ export class DocumentsController {
 
   @Post(':id/share')
   @ApiOperation({
-    summary: "Email the document to its client as an attachment",
+    summary: 'Email the document to its client as an attachment',
   })
   @ApiOkResponse({ type: DocumentEntity })
   @ApiBadRequestResponse({ description: 'Document has no linked client' })
   @ApiNotFoundResponse()
-  share(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  share(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.documentsService.share(user.sub, id);
   }
 

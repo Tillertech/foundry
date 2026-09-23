@@ -8,8 +8,6 @@ import KeyvRedis from '@keyv/redis';
 import { Keyv } from 'keyv';
 import { CacheableMemory } from 'cacheable';
 import { BullModule } from '@nestjs/bullmq';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
 import { ClientPortalModule } from '../client-portal/client-portal.module';
 import { ClientsModule } from '../clients/clients.module';
 import { PaginationModule } from '../common/pagination/pagination.module';
@@ -39,10 +37,10 @@ import { APP_GUARD } from '@nestjs/core';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     EventEmitterModule.forRoot({ wildcard: true, delimiter: '.' }),
-    ServeStaticModule.forRoot({
-      rootPath: process.env.UPLOADS_DIR ?? join(process.cwd(), 'uploads'),
-      serveRoot: '/uploads',
-    }),
+    // No public static route for uploads: documents and logos are only ever
+    // served through their owner-scoped endpoints (/documents/:id/download,
+    // /workspaces/:id/logo, the portal's download routes). A ServeStatic
+    // /uploads mount made every stored file readable by anyone with its URL.
     CacheModule.registerAsync({
       isGlobal: true,
       inject: [ConfigService],

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClientsService } from '../clients/clients.service';
 import { PaymentEvents } from '../common/events';
@@ -27,7 +31,9 @@ export class PaymentsService {
 
   async create(ownerId: string, dto: CreatePaymentDto): Promise<Payment> {
     await this.clients.findOne(ownerId, dto.clientId);
-    if (dto.invoiceId) await this.invoices.findOne(ownerId, dto.invoiceId);
+    if (dto.invoiceId) {
+      await this.assertInvoiceForClient(ownerId, dto.invoiceId, dto.clientId);
+    }
 
     const { markInvoicePaid, ...data } = dto;
     const payment = await this.prisma.payment.create({ data });
@@ -82,7 +88,9 @@ export class PaymentsService {
     dto: UpdatePaymentDto,
   ): Promise<Payment> {
     const before = await this.findOne(ownerId, id);
-    if (dto.invoiceId) await this.invoices.findOne(ownerId, dto.invoiceId);
+    if (dto.invoiceId) {
+      await this.assertInvoiceForClient(ownerId, dto.invoiceId, before.clientId);
+    }
     const payment = await this.prisma.payment.update({
       where: { id },
       data: dto,
@@ -95,6 +103,24 @@ export class PaymentsService {
       await this.reconciliation.adjustPayment(before, payment);
     }
     return payment;
+  }
+
+  /**
+   * The invoice must be the caller's and billed to the payment's own client -
+   * otherwise one client's payment would settle another client's invoice,
+   * and show up against it in that client's portal.
+   */
+  private async assertInvoiceForClient(
+    ownerId: string,
+    invoiceId: string,
+    clientId: string,
+  ): Promise<void> {
+    const invoice = await this.invoices.findOne(ownerId, invoiceId);
+    if (invoice.clientId !== clientId) {
+      throw new BadRequestException(
+        "The invoice is billed to a different client than the payment's",
+      );
+    }
   }
 
   async remove(ownerId: string, id: string): Promise<Payment> {

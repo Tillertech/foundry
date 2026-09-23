@@ -79,12 +79,10 @@ export class ProjectsService {
     dto: UpdateProjectDto,
   ): Promise<Project> {
     const existing = await this.findOne(ownerId, id);
-    // Reassigning to a different client - confirm it belongs to this
-    // workspace too, same check as create().
-    if (dto.clientId && dto.clientId !== existing.clientId) {
-      await this.clients.findOne(ownerId, dto.clientId);
-    }
-    const project = await this.prisma.project.update({ where: { id }, data: dto });
+    const project =
+      dto.clientId && dto.clientId !== existing.clientId
+        ? await this.reassignClient(ownerId, id, dto.clientId, dto)
+        : await this.prisma.project.update({ where: { id }, data: dto });
 
     if (dto.status && dto.status !== existing.status) {
       const client = await this.prisma.client.findUnique({
@@ -100,6 +98,61 @@ export class ProjectsService {
     }
 
     return project;
+  }
+
+  /**
+   * Moves a project to another of the caller's clients, keeping everything
+   * that hangs off the client relationship consistent in one transaction:
+   *  - it's unshared from the old client's portal (otherwise that client's
+   *    portal users keep seeing it and its milestones),
+   *  - shared into the new client's portal if there is one, as create() does,
+   *  - its expenses and documents follow it into the new client's
+   *    workspace, which may be a different one of the caller's workspaces,
+   *  - and documents filed under the old client on this project are refiled
+   *    under the new one (the old client's portal would otherwise still list
+   *    them through their client link).
+   */
+  private async reassignClient(
+    ownerId: string,
+    id: string,
+    clientId: string,
+    dto: UpdateProjectDto,
+  ): Promise<Project> {
+    const client = await this.clients.findOne(ownerId, clientId);
+    const portal = await this.prisma.clientPortal.findUnique({
+      where: { clientId },
+      select: { id: true },
+    });
+    return this.prisma.$transaction(async (tx) => {
+      await tx.clientPortalProject.deleteMany({
+        where: { projectId: id, clientPortal: { clientId: { not: clientId } } },
+      });
+      if (portal) {
+        await tx.clientPortalProject.upsert({
+          where: {
+            clientPortalId_projectId: {
+              clientPortalId: portal.id,
+              projectId: id,
+            },
+          },
+          create: { clientPortalId: portal.id, projectId: id },
+          update: {},
+        });
+      }
+      await tx.expense.updateMany({
+        where: { projectId: id },
+        data: { workspaceId: client.workspaceId },
+      });
+      await tx.document.updateMany({
+        where: { projectId: id, clientId: { not: null } },
+        data: { clientId, workspaceId: client.workspaceId },
+      });
+      await tx.document.updateMany({
+        where: { projectId: id, clientId: null },
+        data: { workspaceId: client.workspaceId },
+      });
+      return tx.project.update({ where: { id }, data: dto });
+    });
   }
 
   async remove(ownerId: string, id: string): Promise<Project> {

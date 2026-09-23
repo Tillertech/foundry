@@ -18,7 +18,10 @@ export class CreateExpenseDto {
   @MinLength(1)
   vendor: string;
 
-  @ApiPropertyOptional({ enum: Object.values(ExpenseCategory), enumName: 'ExpenseCategory' })
+  @ApiPropertyOptional({
+    enum: Object.values(ExpenseCategory),
+    enumName: 'ExpenseCategory',
+  })
   @IsOptional()
   @IsEnum(ExpenseCategory)
   category?: ExpenseCategory;
@@ -51,4 +54,13 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsUUID()
   projectId?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      "Workspace the expense belongs to. Derived from the project when one is given (and must match it if both are sent); defaults to the caller's default workspace otherwise.",
+  })
+  @IsOptional()
+  @IsUUID()
+  workspaceId?: string;
 }

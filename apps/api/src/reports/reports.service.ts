@@ -66,7 +66,12 @@ export class ReportsService {
       : undefined;
     const range = (field: string) =>
       from || to
-        ? { [field]: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+        ? {
+            [field]: {
+              ...(from ? { gte: from } : {}),
+              ...(to ? { lte: to } : {}),
+            },
+          }
         : {};
 
     const workspace = await this.prisma.workspace.findFirst({
@@ -97,13 +102,7 @@ export class ReportsService {
         },
       }),
       this.prisma.expense.findMany({
-        where: {
-          OR: [
-            { projectId: null },
-            { project: { client: { workspace: { ownerId } } } },
-          ],
-          ...range('date'),
-        },
+        where: { workspace: { ownerId }, ...range('date') },
         select: { amount: true, currency: true, category: true, date: true },
       }),
     ]);

@@ -21,10 +21,17 @@ export class ExpenseEntity {
   @ApiProperty({ example: 'Figma' })
   vendor: string;
 
-  @ApiProperty({ enum: Object.values(ExpenseCategory), enumName: 'ExpenseCategory' })
+  @ApiProperty({
+    enum: Object.values(ExpenseCategory),
+    enumName: 'ExpenseCategory',
+  })
   category: ExpenseCategory;
 
-  @ApiProperty({ type: String, description: 'Decimal serialized as string', example: '45' })
+  @ApiProperty({
+    type: String,
+    description: 'Decimal serialized as string',
+    example: '45',
+  })
   amount: string;
 
   @ApiProperty({ enum: Object.values(Currency), enumName: 'Currency' })
@@ -42,10 +49,14 @@ export class ExpenseEntity {
   @ApiPropertyOptional({ nullable: true, type: String, format: 'uuid' })
   projectId: string | null;
 
+  @ApiProperty({ format: 'uuid', description: 'Owning workspace' })
+  workspaceId: string;
+
   @ApiPropertyOptional({
     nullable: true,
     type: ExpenseInvoiceItemEntity,
-    description: 'The invoice line this expense was billed on; null while unbilled',
+    description:
+      'The invoice line this expense was billed on; null while unbilled',
   })
   invoiceItem: ExpenseInvoiceItemEntity | null;
 }

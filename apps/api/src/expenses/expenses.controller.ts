@@ -38,7 +38,9 @@ export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Record an expense, optionally linked to a project' })
+  @ApiOperation({
+    summary: 'Record an expense, optionally linked to a project',
+  })
   @ApiCreatedResponse({ type: ExpenseEntity })
   @ApiNotFoundResponse({ description: 'Project not found' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateExpenseDto) {
@@ -60,7 +62,10 @@ export class ExpensesController {
   @ApiOperation({ summary: 'Get an expense' })
   @ApiOkResponse({ type: ExpenseEntity })
   @ApiNotFoundResponse()
-  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.expensesService.findOne(user.sub, id);
   }
 
@@ -80,7 +85,10 @@ export class ExpensesController {
   @ApiOperation({ summary: 'Delete an expense' })
   @ApiOkResponse({ type: ExpenseEntity })
   @ApiNotFoundResponse()
-  remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.expensesService.remove(user.sub, id);
   }
 }

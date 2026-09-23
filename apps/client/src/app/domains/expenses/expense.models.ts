@@ -13,6 +13,8 @@ export interface Expense {
   billable: boolean;
   notes: string | null;
   projectId: string | null;
+  /** Owning workspace - follows the project's when one is set. */
+  workspaceId: string;
   invoiceItem: { invoice: { id: string; number: string } } | null;
 }
 
