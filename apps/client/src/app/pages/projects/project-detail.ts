@@ -19,6 +19,7 @@ import {
   lucidePlus,
   lucideReceipt,
   lucideWallet,
+  lucideUser,
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
@@ -104,6 +105,7 @@ interface ActivityItem {
       lucidePlus,
       lucideReceipt,
       lucideWallet,
+      lucideUser,
     }),
   ],
   templateUrl: './project-detail.html',

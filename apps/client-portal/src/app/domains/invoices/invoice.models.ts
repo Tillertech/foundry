@@ -15,6 +15,10 @@ export interface InvoiceItem {
   description: string;
   quantity: string;
   rate: string;
+  /** Set when this line re-bills a cost the workspace incurred on the client's behalf. */
+  expenseId: string | null;
+  /** Summary of that cost; null for regular lines or if it was since removed. */
+  expense: { vendor: string; category: string; date: string } | null;
 }
 
 export interface Invoice {

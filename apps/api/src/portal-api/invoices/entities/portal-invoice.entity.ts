@@ -1,8 +1,38 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { LineItemEntity } from '../../../common/dto/line-item.dto';
-import { Currency, InvoiceStatus } from '../../../generated/prisma/enums';
+import {
+  Currency,
+  ExpenseCategory,
+  InvoiceStatus,
+} from '../../../generated/prisma/enums';
 
-export class PortalInvoiceItemEntity extends LineItemEntity {}
+export class PortalInvoiceItemExpenseEntity {
+  @ApiProperty({ example: 'Figma' })
+  vendor: string;
+
+  @ApiProperty({ enum: Object.values(ExpenseCategory), enumName: 'ExpenseCategory' })
+  category: ExpenseCategory;
+
+  @ApiProperty()
+  date: Date;
+}
+
+export class PortalInvoiceItemEntity extends LineItemEntity {
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    format: 'uuid',
+    description: 'Set when this line re-bills a billable expense',
+  })
+  expenseId: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PortalInvoiceItemExpenseEntity,
+    description: 'Null for regular lines, or if the expense was since deleted',
+  })
+  expense: PortalInvoiceItemExpenseEntity | null;
+}
 
 export class PortalInvoiceEntity {
   @ApiProperty({ format: 'uuid' })

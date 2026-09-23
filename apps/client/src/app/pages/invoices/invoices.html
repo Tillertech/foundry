@@ -268,6 +268,66 @@
         />
       </div>
 
+      @if (expensesLoading()) {
+      <div class="skeleton-shimmer h-16 w-full rounded-lg"></div>
+      } @else if (billableExpenses().length > 0) {
+      <div>
+        <div class="mb-1.5 flex items-baseline justify-between gap-2">
+          <p class="text-xs font-medium text-muted-foreground">
+            Billable expenses
+          </p>
+          @if (model().expenseLines.length > 0) {
+          <p class="text-xs text-muted-foreground">
+            {{ model().expenseLines.length }} selected ·
+            <span class="font-medium text-foreground tabular-nums">{{
+              money(expensesTotal(), model().currency)
+            }}</span>
+          </p>
+          }
+        </div>
+        <div class="divide-y divide-border rounded-lg border border-border">
+          @for (e of billableExpenses(); track e.expenseId) {
+          <label
+            [for]="'bill-expense-' + e.expenseId"
+            class="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-muted/40"
+            [class.cursor-not-allowed]="e.currency !== model().currency && !isExpenseSelected(e.expenseId)"
+            [class.opacity-60]="e.currency !== model().currency && !isExpenseSelected(e.expenseId)"
+          >
+            <hlm-checkbox
+              [inputId]="'bill-expense-' + e.expenseId"
+              [checked]="isExpenseSelected(e.expenseId)"
+              [disabled]="e.currency !== model().currency && !isExpenseSelected(e.expenseId)"
+              (checkedChange)="toggleExpense(e, !!$event)"
+            />
+            <div
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"
+            >
+              <ng-icon name="lucideReceipt" size="14" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">{{ e.description }}</p>
+              <p class="text-xs text-muted-foreground">
+                {{ e.date }}
+                @if (e.currency !== model().currency) {
+                <span class="text-destructive">
+                  · In {{ e.currency }}, invoice is {{ model().currency }}</span
+                >
+                }
+              </p>
+            </div>
+            <span class="text-sm font-semibold tabular-nums">{{
+              money(e.amount, e.currency)
+            }}</span>
+          </label>
+          }
+        </div>
+        <p class="mt-1.5 text-[11px] text-muted-foreground">
+          Ticked expenses are added to the invoice at cost and shown to the
+          client as their own section. Each expense can only be billed once.
+        </p>
+      </div>
+      }
+
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Discount">
           <input
@@ -290,6 +350,14 @@
       </div>
 
       <div class="rounded-lg border border-border bg-muted/30 p-4">
+        @if (model().expenseLines.length > 0) {
+        <div class="mb-1 flex justify-between text-sm">
+          <span class="text-muted-foreground">Billable expenses</span>
+          <span class="tabular-nums"
+            >{{ money(expensesTotal(), model().currency) }}</span
+          >
+        </div>
+        }
         <div class="flex justify-between text-sm">
           <span class="text-muted-foreground">Subtotal</span>
           <span class="tabular-nums"

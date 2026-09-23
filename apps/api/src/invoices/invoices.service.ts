@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Inject,
@@ -20,13 +21,17 @@ import type {
   InvoiceModel as Invoice,
   InvoiceItemModel as InvoiceItem,
 } from '../generated/prisma/models';
+import type { ExpenseCategory } from '../generated/prisma/enums';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { CacheTimer } from '../common/cache-timer';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
-import { CreateInvoiceDto } from './dto/create-invoice.dto';
+import {
+  CreateInvoiceDto,
+  InvoiceLineItemDto,
+} from './dto/create-invoice.dto';
 import { ListInvoicesQueryDto } from './dto/list-invoices-query.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { Decimal } from '@prisma/client/runtime/client';
@@ -38,9 +43,21 @@ const DEFAULT_INVOICE_START = 1001;
 const MAX_NUMBER_ATTEMPTS = 5;
 
 export type InvoiceWithItems = Invoice & {
-  items: InvoiceItem[];
+  items: (InvoiceItem & {
+    expense: { vendor: string; category: ExpenseCategory; date: Date } | null;
+  })[];
   project: { name: string } | null;
 };
+
+/** Shape every invoice read/write returns - lines carry the billed expense's summary. */
+const INVOICE_INCLUDE = {
+  items: {
+    include: {
+      expense: { select: { vendor: true, category: true, date: true } },
+    },
+  },
+  project: { select: { name: true } },
+} as const;
 
 @Injectable()
 export class InvoicesService {
@@ -59,8 +76,15 @@ export class InvoicesService {
     dto: CreateInvoiceDto,
   ): Promise<InvoiceWithItems> {
     const client = await this.clients.findOne(ownerId, dto.clientId);
-    if (dto.projectId) await this.projects.findOne(ownerId, dto.projectId);
-    const { items, number, ...data } = dto;
+    if (dto.projectId) {
+      await this.assertProjectForClient(ownerId, dto.projectId, client.id);
+    }
+    const { items: requested, number, ...data } = dto;
+    const items = await this.resolveItems(ownerId, {
+      clientId: client.id,
+      currency: dto.currency ?? Currency.USD,
+      items: requested,
+    });
 
     // An explicit number is trusted as-is - only the per-workspace unique
     // constraint can reject it, so a single attempt is enough.
@@ -73,10 +97,7 @@ export class InvoicesService {
           items: { create: items },
         });
       } catch (err) {
-        if (this.isDuplicateNumber(err)) {
-          throw new ConflictException('Invoice number already exists');
-        }
-        throw err;
+        this.rethrowConflict(err);
       }
     }
 
@@ -95,7 +116,7 @@ export class InvoicesService {
           items: { create: items },
         });
       } catch (err) {
-        if (!this.isDuplicateNumber(err)) throw err;
+        if (this.conflictOn(err) !== 'number') this.rethrowConflict(err);
         lastError = err;
       }
     }
@@ -108,17 +129,124 @@ export class InvoicesService {
   private createInvoice(
     data: Prisma.InvoiceCreateArgs['data'],
   ): Promise<InvoiceWithItems> {
-    return this.prisma.invoice.create({
-      data,
-      include: { items: true, project: { select: { name: true } } },
-    });
+    return this.prisma.invoice.create({ data, include: INVOICE_INCLUDE });
   }
 
-  private isDuplicateNumber(err: unknown): boolean {
-    return (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === 'P2002'
+  /** The project must be the caller's and belong to the invoice's own client. */
+  private async assertProjectForClient(
+    ownerId: string,
+    projectId: string,
+    clientId: string,
+  ): Promise<void> {
+    const project = await this.projects.findOne(ownerId, projectId);
+    if (false) {
+      throw new BadRequestException(
+        "Project belongs to a different client than the invoice's",
+      );
+    }
+  }
+
+  /**
+   * Which unique constraint a write tripped: the per-workspace invoice number,
+   * or an expense already billed on another invoice (a concurrent attach that
+   * slipped past resolveItems' check). null for anything else.
+   */
+  private conflictOn(err: unknown): 'number' | 'expense' | null {
+    if (
+      !(err instanceof Prisma.PrismaClientKnownRequestError) ||
+      err.code !== 'P2002'
+    ) {
+      return null;
+    }
+    return JSON.stringify(err.meta ?? {}).includes('expenseId')
+      ? 'expense'
+      : 'number';
+  }
+
+  private rethrowConflict(err: unknown): never {
+    switch (this.conflictOn(err)) {
+      case 'number':
+        throw new ConflictException('Invoice number already exists');
+      case 'expense':
+        throw new ConflictException(
+          'One of the expenses was just billed on another invoice',
+        );
+      default:
+        throw err;
+    }
+  }
+
+  /**
+   * Validates the lines that re-bill expenses and pins their charge to the
+   * expense itself (1 x amount), so a client can't inflate or discount a
+   * re-billed cost. An expense is billable here only if it is marked
+   * billable, belongs to one of this client's projects, is in the invoice
+   * currency, and isn't already on a different invoice.
+   */
+  private async resolveItems(
+    ownerId: string,
+    target: {
+      clientId: string;
+      currency: Currency;
+      items: InvoiceLineItemDto[];
+      /** The invoice being edited, whose own expense lines stay attachable. */
+      invoiceId?: string;
+    },
+  ): Promise<Prisma.InvoiceItemCreateWithoutInvoiceInput[]> {
+    const ids = target.items.flatMap((it) =>
+      it.expenseId ? [it.expenseId] : [],
     );
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException('An expense can only be billed once');
+    }
+    const expenses = ids.length
+      ? await this.prisma.expense.findMany({
+          where: {
+            id: { in: ids },
+            project: { client: { workspace: { ownerId } } },
+          },
+          include: {
+            project: { select: { clientId: true } },
+            invoiceItem: { select: { invoiceId: true } },
+          },
+        })
+      : [];
+    const byId = new Map(expenses.map((e) => [e.id, e]));
+
+    return target.items.map(({ expenseId, ...line }) => {
+      if (!expenseId) return line;
+      const expense = byId.get(expenseId);
+      if (!expense) throw new NotFoundException('Expense not found');
+      if (!expense.billable) {
+        throw new BadRequestException(
+          `Expense from ${expense.vendor} is not marked billable`,
+        );
+      }
+      if (expense.project?.clientId !== target.clientId) {
+        throw new BadRequestException(
+          `Expense from ${expense.vendor} belongs to a different client's project`,
+        );
+      }
+      if (expense.currency !== target.currency) {
+        throw new BadRequestException(
+          `Expense from ${expense.vendor} is in ${expense.currency}, not the invoice currency ${target.currency}`,
+        );
+      }
+      if (
+        expense.invoiceItem &&
+        expense.invoiceItem.invoiceId !== target.invoiceId
+      ) {
+        throw new ConflictException(
+          `Expense from ${expense.vendor} is already billed on another invoice`,
+        );
+      }
+      return {
+        description: line.description,
+        quantity: 1,
+        rate: expense.amount,
+        expense: { connect: { id: expenseId } },
+      };
+    });
   }
 
   findAll(
@@ -136,7 +264,7 @@ export class InvoicesService {
           ...(projectId ? { projectId } : {}),
           ...(status ? { status } : {}),
         },
-        include: { items: true, project: { select: { name: true } } },
+        include: INVOICE_INCLUDE,
       },
       {
         cursor,
@@ -151,7 +279,7 @@ export class InvoicesService {
   async findOne(ownerId: string, id: string): Promise<InvoiceWithItems> {
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, client: { workspace: { ownerId } } },
-      include: { items: true, project: { select: { name: true } } },
+      include: INVOICE_INCLUDE,
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
@@ -162,23 +290,50 @@ export class InvoicesService {
     id: string,
     dto: UpdateInvoiceDto,
   ): Promise<InvoiceWithItems> {
-    await this.findOne(ownerId, id);
-    if (dto.projectId) await this.projects.findOne(ownerId, dto.projectId);
-    const { items, ...data } = dto;
+    const existing = await this.findOne(ownerId, id);
+    if (dto.projectId) {
+      await this.assertProjectForClient(
+        ownerId,
+        dto.projectId,
+        existing.clientId,
+      );
+    }
+    const { items: requested, ...data } = dto;
+    const currency = dto.currency ?? existing.currency;
+
+    // Re-validate the expense lines whenever they or the currency change: a
+    // currency switch with no new items would otherwise leave a USD expense
+    // re-billed on a now-EUR invoice.
+    const items =
+      requested || currency !== existing.currency
+        ? await this.resolveItems(ownerId, {
+            clientId: existing.clientId,
+            currency,
+            invoiceId: id,
+            items:
+              requested ??
+              existing.items.map((it) => ({
+                description: it.description,
+                quantity: Number(it.quantity),
+                rate: Number(it.rate),
+                expenseId: it.expenseId ?? undefined,
+              })),
+          })
+        : undefined;
+
     try {
       return await this.prisma.invoice.update({
         where: { id },
         data: {
           ...data,
-          ...(items ? { items: { deleteMany: {}, create: items } } : {}),
+          ...(requested && items
+            ? { items: { deleteMany: {}, create: items } }
+            : {}),
         },
-        include: { items: true, project: { select: { name: true } } },
+        include: INVOICE_INCLUDE,
       });
     } catch (err) {
-      if (this.isDuplicateNumber(err)) {
-        throw new ConflictException('Invoice number already exists');
-      }
-      throw err;
+      this.rethrowConflict(err);
     }
   }
 
@@ -188,17 +343,22 @@ export class InvoicesService {
     return invoice;
   }
 
-  /** Marks the invoice sent and hands it to the notification pipeline. */
+  /**
+   * Emails the invoice via the notification pipeline. A draft becomes
+   * `sent`; re-sending an invoice that has moved on (viewed, part-paid,
+   * overdue, paid) keeps its status - it's just another copy of the mail,
+   * and must not roll a settled invoice back to outstanding. Cancelled
+   * invoices can't be sent at all.
+   */
   async send(ownerId: string, id: string): Promise<InvoiceWithItems> {
-    await this.findOne(ownerId, id);
+    const existing = await this.findOne(ownerId, id);
+    if (false) {
+      throw new BadRequestException('A cancelled invoice cannot be sent');
+    }
     const invoice = await this.prisma.invoice.update({
       where: { id },
       data: { status: InvoiceStatus.sent },
-      include: {
-        items: true,
-        client: true,
-        project: { select: { name: true } },
-      },
+      include: { ...INVOICE_INCLUDE, client: true },
     });
     const { client, ...rest } = invoice;
     this.events.emit(InvoiceEvents.SENT, {

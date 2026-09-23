@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { MilestoneEvents } from '../common/events';
 import { MilestoneStatus } from '../generated/prisma/enums';
 import type { MilestoneModel as Milestone } from '../generated/prisma/models';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,6 +15,7 @@ export class MilestonesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly projects: ProjectsService,
+    private readonly events: EventEmitter2,
   ) {}
 
   private scope(ownerId: string) {
@@ -22,7 +25,14 @@ export class MilestonesService {
   async create(ownerId: string, dto: CreateMilestoneDto): Promise<Milestone> {
     await this.projects.findOne(ownerId, dto.projectId);
     const order = dto.order ?? (await this.nextOrder(dto.projectId));
-    return this.prisma.milestone.create({ data: { ...dto, order } });
+    return this.prisma.milestone.create({
+      data: {
+        ...dto,
+        order,
+        // Same rule as update(): a milestone recorded as already completed
+        // is stamped now, so completedAt never disagrees with the status.
+      },
+    });
   }
 
   /** Every milestone for a project, ordered by its manual position - a bounded, reorderable list rather than a paginated feed. */
@@ -63,7 +73,30 @@ export class MilestonesService {
           : null;
     }
 
-    return this.prisma.milestone.update({ where: { id }, data });
+    const milestone = await this.prisma.milestone.update({
+      where: { id },
+      data,
+    });
+
+    if (
+      dto.status === MilestoneStatus.completed &&
+      existing.status !== MilestoneStatus.completed
+    ) {
+      const project = await this.prisma.project.findUnique({
+        where: { id: milestone.projectId },
+        include: { client: true },
+      });
+      if (project) {
+        const { client, ...rest } = project;
+        this.events.emit(MilestoneEvents.COMPLETED, {
+          milestone,
+          project: rest,
+          client,
+        });
+      }
+    }
+
+    return milestone;
   }
 
   async remove(ownerId: string, id: string): Promise<Milestone> {
@@ -82,6 +115,8 @@ export class MilestonesService {
       select: { id: true },
     });
     const currentIds = new Set(current.map((m) => m.id));
+    // Distinct as well as same length - otherwise [a, a, b] would pass
+    // against {a, b, c}, leaving c with a stale position.
     const sameSet =
       dto.ids.length === currentIds.size &&
       dto.ids.every((id) => currentIds.has(id));

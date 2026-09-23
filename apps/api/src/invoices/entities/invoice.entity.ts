@@ -1,10 +1,41 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { LineItemEntity } from '../../common/dto/line-item.dto';
-import { Currency, InvoiceStatus } from '../../generated/prisma/enums';
+import {
+  Currency,
+  ExpenseCategory,
+  InvoiceStatus,
+} from '../../generated/prisma/enums';
+
+/** The billed expense behind an invoice line - descriptive only, the line's own quantity/rate are what's charged. */
+export class InvoiceItemExpenseEntity {
+  @ApiProperty({ example: 'Figma' })
+  vendor: string;
+
+  @ApiProperty({ enum: Object.values(ExpenseCategory), enumName: 'ExpenseCategory' })
+  category: ExpenseCategory;
+
+  @ApiProperty()
+  date: Date;
+}
 
 export class InvoiceItemEntity extends LineItemEntity {
   @ApiProperty({ format: 'uuid' })
   invoiceId: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    format: 'uuid',
+    description: 'Set when this line re-bills a billable expense',
+  })
+  expenseId: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: InvoiceItemExpenseEntity,
+    description: 'Null for regular lines, or if the expense was since deleted',
+  })
+  expense: InvoiceItemExpenseEntity | null;
 }
 
 export class InvoiceProjectEntity {

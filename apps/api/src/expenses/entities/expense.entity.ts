@@ -1,6 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Currency, ExpenseCategory } from '../../generated/prisma/enums';
 
+export class ExpenseBilledInvoiceEntity {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ example: 'INV-1042' })
+  number: string;
+}
+
+export class ExpenseInvoiceItemEntity {
+  @ApiProperty({ type: ExpenseBilledInvoiceEntity })
+  invoice: ExpenseBilledInvoiceEntity;
+}
+
 export class ExpenseEntity {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -28,4 +41,11 @@ export class ExpenseEntity {
 
   @ApiPropertyOptional({ nullable: true, type: String, format: 'uuid' })
   projectId: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: ExpenseInvoiceItemEntity,
+    description: 'The invoice line this expense was billed on; null while unbilled',
+  })
+  invoiceItem: ExpenseInvoiceItemEntity | null;
 }

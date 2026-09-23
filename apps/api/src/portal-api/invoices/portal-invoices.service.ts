@@ -4,6 +4,7 @@ import {
   PaginationService,
 } from '../../common/pagination/pagination.service';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import type { ExpenseCategory } from '../../generated/prisma/enums';
 import type {
   InvoiceModel as Invoice,
   InvoiceItemModel as InvoiceItem,
@@ -13,8 +14,23 @@ import { NotificationService } from '../../notification/notification.service';
 import { PortalContextService } from '../portal-context.service';
 
 export type PortalInvoiceWithItems = Omit<Invoice, 'workspaceId'> & {
-  items: InvoiceItem[];
+  items: (InvoiceItem & {
+    expense: { vendor: string; category: ExpenseCategory; date: Date } | null;
+  })[];
 };
+
+/**
+ * Lines plus the vendor/category/date of any re-billed expense - enough for
+ * the client to recognise the cost, without the owner's internal expense
+ * notes or project bookkeeping.
+ */
+const ITEMS_INCLUDE = {
+  items: {
+    include: {
+      expense: { select: { vendor: true, category: true, date: true } },
+    },
+  },
+} as const;
 
 /** workspaceId is an internal identifier of the biller's own account - never return it to a portal user. */
 const SAFE_OMIT = { workspaceId: true } as const;
@@ -41,7 +57,7 @@ export class PortalInvoicesService {
       this.prisma.invoice,
       {
         where: { clientId, status: { not: 'draft' } },
-        include: { items: true },
+        include: ITEMS_INCLUDE,
         omit: SAFE_OMIT,
       },
       {
@@ -64,7 +80,7 @@ export class PortalInvoicesService {
     );
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, clientId, status: { not: 'draft' } },
-      include: { items: true },
+      include: ITEMS_INCLUDE,
       omit: SAFE_OMIT,
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
@@ -81,7 +97,10 @@ export class PortalInvoicesService {
     );
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, clientId, status: { not: 'draft' } },
-      include: { items: true, client: true },
+      include: {
+        items: { include: { expense: { select: { date: true } } } },
+        client: true,
+      },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
     const { client, ...rest } = invoice;

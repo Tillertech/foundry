@@ -61,7 +61,7 @@ export class InvoiceTaskService {
         client: { workspace: { remindersEnabled: true } },
       },
       include: {
-        items: true,
+        items: { include: { expense: { select: { date: true } } } },
         client: {
           include: {
             workspace: { select: { reminderDaysBefore: true } },

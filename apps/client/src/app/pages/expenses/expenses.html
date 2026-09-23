@@ -93,7 +93,9 @@
             <span class="hidden text-xs text-muted-foreground sm:inline">{{ label(e.category) }}</span>
             <span class="hidden text-xs text-muted-foreground sm:inline">{{ day(e.date) }}</span>
             <span class="hidden text-xs sm:inline">
-              @if (e.billable) {
+              @if (e.invoiceItem) {
+                <span class="text-muted-foreground">Billed · {{ e.invoiceItem.invoice.number }}</span>
+              } @else if (e.billable) {
                 <span class="text-primary">Billable</span>
               } @else {
                 <span class="text-muted-foreground">-</span>

@@ -34,9 +34,12 @@
           <h1 class="text-xl font-semibold tracking-tight">{{ project()!.name }}</h1>
           <app-status-badge [status]="project()!.status" />
         </div>
+        <div class="flex">
+        <ng-icon name="lucideUser" size="16" class="mt-1.5 mr-1" />
         <p class="mt-1 text-sm text-muted-foreground">
           {{ client()?.company || client()?.name || 'Unknown client' }}
         </p>
+        </div>
       </div>
       <button hlmBtn variant="outline" size="sm" type="button" (click)="editOpen.set(true)">
         <ng-icon name="lucidePencil" size="14" class="mr-1.5" />

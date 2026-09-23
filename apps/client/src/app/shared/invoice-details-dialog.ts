@@ -116,7 +116,15 @@ export interface InvoiceDetailsDialogContext {
               <div
                 class="flex flex-col gap-1 px-3 py-2 text-sm sm:grid sm:grid-cols-[minmax(0,1fr)_44px_96px_104px] sm:items-center sm:gap-2"
               >
-                <span class="min-w-0 truncate">{{ item.description }}</span>
+                <span class="flex min-w-0 items-center gap-1.5">
+                  <span class="truncate">{{ item.description }}</span>
+                  @if (item.expenseId) {
+                    <span
+                      class="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                      >Expense</span
+                    >
+                  }
+                </span>
                 <div
                   class="flex items-center justify-between text-xs text-muted-foreground sm:hidden"
                 >

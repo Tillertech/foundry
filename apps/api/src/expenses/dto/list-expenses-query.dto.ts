@@ -9,6 +9,14 @@ export class ListExpensesQueryDto extends PaginationQueryDto {
   @IsUUID()
   projectId?: string;
 
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: "Only expenses on this client's projects",
+  })
+  @IsOptional()
+  @IsUUID()
+  clientId?: string;
+
   @ApiPropertyOptional({ enum: Object.values(ExpenseCategory), enumName: 'ExpenseCategory' })
   @IsOptional()
   @IsEnum(ExpenseCategory)

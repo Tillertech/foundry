@@ -53,7 +53,9 @@ const TEMPLATE_DIR =
           },
         },
         defaults: {
-          from: `"${config.get('SEND_EMAIL_FROM', 'No Reply')}" <${config.get('SEND_EMAIL_FROM', 'notification@tillertech.io')}>`,
+          // MailService sets `from` per message (workspace or platform sender);
+          // act as fallback.
+          from: `"Foundry" <${config.get('SEND_EMAIL_FROM', 'email')}>`,
         },
         template: {
           dir: TEMPLATE_DIR,

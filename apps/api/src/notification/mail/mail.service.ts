@@ -9,6 +9,13 @@ export interface InvoiceMailLineItem {
   amount: string;
 }
 
+export interface InvoiceMailExpenseLine {
+  description: string;
+  /** Date the expense was incurred; '' if the expense was since deleted. */
+  date: string;
+  amount: string;
+}
+
 export interface InvoiceMailContext {
   clientName: string;
   workspaceName: string;
@@ -16,7 +23,16 @@ export interface InvoiceMailContext {
   issueDate: string;
   dueDate: string;
   currency: string;
+  /** Regular (non-expense) lines. */
   items: InvoiceMailLineItem[];
+  hasItems: boolean;
+  /** Lines re-billing the workspace's billable expenses, shown as their own section. */
+  expenses: InvoiceMailExpenseLine[];
+  hasExpenses: boolean;
+  /** Sum of the regular lines. */
+  itemsTotal: string;
+  /** Sum of the re-billed expense lines. */
+  expensesTotal: string;
   subtotal: string;
   discount: string;
   taxRate: string;
@@ -63,12 +79,49 @@ export interface DocumentMailContext {
   notes: string;
 }
 
-export interface ProjectStatusMailContext {
+/**
+ * Milestone progress block shared by project mails. Every key is always
+ * present (handlebars runs strict); `hasProgress` is false when the project
+ * has no milestones, and the template skips the block.
+ */
+export interface ProjectProgressMailContext {
+  hasProgress: boolean;
+  /** Percent complete, 0-100, excluding cancelled milestones. */
+  progress: number;
+  /** 100 - progress, for the unfilled part of the bar. */
+  remaining: number;
+  completedMilestones: number;
+  totalMilestones: number;
+  /** Next milestone not yet completed, by the project's manual order; '' when none. */
+  nextMilestoneName: string;
+  /** Deep link to the project in the client portal; '' when no portal URL is configured. */
+  projectUrl: string;
+}
+
+export interface ProjectStatusMailContext extends ProjectProgressMailContext {
   clientName: string;
   workspaceName: string;
   projectName: string;
   previousStatus: string;
   status: string;
+}
+
+export interface MilestoneCompletedMailContext
+  extends ProjectProgressMailContext {
+  clientName: string;
+  workspaceName: string;
+  projectName: string;
+  milestoneName: string;
+  milestoneDescription: string;
+  completedDate: string;
+}
+
+/** Display name on platform mail*/
+const PLATFORM_SENDER_NAME = 'Foundry';
+
+interface Sender {
+  name: string;
+  address: string;
 }
 
 interface Attachment {
@@ -146,6 +199,7 @@ export class MailService {
       `Invoice ${context.number} from ${context.workspaceName}`,
       'invoice-sent',
       { ...context },
+      this.workspaceSender(context.workspaceName),
       pdf ? [{ filename: `${context.number}.pdf`, content: pdf }] : undefined,
     );
   }
@@ -160,6 +214,7 @@ export class MailService {
       `Payment received for invoice ${context.number}`,
       'invoice-paid',
       { ...context },
+      this.workspaceSender(context.workspaceName),
       receipt
         ? [{ filename: `Receipt-${context.number}.pdf`, content: receipt }]
         : undefined,
@@ -176,6 +231,7 @@ export class MailService {
       `Payment received for invoice ${context.number} - ${context.currency} ${context.balanceDue} remaining`,
       'invoice-partially-paid',
       { ...context },
+      this.workspaceSender(context.workspaceName),
       receipt
         ? [{ filename: `Receipt-${context.number}.pdf`, content: receipt }]
         : undefined,
@@ -191,6 +247,7 @@ export class MailService {
       `Reminder: invoice ${context.number} is due`,
       'invoice-reminder',
       { ...context },
+      this.workspaceSender(context.workspaceName),
     );
   }
 
@@ -204,6 +261,7 @@ export class MailService {
       `Quote ${context.number} from ${context.workspaceName}`,
       'quote-sent',
       { ...context },
+      this.workspaceSender(context.workspaceName),
       pdf ? [{ filename: `${context.number}.pdf`, content: pdf }] : undefined,
     );
   }
@@ -218,6 +276,7 @@ export class MailService {
       `${context.documentName} from ${context.workspaceName}`,
       'document-shared',
       { ...context },
+      this.workspaceSender(context.workspaceName),
       [attachment],
     );
   }
@@ -231,7 +290,27 @@ export class MailService {
       `${context.projectName} is now ${context.status}`,
       'project-status-changed',
       { ...context },
+      this.workspaceSender(context.workspaceName),
     );
+  }
+
+  sendMilestoneCompleted(
+    to: string,
+    context: MilestoneCompletedMailContext,
+  ): Promise<boolean> {
+    return this.send(
+      to,
+      `Milestone completed: ${context.milestoneName} (${context.projectName})`,
+      'milestone-completed',
+      { ...context },
+      this.workspaceSender(context.workspaceName),
+    );
+  }
+
+  /** `${PORTAL_APP_URL}/:slug/projects/:id`, or '' when no portal URL is configured. */
+  portalProjectUrl(portalSlug: string, projectId: string): string {
+    const base = this.portalAppUrl();
+    return base ? `${base}/${portalSlug}/projects/${projectId}` : '';
   }
 
   sendUserInvite(
@@ -256,6 +335,7 @@ export class MailService {
         portalSlug,
         acceptUrl,
       },
+      this.workspaceSender(workspaceName),
     );
   }
 
@@ -267,10 +347,15 @@ export class MailService {
   ): Promise<boolean> {
     const resetUrl = this.portalUrl(portalSlug, '/reset-password', token, to);
 
-    return this.send(to, 'Reset your client portal password', 'portal-password-reset', {
-      name,
-      resetUrl,
-    });
+    return this.send(
+      to,
+      'Reset your client portal password',
+      'portal-password-reset',
+      {
+        name,
+        resetUrl,
+      },
+    );
   }
 
   /** Builds a `${PORTAL_APP_URL}/:slug${path}?token=...&email=...` deep link for the client-portal SPA. */
@@ -280,13 +365,52 @@ export class MailService {
     token: string,
     email: string,
   ): string {
+    const portalAppUrl = this.portalAppUrl();
+    if (!portalAppUrl) return '';
+    return `${portalAppUrl}/${portalSlug}${path}?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+  }
+
+  private portalAppUrl(): string {
     const explicitPortalUrl = this.config
       .get<string>('PORTAL_APP_URL')
       ?.replace(/\/+$/, '');
     const appUrl = this.config.get<string>('APP_URL')?.replace(/\/+$/, '');
-    const portalAppUrl = explicitPortalUrl ?? (appUrl && `${appUrl}/portal`);
-    if (!portalAppUrl) return '';
-    return `${portalAppUrl}/${portalSlug}${path}?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    return explicitPortalUrl ?? (appUrl ? `${appUrl}/portal` : '');
+  }
+
+  /**
+   * `"Acme Studio" <acme-studio@notification.tillertech.io>` - the workspace
+   * name as both display name and local part, on the SEND_EMAIL_FROM domain,
+   * so the recipient sees who the mail is really from rather than the
+   * platform. Any local part on the verified sending domain is accepted by
+   * the provider, so nothing needs provisioning per workspace.
+   */
+  private workspaceSender(workspaceName: string): Sender {
+    const { address } = this.platformSender();
+    const [defaultLocal, domain] = address.split('@');
+    const local =
+      workspaceName
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .slice(0, 64)
+        .replace(/^-+|-+$/g, '') || defaultLocal;
+
+    return {
+      name: workspaceName.trim() || PLATFORM_SENDER_NAME,
+      address: `${local}@${domain}`,
+    };
+  }
+
+  private platformSender(): Sender {
+    return {
+      name: PLATFORM_SENDER_NAME,
+      address: this.config.get<string>(
+        'SEND_EMAIL_FROM',
+        'notification@notification.tillertech.io',
+      ),
+    };
   }
 
   /** Resolves true when the transport accepted the mail, false otherwise. */
@@ -295,10 +419,12 @@ export class MailService {
     subject: string,
     template: string,
     context: Record<string, unknown>,
+    from: Sender = this.platformSender(),
     attachments?: Attachment[],
   ): Promise<boolean> {
     try {
       await this.mailerService.sendMail({
+        from,
         to,
         subject,
         template,

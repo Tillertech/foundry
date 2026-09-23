@@ -8,17 +8,27 @@
             <tr>
               <td style="padding:32px 40px;border-bottom:1px solid #e4e4e7;">
                 <h1 style="margin:0;font-size:20px;">{{workspaceName}}</h1>
-                <p style="margin:8px 0 0;color:#71717a;font-size:14px;">Project status update</p>
+                <p style="margin:8px 0 0;color:#71717a;font-size:14px;">Milestone completed &middot; {{projectName}}</p>
               </td>
             </tr>
             <tr>
               <td style="padding:32px 40px;">
                 <p style="margin:0 0 16px;font-size:14px;">Hi {{clientName}},</p>
-                <p style="margin:0 0 24px;font-size:14px;">
-                  {{workspaceName}} updated the status of
-                  <strong>{{projectName}}</strong> from
-                  {{previousStatus}} to <strong>{{status}}</strong>.
+                <p style="margin:0 0 16px;font-size:14px;">
+                  {{workspaceName}} completed a milestone on
+                  <strong>{{projectName}}</strong>.
                 </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+                  <tr>
+                    <td style="padding:14px 20px;">
+                      <p style="margin:0;font-size:14px;font-weight:bold;color:#15803d;">&#10003; {{milestoneName}}</p>
+                      {{#if milestoneDescription}}
+                      <p style="margin:6px 0 0;font-size:13px;color:#3f3f46;">{{milestoneDescription}}</p>
+                      {{/if}}
+                      <p style="margin:6px 0 0;font-size:12px;color:#71717a;">Completed {{completedDate}}</p>
+                    </td>
+                  </tr>
+                </table>
                 {{#if hasProgress}}
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border:1px solid #e4e4e7;border-radius:8px;">
                   <tr>
