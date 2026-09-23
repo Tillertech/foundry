@@ -15,6 +15,7 @@ const tones: Record<string, string> = {
 
   sent: 'bg-info/12 text-info ring-info/20',
   viewed: 'bg-primary/12 text-primary ring-primary/20',
+  in_progress: 'bg-primary/12 text-primary ring-primary/20',
 
   overdue: 'bg-destructive/12 text-destructive ring-destructive/20',
   declined: 'bg-destructive/12 text-destructive ring-destructive/20',
@@ -27,6 +28,7 @@ const tones: Record<string, string> = {
   lead: 'bg-muted text-muted-foreground ring-border',
   planning: 'bg-muted text-muted-foreground ring-border',
   archived: 'bg-muted text-muted-foreground ring-border',
+  not_started: 'bg-muted text-muted-foreground ring-border',
 };
 
 @Component({

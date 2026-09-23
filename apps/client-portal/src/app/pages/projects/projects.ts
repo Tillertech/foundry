@@ -10,7 +10,7 @@ import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideCalendarDays } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { Project, ProjectsApiService } from '../../domains/projects';
+import { Project, ProjectsApiService, projectProgress } from '../../domains/projects';
 import { isoDay, money } from '@foundry/shared-util';
 import { EmptyState, StatusBadge } from '@foundry/shared-ui';
 import { PortalAuthService } from '../../domains/auth';
@@ -47,6 +47,9 @@ export class Projects {
   protected readonly completed = computed(() =>
     this.projects().filter((p) => p.status === 'completed'),
   );
+
+  protected readonly progressFor = (project: Project) =>
+    projectProgress(project.milestones);
 
   constructor() {
     this.projectsApi.list({ take: 100 }).subscribe({

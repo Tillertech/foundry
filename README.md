@@ -53,6 +53,9 @@ For the longer story:
   invoices, payments and documents in context.
 - **Projects** - the center of the workflow. Scope, timeline, documents
   and invoices all hang off the project.
+- **Project delivery milestones** - break a project into milestones with
+  a status and a due date, reorder them as scope shifts. Clients see the
+  same progress bar you do, without your internal notes.
 - **Quotes** - professional, numbered quotes with real line items. When
   the client accepts, the project starts. Nothing retyped.
 - **Invoices** - auto-numbered, PDF-generated, emailed and tracked from
@@ -67,6 +70,9 @@ For the longer story:
   updated live as events happen.
 - **Event-driven core** - every action emits an event; automation and
   extensions hook into the same bus.
+- **Client portal** - every client can get their own permission-gated,
+  read-only login to their projects, invoices, quotes, payments and
+  documents. No separate app to build or host.
 
 Full workflow. No row limits. No feature gates on core lifecycle.
 
@@ -77,12 +83,14 @@ Full workflow. No row limits. No feature gates on core lifecycle.
 Foundry is open-core: the workflow that runs your business is free forever, and the layer that only matters when you scale across teams is paid.
 
 **Community** - free, self-hosted, open source (AGPLv3). Full client-
-to-cash lifecycle, no row limits, no telemetry, no feature gates. This
-repository.
+to-cash lifecycle, including project delivery milestones and a
+read-only client portal, no row limits, no telemetry, no feature gates.
+This repository.
 
 **Cloud** *(in development, join the waitlist)* - Foundry hosted and operated by Tillertech. Everything Community does, plus SSO, RBAC,
-audit logs, multi-workspace management, an interactive client portal,
-managed backups and monitoring.
+audit logs, multi-workspace management, a fully interactive client
+portal (payment collection, quote approval), managed backups and
+monitoring.
 
 **Self-hosted Enterprise** - considering it. If your organization needs the Cloud feature set on your own infrastructure (for compliance, air-gap, or contractual reasons), reach out at [hello@tillertech.io](mailto:hello@tillertech.io). We'd rather ship it because someone needs it than sell it speculatively.
 
@@ -153,22 +161,22 @@ More on the architecture: `docs/architecture.md` *(work in progress)*.
 **Shipped**
 
 - Clients & projects
+- Project delivery milestones - status, due dates, drag-to-reorder
+- Client portal - dashboard, projects, invoices, quotes, payments, documents
 - Quotes & invoices
 - Payments & expenses
 - Documents & file storage (S3-compatible)
-- Realtime notifications
+- Realtime + email notifications, with owner-controlled preferences
 - REST API
 - Basic reporting dashboard
 
 **Next (Community)**
 
-- Basic client-facing portal (view/download)
 - Recurring invoices / retainers
 - Time tracking against projects
 - CSV/JSON import & export
 - Document branding (logo, colors, business details)
 - E-signature acceptance on quotes
-- Public plugin & extension API
 
 **Next (Cloud)**
 
@@ -179,7 +187,7 @@ More on the architecture: `docs/architecture.md` *(work in progress)*.
 - Outbound webhooks
 - Multi-workspace management
 - Advanced template designer
-- Full interactive portal with payment collection
+- Full interactive portal - payment collection, quote approval
 - White-label & custom domain
 
 See [foundry.tillertech.io](https://foundry.tillertech.io/#roadmap) for the current state.

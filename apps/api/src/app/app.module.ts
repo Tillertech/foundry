@@ -18,6 +18,7 @@ import { EventsModule } from '../events/events.module';
 import { ExpensesModule } from '../expenses/expenses.module';
 import { AuthModule } from '../identity/auth/auth.module';
 import { InvoicesModule } from '../invoices/invoices.module';
+import { MilestonesModule } from '../milestones/milestones.module';
 import { NotificationModule } from '../notification/notification.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { PortalApiModule } from '../portal-api/portal-api.module';
@@ -83,6 +84,7 @@ import { APP_GUARD } from '@nestjs/core';
     WorkspacesModule,
     ClientsModule,
     ProjectsModule,
+    MilestonesModule,
     InvoicesModule,
     QuotesModule,
     PaymentsModule,

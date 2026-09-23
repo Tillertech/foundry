@@ -31,12 +31,36 @@
     <div hlmTabs [tab]="tab()" (tabActivated)="tab.set($event)">
       <div hlmTabsList class="mb-6 h-9">
         <button hlmTabsTrigger="overview" class="text-xs">Overview</button>
+        <button hlmTabsTrigger="milestones" class="text-xs">Milestones</button>
         @if (permission()?.viewDocuments) {
           <button hlmTabsTrigger="files" class="text-xs">Files</button>
         }
       </div>
 
       <div hlmTabsContent="overview" class="space-y-6">
+        @if (progress(); as prog) {
+          @if (prog.total > 0) {
+            <section class="surface-card p-5 sm:p-6">
+              <div class="mb-2 flex items-center justify-between text-sm">
+                <span class="font-medium">Overall progress</span>
+                <span class="font-semibold tabular-nums text-primary">{{ prog.progress }}% complete</span>
+              </div>
+              <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div class="h-full rounded-full bg-primary transition-all" [style.width.%]="prog.progress"></div>
+              </div>
+              <dl class="mt-5 grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
+                <div>
+                  <dt class="text-xs text-muted-foreground">Current milestone</dt>
+                  <dd class="mt-1 text-sm font-semibold">{{ prog.current?.name ?? 'Work in progress' }}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-muted-foreground">Next milestone</dt>
+                  <dd class="mt-1 text-sm font-semibold">{{ prog.next?.name ?? 'Final delivery' }}</dd>
+                </div>
+              </dl>
+            </section>
+          }
+        }
         <section>
           <h2 class="mb-3 text-sm font-semibold">Project details</h2>
           <dl
@@ -72,6 +96,42 @@
             }
           </dl>
         </section>
+      </div>
+
+      <div hlmTabsContent="milestones">
+        @if (p.milestones.length === 0) {
+          <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
+            No milestones shared yet.
+          </div>
+        } @else {
+          <div class="surface-card divide-y divide-border">
+            @for (m of p.milestones; track m.id) {
+              <div class="flex items-start gap-3 px-5 py-4" [class.opacity-60]="m.status === 'completed'">
+                <span
+                  class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                  [class]="m.status === 'completed' ? 'bg-success' : m.status === 'in_progress' ? 'bg-primary' : 'bg-muted-foreground/40'"
+                ></span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <p class="text-sm font-medium" [class.line-through]="m.status === 'completed'">{{ m.name }}</p>
+                    <app-status-badge [status]="m.status" />
+                  </div>
+                  @if (m.description) {
+                    <p class="mt-1 text-xs leading-5 text-muted-foreground">{{ m.description }}</p>
+                  }
+                  <p class="mt-1.5 text-xs text-muted-foreground">
+                    @if (m.dueDate) {
+                      Due {{ isoDay(m.dueDate) }}
+                    }
+                    @if (m.completedAt) {
+                      · Completed {{ isoDay(m.completedAt) }}
+                    }
+                  </p>
+                </div>
+              </div>
+            }
+          </div>
+        }
       </div>
 
       @if (permission()?.viewDocuments) {
