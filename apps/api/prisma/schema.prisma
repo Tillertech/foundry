@@ -133,37 +133,43 @@ model Notification {
 }
 
 model Workspace {
-  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String       @db.VarChar(500)
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String       @db.VarChar(500)
   /// Registered legal entity name, when it differs from the trading name.
-  legalName          String?      @db.VarChar(500)
-  slug               String       @db.VarChar(500)
-  currency           String       @default("USD") @db.VarChar(3)
-  city               String?      @db.VarChar(500)
-  country            String?      @db.VarChar(500)
-  email              String?      @db.VarChar(500)
-  phone              String?      @db.VarChar(500)
-  website            String?      @db.VarChar(500)
-  address            String?      @db.VarChar(500)
-  postCode           String?      @db.VarChar(500)
-  taxCode            String?      @db.VarChar(500)
+  legalName           String?      @db.VarChar(500)
+  slug                String       @db.VarChar(500)
+  currency            String       @default("USD") @db.VarChar(3)
+  city                String?      @db.VarChar(500)
+  country             String?      @db.VarChar(500)
+  email               String?      @db.VarChar(500)
+  phone               String?      @db.VarChar(500)
+  website             String?      @db.VarChar(500)
+  address             String?      @db.VarChar(500)
+  postCode            String?      @db.VarChar(500)
+  taxCode             String?      @db.VarChar(500)
   // todo: carry workspace theme to client portal
   // theme              String?      @db.VarChar(150)
-  invoicePrefix      String?
-  quotePrefix        String?
-  footerNote         String?
+  invoicePrefix       String?
+  quotePrefix         String?
+  footerNote          String?
   /// Default tax rate (percent) applied to new invoices and quotes.
-  taxRate            Decimal      @default(0) @db.Decimal(5, 2)
-  paymentTerms       Int          @default(7)
+  taxRate             Decimal      @default(0) @db.Decimal(5, 2)
+  paymentTerms        Int          @default(7)
   /// Storage key: local path in dev, S3 object key in prod.(logo)
-  storageKey         String?
-  status             ClientStatus @default(active)
+  storageKey          String?
+  status              ClientStatus @default(active)
   /// Invoice due-date reminder emails on/off for this workspace.
-  remindersEnabled   Boolean      @default(false)
+  remindersEnabled    Boolean      @default(false)
   /// How many days before the due date reminders start (also the re-send throttle).
-  reminderDaysBefore Int          @default(3)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  reminderDaysBefore  Int          @default(3)
+  /// Default client-portal permissions: what every client portal of this
+  /// workspace may see unless that portal sets its own (PortalPermission.inherit = false).
+  portalViewProjects  Boolean      @default(true)
+  portalViewDocuments Boolean      @default(true)
+  portalViewQuotes    Boolean      @default(true)
+  portalViewPayments  Boolean      @default(true)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
   ownerId   String     @db.Uuid
   owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -219,12 +225,13 @@ model Project {
   clientId String @db.Uuid
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  invoices             Invoice[]
-  expenses             Expense[]
-  documents            Document[]
-  reconciliations      ReconciliationEntry[]
-  clientPortalProjects ClientPortalProject[]
-  milestones           Milestone[]
+  invoices                 Invoice[]
+  expenses                 Expense[]
+  documents                Document[]
+  reconciliations          ReconciliationEntry[]
+  clientPortalProjects     ClientPortalProject[]
+  clientPortalUserProjects ClientPortalUserProject[]
+  milestones               Milestone[]
 
   @@index([clientId])
   @@map("projects")
@@ -456,11 +463,15 @@ model ClientPortalUser {
   otpSecret       String?
   emailVerifiedAt DateTime?
   status          ClientPortalUserStatus @default(invited)
+  /// true: sees every project shared into the portal, including ones shared later.
+  /// false: sees only the shared projects listed in `projects`.
+  allProjects     Boolean                @default(true)
 
-  clientPortalId String       @db.Uuid
-  clientPortal   ClientPortal @relation(fields: [clientPortalId], references: [id], onDelete: Cascade)
-  updatedAt      DateTime     @updatedAt
-  createdAt      DateTime     @default(now())
+  clientPortalId String                    @db.Uuid
+  clientPortal   ClientPortal              @relation(fields: [clientPortalId], references: [id], onDelete: Cascade)
+  projects       ClientPortalUserProject[]
+  updatedAt      DateTime                  @updatedAt
+  createdAt      DateTime                  @default(now())
 
   @@unique([email, clientPortalId])
   @@map("clientPortalUser")
@@ -468,6 +479,9 @@ model ClientPortalUser {
 
 model PortalPermission {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// While true the portal follows its workspace's default permissions and the
+  /// view* flags below are ignored; false makes them this portal's own.
+  inherit       Boolean  @default(true)
   viewProjects  Boolean  @default(true)
   viewDocuments Boolean  @default(true)
   viewQuotes    Boolean  @default(true)
@@ -494,4 +508,20 @@ model ClientPortalProject {
 
   @@unique([clientPortalId, projectId])
   @@map("clientPortalProject")
+}
+
+/// A project a portal user is limited to (only consulted when the user's
+/// allProjects is false). Narrows the portal's shared projects, never widens them.
+model ClientPortalUserProject {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt DateTime @default(now())
+
+  clientPortalUserId String           @db.Uuid
+  clientPortalUser   ClientPortalUser @relation(fields: [clientPortalUserId], references: [id], onDelete: Cascade)
+  projectId          String           @db.Uuid
+  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([clientPortalUserId, projectId])
+  @@index([projectId])
+  @@map("clientPortalUserProject")
 }

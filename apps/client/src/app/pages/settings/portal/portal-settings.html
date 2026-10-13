@@ -47,15 +47,16 @@
 
     <div class="flex flex-wrap items-center gap-6 text-sm">
       <div>
-        <p class="text-2xl font-semibold tabular-nums">{{ activeUsers() }}</p>
+        <p class="text-2xl font-semibold tabular-nums">{{ activeUsers() ?? '–' }}</p>
         <p class="text-xs text-muted-foreground">Active client users</p>
       </div>
       <div>
-        <p class="text-2xl font-semibold tabular-nums">{{ invitedUsers() }}</p>
+        <p class="text-2xl font-semibold tabular-nums">{{ invitedUsers() ?? '–' }}</p>
         <p class="text-xs text-muted-foreground">Pending invitations</p>
       </div>
       <p class="ml-auto max-w-xs text-right text-xs text-muted-foreground">
-        Invite users and share projects from each client's own record on the
+        Invite users, share projects and set per-client permissions from each
+        client's own record on the
         <span class="font-medium text-foreground">Clients</span> page.
       </p>
     </div>
@@ -64,34 +65,40 @@
   <!-- Default permissions -->
   <section class="surface-card p-6">
     <h2 class="text-sm font-semibold">Default permissions</h2>
-    <p class="mt-1 text-xs text-muted-foreground">
-      Applied to every project unless you override them per project below.
+    <p class="mt-1 max-w-2xl text-xs text-muted-foreground">
+      What clients can see in their portal. Every client portal follows these
+      unless it is given its own permissions on the client's record. The portal
+      is view-only today, so these are the four areas it can show.
     </p>
-    <div class="mt-5 grid gap-x-8 gap-y-6 md:grid-cols-2">
-      @for (group of capabilityGroups(); track group[0]) {
-      <div>
-        <p
-          class="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-        >
-          {{ group[0] }}
-        </p>
-        <div class="divide-y divide-border/60 rounded-lg border border-border">
-          @for (c of group[1]; track c.key) {
-          <div class="flex items-center justify-between gap-4 px-4 py-3">
-            <div class="min-w-0">
-              <p class="text-sm font-medium">{{ c.label }}</p>
-              <p class="text-xs text-muted-foreground">{{ c.desc }}</p>
-            </div>
-            <hlm-switch
-              [checked]="store.defaults()[c.key]"
-              (checkedChange)="toggleDefault(c.key, $event)"
-            />
-          </div>
-          }
+    @if (loadingDefaults()) {
+    <div class="mt-5 space-y-2">
+      <div class="skeleton-shimmer h-14 w-full rounded-lg"></div>
+      <div class="skeleton-shimmer h-14 w-full rounded-lg"></div>
+    </div>
+    } @else if (workspace(); as ws) {
+    <div class="mt-5 grid gap-3 md:grid-cols-2">
+      @for (p of portalDefaults; track p.key) {
+      <div
+        class="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"
+      >
+        <div class="min-w-0">
+          <p class="text-sm font-medium">{{ p.label }}</p>
+          <p class="text-xs text-muted-foreground">{{ p.desc }}</p>
         </div>
+        <hlm-switch
+          [checked]="ws[p.key]"
+          [disabled]="savingDefault() !== null"
+          (checkedChange)="toggleDefault(p.key, $event)"
+          [attr.aria-label]="'Clients can see ' + p.label.toLowerCase() + ' by default'"
+        />
       </div>
       }
     </div>
+    } @else {
+    <p class="mt-5 text-xs text-muted-foreground">
+      Default permissions could not be loaded.
+    </p>
+    }
   </section>
 
   <!-- Branding -->

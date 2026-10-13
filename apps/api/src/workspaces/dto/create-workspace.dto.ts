@@ -170,4 +170,40 @@ export class CreateWorkspaceDto {
   @Min(1)
   @Max(30)
   reminderDaysBefore?: number;
+
+  @ApiPropertyOptional({
+    default: true,
+    description:
+      'Client-portal default: portals that inherit workspace permissions can see projects and milestones',
+  })
+  @IsOptional()
+  @IsBoolean()
+  portalViewProjects?: boolean;
+
+  @ApiPropertyOptional({
+    default: true,
+    description:
+      'Client-portal default: portals that inherit workspace permissions can see documents',
+  })
+  @IsOptional()
+  @IsBoolean()
+  portalViewDocuments?: boolean;
+
+  @ApiPropertyOptional({
+    default: true,
+    description:
+      'Client-portal default: portals that inherit workspace permissions can see quotes',
+  })
+  @IsOptional()
+  @IsBoolean()
+  portalViewQuotes?: boolean;
+
+  @ApiPropertyOptional({
+    default: true,
+    description:
+      'Client-portal default: portals that inherit workspace permissions can see invoices and payments',
+  })
+  @IsOptional()
+  @IsBoolean()
+  portalViewPayments?: boolean;
 }

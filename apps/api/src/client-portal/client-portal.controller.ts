@@ -27,6 +27,7 @@ import { JwtAuthGuard, JwtPayload } from '../identity/auth/jwt-auth.guard';
 import { ClientPortalService } from './client-portal.service';
 import { CreateClientPortalDto } from './dto/create-client-portal.dto';
 import { ListClientPortalsQueryDto } from './dto/list-client-portals-query.dto';
+import { SharePortalProjectDto } from './dto/share-portal-project.dto';
 import { UpdateClientPortalDto } from './dto/update-client-portal.dto';
 import { ClientPortalEntity } from './entities/client-portal.entity';
 
@@ -65,7 +66,9 @@ export class ClientPortalController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Toggle a portal and/or update its default permissions' })
+  @ApiOperation({ summary:
+      'Toggle a portal and/or set its permissions (inherit the workspace defaults, or its own)',
+   })
   @ApiOkResponse({ type: ClientPortalEntity })
   @ApiNotFoundResponse()
   update(
@@ -74,6 +77,28 @@ export class ClientPortalController {
     @Body() dto: UpdateClientPortalDto,
   ) {
     return this.clientPortalService.update(user.sub, id, dto);
+  }
+
+  @Patch(':id/projects/:projectId')
+  @ApiOperation({
+    summary: 'Share a project into the portal, or hide it again',
+  })
+  @ApiOkResponse({ type: ClientPortalEntity })
+  @ApiNotFoundResponse({
+    description: "Portal not found, or the project is not this client's",
+  })
+  shareProject(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() dto: SharePortalProjectDto,
+  ) {
+    return this.clientPortalService.setProjectShared(
+      user.sub,
+      id,
+      projectId,
+      dto.active,
+    );
   }
 
   @Delete(':id')
