@@ -163,30 +163,20 @@
       </app-field>
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Client">
-          <hlm-select class="w-full" [formField]="f.clientId" [itemToString]="clientLabel">
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value placeholder="Not linked" />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              <hlm-select-item value="">Not linked</hlm-select-item>
-              @for (c of clients(); track c.id) {
-                <hlm-select-item [value]="c.id">{{ c.company || c.name }}</hlm-select-item>
-              }
-            </hlm-select-content>
-          </hlm-select>
+          <app-option-autocomplete
+            placeholder="Not linked"
+            emptyText="No client found"
+            [options]="clientOptions()"
+            [formField]="f.clientId"
+          />
         </app-field>
         <app-field label="Project">
-          <hlm-select class="w-full" [formField]="f.projectId" [itemToString]="projectLabel">
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value placeholder="Not linked" />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              <hlm-select-item value="">Not linked</hlm-select-item>
-              @for (p of linkableProjects(); track p.id) {
-                <hlm-select-item [value]="p.id">{{ p.name }}</hlm-select-item>
-              }
-            </hlm-select-content>
-          </hlm-select>
+          <app-option-autocomplete
+            placeholder="Not linked"
+            emptyText="No project found"
+            [options]="projectOptions()"
+            [formField]="f.projectId"
+          />
         </app-field>
       </div>
       <app-field label="Notes">

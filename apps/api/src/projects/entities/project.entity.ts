@@ -33,6 +33,13 @@ export class ProjectEntity {
   @ApiPropertyOptional({ nullable: true, type: String })
   description: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Internal notes - never exposed through the client portal',
+  })
+  notes: string | null;
+
   @ApiProperty({ format: 'uuid' })
   clientId: string;
 }

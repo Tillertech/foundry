@@ -32,7 +32,16 @@ import {
 } from '../../domains/payments';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader, ToastService } from '@foundry/shared-ui';
+import { WorkspaceCurrencyService } from '../../domains/workspaces';
+import {
+  CurrencyAutocomplete,
+  Field,
+  fieldError,
+  OptionAutocomplete,
+  PageHeader,
+  ToastService,
+} from '@foundry/shared-ui';
+import { clientOptions } from '../../shared/entity-options';
 import { ListSkeleton } from '../../shared/list-skeleton';
 
 interface PaymentForm {
@@ -73,6 +82,8 @@ export const methodLabels: Record<PaymentMethod, string> = {
   selector: 'app-payments',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    OptionAutocomplete,
+    CurrencyAutocomplete,
     FormField,
     NgIcon,
     HlmButton,
@@ -93,6 +104,7 @@ export class Payments {
   private readonly clientsApi = inject(ClientsApiService);
   private readonly invoicesApi = inject(InvoicesApiService);
   private readonly toast = inject(ToastService);
+  protected readonly fx = inject(WorkspaceCurrencyService);
 
   protected readonly loading = signal(true);
   protected readonly payments = signal<Payment[]>([]);
@@ -121,14 +133,15 @@ export class Payments {
     v === 'all' ? 'All methods' : (methodLabels[v as PaymentMethod] ?? v);
   protected readonly methodLabel = (v: string) =>
     methodLabels[v as PaymentMethod] ?? v;
-  protected readonly clientLabel = (v: string) => {
-    const c = this.clients().find((x) => x.id === v);
-    return c ? c.company || c.name : v;
-  };
   protected readonly invoiceLabel = (v: string) =>
     v ? (this.invoices().find((i) => i.id === v)?.number ?? v) : 'Unlinked';
 
+  protected readonly clientOptions = computed(() =>
+    clientOptions(this.clients()),
+  );
+
   constructor() {
+    this.fx.refresh();
     this.refresh();
   }
 
@@ -176,8 +189,12 @@ export class Payments {
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   });
 
+  /** Header total, in the workspace currency. */
   protected readonly total = computed(() =>
-    this.filtered().reduce((s, p) => s + num(p.amount), 0),
+    this.filtered().reduce(
+      (s, p) => s + this.fx.toWorkspace(p.amount, p.currency),
+      0,
+    ),
   );
 
   protected get clientInvoices() {
@@ -188,6 +205,7 @@ export class Payments {
   protected openNew(): void {
     this.model.set({
       ...emptyPayment(),
+      currency: this.fx.currency(),
       clientId: this.clients()[0]?.id ?? '',
     });
     this.isNew = true;
@@ -231,6 +249,7 @@ export class Payments {
       : this.paymentsApi.update(v.id, common);
     request.subscribe({
       next: (payment) => {
+        this.fx.ensure(payment.currency);
         this.saving.set(false);
         this.payments.update((list) =>
           this.isNew

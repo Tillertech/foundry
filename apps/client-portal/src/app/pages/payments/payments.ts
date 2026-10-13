@@ -11,6 +11,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { InvoicesApiService } from '../../domains/invoices';
 import { Payment, PaymentsApiService } from '../../domains/payments';
 import { isoDay, money, num } from '@foundry/shared-util';
+import { PortalAuthService } from '../../domains/auth';
 import { saveBlob } from '../../core/download-file';
 import { EmptyState } from '@foundry/shared-ui';
 
@@ -34,6 +35,7 @@ const methodLabel: Record<string, string> = {
 export class Payments {
   private readonly paymentsApi = inject(PaymentsApiService);
   private readonly invoicesApi = inject(InvoicesApiService);
+  private readonly auth = inject(PortalAuthService);
 
   protected readonly isoDay = isoDay;
   protected readonly money = money;
@@ -52,7 +54,7 @@ export class Payments {
     this.payments().reduce((s, p) => s + num(p.amount), 0),
   );
   protected readonly currency = computed(
-    () => this.payments()[0]?.currency ?? 'USD',
+    () => this.payments()[0]?.currency ?? this.auth.currency(),
   );
 
   constructor() {

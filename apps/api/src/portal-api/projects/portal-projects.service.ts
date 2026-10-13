@@ -20,13 +20,16 @@ interface PortalMilestone {
   order: number;
 }
 
-type PortalProject = Project & { milestones: PortalMilestone[] };
+type PortalProject = Omit<Project, 'notes'> & {
+  milestones: PortalMilestone[];
+};
 
 /**
  * Prisma objects returned from a controller serialize every field (no
  * ClassSerializerInterceptor stripping in this codebase), so this narrows
  * with `select`, not just `include`, to keep notes/estimatedHours - internal
- * capacity-planning detail - out of the portal response.
+ * capacity-planning detail - out of the portal response. The project's own
+ * internal `notes` are dropped the same way, via PROJECT_OMIT.
  */
 const MILESTONES_INCLUDE = {
   milestones: {
@@ -42,6 +45,8 @@ const MILESTONES_INCLUDE = {
     },
   },
 };
+
+const PROJECT_OMIT = { notes: true as const };
 
 @Injectable()
 export class PortalProjectsService {
@@ -60,7 +65,11 @@ export class PortalProjectsService {
     const projectIds = await this.context.sharedProjectIds(clientPortalId);
     return this.pagination.paginate<PortalProject>(
       this.prisma.project,
-      { where: { id: { in: projectIds } }, include: MILESTONES_INCLUDE },
+      {
+        where: { id: { in: projectIds } },
+        include: MILESTONES_INCLUDE,
+        omit: PROJECT_OMIT,
+      },
       {
         cursor: query.cursor,
         take: query.take,
@@ -80,6 +89,7 @@ export class PortalProjectsService {
     const project = await this.prisma.project.findUnique({
       where: { id },
       include: MILESTONES_INCLUDE,
+      omit: PROJECT_OMIT,
     });
     if (!project) throw new NotFoundException('Project not found');
     return project;

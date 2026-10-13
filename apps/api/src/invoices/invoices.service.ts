@@ -15,7 +15,7 @@ import {
   PaginationService,
 } from '../common/pagination/pagination.service';
 import { InvoiceEvents } from '../common/events';
-import { Currency, InvoiceStatus } from '../generated/prisma/enums';
+import { InvoiceStatus } from '../generated/prisma/enums';
 import { Prisma } from '../generated/prisma/client';
 import type {
   InvoiceModel as Invoice,
@@ -28,15 +28,13 @@ import { CacheTimer } from '../common/cache-timer';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
-import {
-  CreateInvoiceDto,
-  InvoiceLineItemDto,
-} from './dto/create-invoice.dto';
+import { CreateInvoiceDto, InvoiceLineItemDto } from './dto/create-invoice.dto';
 import { ListInvoicesQueryDto } from './dto/list-invoices-query.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { Decimal } from '@prisma/client/runtime/client';
 import { ConversionRate } from './dto/conversion-date.dto';
 import { ExchangeRatesEntity } from './entities/exchange-rates.entity';
+import { DEFAULT_CURRENCY } from '../common/currency';
 
 const DEFAULT_INVOICE_PREFIX = 'INV-';
 const DEFAULT_INVOICE_START = 1001;
@@ -82,7 +80,7 @@ export class InvoicesService {
     const { items: requested, number, ...data } = dto;
     const items = await this.resolveItems(ownerId, {
       clientId: client.id,
-      currency: dto.currency ?? Currency.USD,
+      currency: dto.currency ?? DEFAULT_CURRENCY,
       items: requested,
     });
 
@@ -187,7 +185,7 @@ export class InvoicesService {
     ownerId: string,
     target: {
       clientId: string;
-      currency: Currency;
+      currency: string;
       items: InvoiceLineItemDto[];
       /** The invoice being edited, whose own expense lines stay attachable. */
       invoiceId?: string;
@@ -438,35 +436,65 @@ export class InvoicesService {
   }
 
   convertToDollars(currencyCode: string, amount: Decimal): Promise<number> {
-    return this.convert(currencyCode, Currency.USD, amount);
+    return this.convert(currencyCode, DEFAULT_CURRENCY, amount);
   }
 
   dollarRate(currencyCode: string): Promise<ConversionRate> {
-    return this.conversionRate(currencyCode, Currency.USD);
+    return this.conversionRate(currencyCode, DEFAULT_CURRENCY);
   }
 
+  /**
+   * Rates into the workspace currency (or `target`) for every currency the
+   * caller's records actually use - the catalogue is the whole of ISO 4217, so
+   * fetching all of it would be ~150 upstream calls for a handful of hits. A
+   * currency whose rate can't be fetched is left out rather than failing the
+   * lot; callers treat a missing rate as "can't convert".
+   */
   async exchangeRates(
     ownerId: string,
-    target?: Currency,
+    target?: string,
   ): Promise<ExchangeRatesEntity> {
-    let resolved = target;
-    if (!resolved) {
-      const workspace = await this.prisma.workspace.findFirst({
-        where: { ownerId },
-        orderBy: { createdAt: 'asc' },
-        select: { currency: true },
-      });
-      resolved = workspace?.currency ?? Currency.USD;
-    }
-    const entries = await Promise.all(
-      Object.values(Currency).map(async (base) => {
-        const rate = await this.conversionRate(base, resolved);
-        return [base, rate.mid] as const;
+    const workspaces = await this.prisma.workspace.findMany({
+      where: { ownerId },
+      orderBy: { createdAt: 'asc' },
+      select: { currency: true },
+    });
+    const resolved = target ?? workspaces[0]?.currency ?? DEFAULT_CURRENCY;
+
+    const owned = { client: { workspace: { ownerId } } };
+    const distinct = {
+      distinct: ['currency' as const],
+      select: { currency: true },
+    };
+    const used = await Promise.all([
+      this.prisma.client.findMany({
+        where: { workspace: { ownerId } },
+        ...distinct,
+      }),
+      this.prisma.invoice.findMany({ where: owned, ...distinct }),
+      this.prisma.quote.findMany({ where: owned, ...distinct }),
+      this.prisma.payment.findMany({ where: owned, ...distinct }),
+      this.prisma.expense.findMany({
+        where: { workspace: { ownerId } },
+        ...distinct,
+      }),
+    ]);
+    const bases = new Set<string>([
+      resolved,
+      ...workspaces.map((w) => w.currency),
+      ...used.flat().map((row) => row.currency),
+    ]);
+
+    const rates: Partial<Record<string, number>> = {};
+    await Promise.all(
+      [...bases].map(async (base) => {
+        try {
+          rates[base] = (await this.conversionRate(base, resolved)).mid;
+        } catch {
+          // Left out: the client shows the original amount unconverted.
+        }
       }),
     );
-    return {
-      target: resolved,
-      rates: Object.fromEntries(entries) as Record<Currency, number>,
-    };
+    return { target: resolved, rates };
   }
 }

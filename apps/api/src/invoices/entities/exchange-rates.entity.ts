@@ -1,19 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Currency } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA } from '../../common/currency';
 
 export class ExchangeRatesEntity {
   @ApiProperty({
-    enum: Object.values(Currency),
-    enumName: 'Currency',
+    ...CURRENCY_SCHEMA,
     description: 'Currency the rates convert into',
   })
-  target: Currency;
+  target: string;
 
   @ApiProperty({
     type: 'object',
     additionalProperties: { type: 'number' },
     example: { USD: 1, EUR: 1.08, GBP: 1.27, KES: 0.0077 },
-    description: 'Multiplier from each currency into the target',
+    description:
+      "Multiplier into the target for each currency the caller's records use; a currency is absent when its rate could not be fetched",
   })
-  rates: Record<Currency, number>;
+  rates: Partial<Record<string, number>>;
 }

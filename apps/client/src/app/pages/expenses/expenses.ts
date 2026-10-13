@@ -35,9 +35,18 @@ import {
   ExpensesApiService,
 } from '../../domains/expenses';
 import { Project, ProjectsApiService } from '../../domains/projects';
+import { WorkspaceCurrencyService } from '../../domains/workspaces';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader, ToastService } from '@foundry/shared-ui';
+import {
+  CurrencyAutocomplete,
+  Field,
+  fieldError,
+  OptionAutocomplete,
+  PageHeader,
+  ToastService,
+} from '@foundry/shared-ui';
+import { projectOptions } from '../../shared/entity-options';
 import { ListSkeleton } from '../../shared/list-skeleton';
 
 interface ExpenseForm {
@@ -77,6 +86,8 @@ export const catLabels: Record<ExpenseCategory, string> = {
   selector: 'app-expenses',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    OptionAutocomplete,
+    CurrencyAutocomplete,
     FormField,
     NgIcon,
     HlmButton,
@@ -97,6 +108,7 @@ export class Expenses {
   private readonly expensesApi = inject(ExpensesApiService);
   private readonly projectsApi = inject(ProjectsApiService);
   private readonly toast = inject(ToastService);
+  protected readonly fx = inject(WorkspaceCurrencyService);
 
   protected readonly loading = signal(true);
   protected readonly expenses = signal<Expense[]>([]);
@@ -125,10 +137,13 @@ export class Expenses {
     v === 'all' ? 'All categories' : (catLabels[v as ExpenseCategory] ?? v);
   protected readonly catLabel = (v: string) =>
     catLabels[v as ExpenseCategory] ?? v;
-  protected readonly projectLabel = (v: string) =>
-    v ? (this.projects().find((p) => p.id === v)?.name ?? v) : 'Not linked';
+
+  protected readonly projectOptions = computed(() =>
+    projectOptions(this.projects(), { value: '', label: 'Not linked' }),
+  );
 
   constructor() {
+    this.fx.refresh();
     this.refresh();
   }
 
@@ -162,18 +177,22 @@ export class Expenses {
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   });
 
+  /** Header totals, in the workspace currency. */
   protected readonly total = computed(() =>
-    this.filtered().reduce((s, e) => s + num(e.amount), 0),
+    this.filtered().reduce(
+      (s, e) => s + this.fx.toWorkspace(e.amount, e.currency),
+      0,
+    ),
   );
 
   protected readonly billable = computed(() =>
     this.filtered()
       .filter((e) => e.billable)
-      .reduce((s, e) => s + num(e.amount), 0),
+      .reduce((s, e) => s + this.fx.toWorkspace(e.amount, e.currency), 0),
   );
 
   protected openNew(): void {
-    this.model.set(emptyExpense());
+    this.model.set({ ...emptyExpense(), currency: this.fx.currency() });
     this.isNew = true;
     this.sheetOpen.set(true);
   }
@@ -214,6 +233,7 @@ export class Expenses {
     request.subscribe({
       next: (expense) => {
         this.saving.set(false);
+        this.fx.ensure(expense.currency);
         this.expenses.update((list) =>
           this.isNew
             ? [expense, ...list]

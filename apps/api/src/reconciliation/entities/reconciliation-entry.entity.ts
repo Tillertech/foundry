@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Currency, ReconciliationKind } from '../../generated/prisma/enums';
+import { ReconciliationKind } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA } from '../../common/currency';
 
 export class ReconciliationEntryEntity {
   @ApiProperty({ format: 'uuid' })
@@ -19,8 +20,8 @@ export class ReconciliationEntryEntity {
   })
   amount: string;
 
-  @ApiProperty({ enum: Object.values(Currency), enumName: 'Currency' })
-  currency: Currency;
+  @ApiProperty(CURRENCY_SCHEMA)
+  currency: string;
 
   @ApiPropertyOptional({
     nullable: true,

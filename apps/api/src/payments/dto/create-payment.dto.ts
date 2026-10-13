@@ -9,7 +9,8 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
-import { Currency, PaymentMethod } from '../../generated/prisma/enums';
+import { PaymentMethod } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA, IsCurrencyCode } from '../../common/currency';
 
 export class CreatePaymentDto {
   @ApiProperty({ format: 'uuid' })
@@ -26,10 +27,10 @@ export class CreatePaymentDto {
   @IsPositive()
   amount: number;
 
-  @ApiPropertyOptional({ enum: Object.values(Currency), enumName: 'Currency' })
+  @ApiPropertyOptional(CURRENCY_SCHEMA)
   @IsOptional()
-  @IsEnum(Currency)
-  currency?: Currency;
+  @IsCurrencyCode()
+  currency?: string;
 
   @ApiPropertyOptional({ enum: Object.values(PaymentMethod), enumName: 'PaymentMethod' })
   @IsOptional()

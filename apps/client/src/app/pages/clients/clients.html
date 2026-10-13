@@ -110,6 +110,9 @@
         >
         <span class="hidden text-sm font-semibold tabular-nums sm:inline">
           {{ money(revenueByClient()[c.id] || 0, c.currency) }}
+          @if (fx.approx(revenueByClient()[c.id] || 0, c.currency); as approx) {
+            <span class="block text-[11px] font-normal text-muted-foreground">{{ approx }}</span>
+          }
         </span>
         <app-status-badge [status]="c.status" />
       </button>
@@ -176,25 +179,7 @@
         </app-field>
         <div class="grid gap-4 sm:grid-cols-2">
           <app-field label="Currency">
-            <hlm-select
-              class="w-full"
-              [formField]="f.currency"
-              [itemToString]="currencyLabel"
-            >
-              <hlm-select-trigger class="w-full">
-                <hlm-select-value />
-              </hlm-select-trigger>
-              <hlm-select-content *hlmSelectPortal>
-                <hlm-select-item value="USD">USD - US Dollar</hlm-select-item>
-                <hlm-select-item value="EUR">EUR - Euro</hlm-select-item>
-                <hlm-select-item value="GBP"
-                  >GBP - British Pound</hlm-select-item
-                >
-                <hlm-select-item value="KES"
-                  >KES - Kenyan Shilling</hlm-select-item
-                >
-              </hlm-select-content>
-            </hlm-select>
+            <app-currency-autocomplete [formField]="f.currency" />
           </app-field>
           <app-field label="Status">
             <hlm-select

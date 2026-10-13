@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   signal,
   untracked,
 } from '@angular/core';
@@ -14,7 +15,9 @@ import {
   lucideCheck,
   lucideChevronRight,
   lucideDownload,
+  lucideEyeOff,
   lucideFileText,
+  lucideLock,
   lucidePencil,
   lucidePlus,
   lucideReceipt,
@@ -23,6 +26,7 @@ import {
 } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
+import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import {
   apiErrorMessage,
   invoiceTotal,
@@ -41,6 +45,7 @@ import { Expense, ExpensesApiService } from '../../domains/expenses';
 import { Invoice, InvoicesApiService } from '../../domains/invoices';
 import { Milestone, MilestonesApiService } from '../../domains/milestones';
 import { Project, ProjectsApiService } from '../../domains/projects';
+import { WorkspaceCurrencyService } from '../../domains/workspaces';
 import { EmptyState, StatusBadge, ToastService } from '@foundry/shared-ui';
 import { InvoiceDetailsDialog } from '../../shared/invoice-details-dialog';
 import { HlmDialogService } from '@spartan-ng/helm/dialog';
@@ -76,9 +81,9 @@ interface ActivityItem {
 
 /**
  * Everything the real schema and API actually know about a project - no
- * fictional deliverables/hours-logged/internal-notes tabs, just the
- * project's own fields plus its milestones, invoices, expenses, documents
- * and payment timeline.
+ * fictional deliverables/hours-logged tabs, just the project's own fields
+ * (including its internal notes, which the client portal never receives)
+ * plus its milestones, invoices, expenses, documents and payment timeline.
  */
 @Component({
   selector: 'app-project-detail',
@@ -87,6 +92,7 @@ interface ActivityItem {
     NgIcon,
     HlmButton,
     HlmTabsImports,
+    HlmTextarea,
     RouterLink,
     EmptyState,
     StatusBadge,
@@ -100,7 +106,9 @@ interface ActivityItem {
       lucideCheck,
       lucideChevronRight,
       lucideDownload,
+      lucideEyeOff,
       lucideFileText,
+      lucideLock,
       lucidePencil,
       lucidePlus,
       lucideReceipt,
@@ -120,6 +128,7 @@ export class ProjectDetail {
   private readonly dialogService = inject(HlmDialogService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
+  protected readonly fx = inject(WorkspaceCurrencyService);
 
   readonly id = input.required<string>();
 
@@ -163,11 +172,21 @@ export class ProjectDetail {
       .reduce((sum, i) => sum + invoiceTotal(i).total, 0),
   );
 
+  /** In the workspace currency - linked expenses can be in any. */
   protected readonly billableExpenses = computed(() =>
     this.expenses()
       .filter((e) => e.billable)
-      .reduce((sum, e) => sum + Number(e.amount), 0),
+      .reduce((sum, e) => sum + this.fx.toWorkspace(e.amount, e.currency), 0),
   );
+
+  /** Editable copy of the project's internal notes; resets when the project (re)loads. */
+  protected readonly notesDraft = linkedSignal(
+    () => this.project()?.notes ?? '',
+  );
+  protected readonly notesDirty = computed(
+    () => this.notesDraft().trim() !== (this.project()?.notes ?? ''),
+  );
+  protected readonly savingNotes = signal(false);
 
   /** Latest reconciliation entry carries the current remaining project budget. */
   protected readonly remainingBudget = computed(() => {
@@ -223,6 +242,7 @@ export class ProjectDetail {
   });
 
   constructor() {
+    this.fx.refresh();
     // Angular reuses this component across `/projects/:id` navigations, so
     // reload everything whenever the route id itself changes.
     effect(() => {
@@ -283,6 +303,29 @@ export class ProjectDetail {
         error: () => undefined,
       });
     }
+  }
+
+  protected resetNotes(): void {
+    this.notesDraft.set(this.project()?.notes ?? '');
+  }
+
+  protected saveNotes(): void {
+    const project = this.project();
+    if (!project || !this.notesDirty() || this.savingNotes()) return;
+    this.savingNotes.set(true);
+    this.projectsApi
+      .update(project.id, { notes: this.notesDraft().trim() })
+      .subscribe({
+        next: (updated) => {
+          this.savingNotes.set(false);
+          this.project.set(updated);
+          this.toast.success('Notes saved');
+        },
+        error: (err) => {
+          this.savingNotes.set(false);
+          this.toast.error('Could not save notes', apiErrorMessage(err));
+        },
+      });
   }
 
   protected onProjectDeleted(): void {

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Currency, ExpenseCategory } from '../../generated/prisma/enums';
+import { ExpenseCategory } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA } from '../../common/currency';
 
 export class ExpenseBilledInvoiceEntity {
   @ApiProperty({ format: 'uuid' })
@@ -34,8 +35,8 @@ export class ExpenseEntity {
   })
   amount: string;
 
-  @ApiProperty({ enum: Object.values(Currency), enumName: 'Currency' })
-  currency: Currency;
+  @ApiProperty(CURRENCY_SCHEMA)
+  currency: string;
 
   @ApiProperty()
   date: Date;

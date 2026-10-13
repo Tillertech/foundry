@@ -1,3 +1,5 @@
+import { Currency } from '@foundry/shared-util';
+
 export interface PortalAuthUser {
   id: string;
   name: string;
@@ -54,6 +56,8 @@ export interface PortalMe {
       id: string;
       name: string;
       company: string | null;
+      /** What project budgets and rates are quoted in. */
+      currency: Currency;
     };
   };
 }

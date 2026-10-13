@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ClientStatus, Currency } from '../../generated/prisma/enums';
+import { ClientStatus } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA } from '../../common/currency';
 
 export class WorkspaceEntity {
   @ApiProperty({ format: 'uuid' })
@@ -46,8 +47,8 @@ export class WorkspaceEntity {
   })
   taxCode: string | null;
 
-  @ApiProperty({ enum: Object.values(Currency), enumName: 'Currency' })
-  currency: Currency;
+  @ApiProperty(CURRENCY_SCHEMA)
+  currency: string;
 
   @ApiProperty({
     type: String,

@@ -56,9 +56,12 @@ export class RevenueChart {
   readonly months = input.required<string[]>();
   readonly revenue = input.required<number[]>();
   readonly expenses = input.required<number[]>();
+  /** Workspace currency code for axis/tooltip labels. */
+  readonly currency = input.required<string>();
 
   protected readonly options = computed<EChartsCoreOption>(() => {
     const isDark = this.theme.dark();
+    const currency = this.currency();
     const grid = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
     const axis = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)';
 
@@ -73,7 +76,8 @@ export class RevenueChart {
           color: isDark ? '#e6e8eb' : '#111418',
           fontFamily: 'Inter',
         },
-        valueFormatter: (v: unknown) => `$${Number(v).toLocaleString()}`,
+        valueFormatter: (v: unknown) =>
+          `${currency} ${Number(v).toLocaleString()}`,
       },
       legend: {
         show: true,
@@ -98,7 +102,7 @@ export class RevenueChart {
           color: axis,
           fontFamily: 'Inter',
           fontSize: 11,
-          formatter: (v: number) => (v >= 1000 ? `$${v / 1000}k` : `$${v}`),
+          formatter: (v: number) => (v >= 1000 ? `${v / 1000}k` : `${v}`),
         },
       },
       series: [

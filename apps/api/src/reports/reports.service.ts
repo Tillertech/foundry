@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { CacheTimer } from '../common/cache-timer';
-import { Currency, InvoiceStatus } from '../generated/prisma/enums';
+import { InvoiceStatus } from '../generated/prisma/enums';
 import type {
   InvoiceItemModel as InvoiceItem,
   InvoiceModel as Invoice,
@@ -14,6 +14,7 @@ import {
   ReportCurrencyEntity,
   ReportSummaryEntity,
 } from './entities/report-summary.entity';
+import { DEFAULT_CURRENCY } from '../common/currency';
 
 /** Invoice statuses that still owe money. */
 const OPEN_STATUSES: InvoiceStatus[] = [
@@ -46,11 +47,19 @@ export class ReportsService {
     ownerId: string,
     query: ReportSummaryQueryDto,
   ): Promise<ReportSummaryEntity> {
-    const cacheKey = `reports_${ownerId}_${query.from ?? 'all'}_${query.to ?? 'all'}`;
+    const workspace = await this.prisma.workspace.findFirst({
+      where: { ownerId },
+      orderBy: { createdAt: 'asc' },
+      select: { currency: true },
+    });
+    const currency = workspace?.currency ?? DEFAULT_CURRENCY;
+    // Keyed by currency too: switching the workspace currency must not serve
+    // figures converted into the previous one for the rest of the TTL.
+    const cacheKey = `reports_${ownerId}_${currency}_${query.from ?? 'all'}_${query.to ?? 'all'}`;
     const cached = await this.cache.get<ReportSummaryEntity>(cacheKey);
     if (cached) return cached;
 
-    const summary = await this.build(ownerId, query);
+    const summary = await this.build(ownerId, query, currency);
     await this.cache.set(cacheKey, summary, CacheTimer.custom(5));
     return summary;
   }
@@ -58,6 +67,7 @@ export class ReportsService {
   private async build(
     ownerId: string,
     query: ReportSummaryQueryDto,
+    currency: string,
   ): Promise<ReportSummaryEntity> {
     const from = query.from ? new Date(query.from) : undefined;
     // Inclusive end of day so a date-only `to` covers the whole day.
@@ -74,14 +84,12 @@ export class ReportsService {
           }
         : {};
 
-    const workspace = await this.prisma.workspace.findFirst({
-      where: { ownerId },
-      orderBy: { createdAt: 'asc' },
-      select: { currency: true },
-    });
-    const currency = workspace?.currency ?? Currency.USD;
-    const convert = (base: Currency, amount: number) =>
-      this.invoices.convert(base, currency, amount);
+    // Converted at the full rate and left unrounded: figures are rounded once,
+    // when they are reported. Rounding every amount to cents first distorts
+    // totals of many small amounts in a weak currency (100 x 1 KES would read
+    // as 1.00 USD rather than 0.77).
+    const convert = async (base: string, amount: number) =>
+      amount * (await this.invoices.conversionRate(base, currency)).mid;
 
     const [invoices, payments, expenses] = await Promise.all([
       this.prisma.invoice.findMany({
@@ -144,7 +152,7 @@ export class ReportsService {
 
     let collected = 0;
     const monthly = new Map<string, { collected: number; expenses: number }>();
-    const byCurrency = new Map<Currency, { count: number; amount: number }>();
+    const byCurrency = new Map<string, { count: number; amount: number }>();
     for (const payment of payments) {
       const amount = Number(payment.amount);
       const converted = await convert(payment.currency, amount);

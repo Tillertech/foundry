@@ -58,7 +58,7 @@ export class InvoicesApiService {
     );
   }
 
-  /** Conversion rates from every currency into the workspace currency. */
+  /** Conversion rates into the workspace currency for the currencies in use. */
   exchangeRates(): Observable<ExchangeRates> {
     return this.http.get<ExchangeRates>(`${this.base}/exchange-rates`);
   }

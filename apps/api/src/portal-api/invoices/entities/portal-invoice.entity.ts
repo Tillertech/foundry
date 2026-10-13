@@ -1,10 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { LineItemEntity } from '../../../common/dto/line-item.dto';
 import {
-  Currency,
   ExpenseCategory,
   InvoiceStatus,
 } from '../../../generated/prisma/enums';
+import { CURRENCY_SCHEMA } from '../../../common/currency';
 
 export class PortalInvoiceItemExpenseEntity {
   @ApiProperty({ example: 'Figma' })
@@ -50,8 +50,8 @@ export class PortalInvoiceEntity {
   @ApiProperty()
   dueDate: Date;
 
-  @ApiProperty({ enum: Object.values(Currency), enumName: 'Currency' })
-  currency: Currency;
+  @ApiProperty(CURRENCY_SCHEMA)
+  currency: string;
 
   @ApiProperty({ type: String, description: 'Percent, decimal serialized as string', example: '19' })
   taxRate: string;

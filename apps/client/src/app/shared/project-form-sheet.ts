@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   effect,
   inject,
   input,
@@ -24,7 +25,13 @@ import {
 } from '../domains/projects';
 import { DateField } from './date-field';
 import { EntitySheet } from './entity-sheet';
-import { Field, fieldError, ToastService } from '@foundry/shared-ui';
+import {
+  Field,
+  fieldError,
+  OptionAutocomplete,
+  ToastService,
+} from '@foundry/shared-ui';
+import { clientOptions } from './entity-options';
 
 interface ProjectForm {
   id: string;
@@ -67,6 +74,7 @@ const statusLabels: Record<ProjectStatus, string> = {
   selector: 'app-project-form-sheet',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    OptionAutocomplete,
     FormField,
     HlmInput,
     HlmSelectImports,
@@ -101,10 +109,10 @@ export class ProjectFormSheet {
 
   protected readonly statusLabel = (v: string) =>
     statusLabels[v as ProjectStatus] ?? v;
-  protected readonly clientLabel = (v: string) => {
-    const c = this.clients().find((x) => x.id === v);
-    return c ? c.company || c.name : v;
-  };
+
+  protected readonly clientOptions = computed(() =>
+    clientOptions(this.clients()),
+  );
 
   protected get isNew(): boolean {
     return !this.project();

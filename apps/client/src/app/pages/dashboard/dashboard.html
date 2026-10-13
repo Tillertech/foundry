@@ -101,13 +101,14 @@
       <div class="mb-4 flex items-center justify-between">
         <div>
           <h2 class="text-sm font-semibold">Revenue</h2>
-          <p class="text-xs text-muted-foreground">Last 12 months</p>
+          <p class="text-xs text-muted-foreground">Last 12 months · in {{ wsCurrency() }}</p>
         </div>
       </div>
       <app-revenue-chart
         [months]="chart().months"
         [revenue]="chart().revenue"
         [expenses]="chart().expenses"
+        [currency]="wsCurrency()"
       />
     </div>
 

@@ -24,22 +24,14 @@
         (input)="query.set(search.value)"
       />
     </div>
-    <hlm-select
-      class="w-[180px]"
+    <app-option-autocomplete
+      class="w-[220px]"
+      placeholder="Filter by client…"
+      emptyText="No client found"
+      [options]="clientFilterOptions()"
       [value]="clientFilter()"
-      (valueChange)="clientFilter.set($event ?? 'all')"
-      [itemToString]="clientFilterLabel"
-    >
-      <hlm-select-trigger class="h-9 w-full">
-        <hlm-select-value />
-      </hlm-select-trigger>
-      <hlm-select-content *hlmSelectPortal>
-        <hlm-select-item value="all">All clients</hlm-select-item>
-        @for (c of clients(); track c.id) {
-          <hlm-select-item [value]="c.id">{{ c.company || c.name }}</hlm-select-item>
-        }
-      </hlm-select-content>
-    </hlm-select>
+      (valueChange)="clientFilter.set($event)"
+    />
     <hlm-select
       class="w-[150px]"
       [value]="statusFilter()"
@@ -117,6 +109,9 @@
               <p class="mt-0.5 text-sm font-semibold tabular-nums">
                 {{ money(p.budget, clientMap()[p.clientId]?.currency || 'USD') }}
               </p>
+              @if (fx.approx(p.budget, clientMap()[p.clientId]?.currency || 'USD'); as approx) {
+                <p class="text-[11px] font-normal text-muted-foreground">{{ approx }}</p>
+              }
             </div>
             <div>
               <p class="text-[11px] uppercase tracking-wider text-muted-foreground">Rate</p>

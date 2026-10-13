@@ -8,7 +8,8 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { ClientStatus, Currency } from '../../generated/prisma/enums';
+import { ClientStatus } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA, IsCurrencyCode } from '../../common/currency';
 
 export class CreateClientDto {
   @ApiProperty({ example: 'Elena Ramirez' })
@@ -25,10 +26,10 @@ export class CreateClientDto {
   @IsString()
   company?: string;
 
-  @ApiPropertyOptional({ enum: Object.values(Currency), enumName: 'Currency' })
+  @ApiPropertyOptional(CURRENCY_SCHEMA)
   @IsOptional()
-  @IsEnum(Currency)
-  currency?: Currency;
+  @IsCurrencyCode()
+  currency?: string;
 
   @ApiPropertyOptional({ enum: Object.values(ClientStatus), enumName: 'ClientStatus' })
   @IsOptional()

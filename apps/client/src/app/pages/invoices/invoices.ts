@@ -39,10 +39,23 @@ import {
   UpdateInvoiceRequest,
 } from '../../domains/invoices';
 import { Project, ProjectsApiService } from '../../domains/projects';
-import { Workspace, WorkspacesApiService } from '../../domains/workspaces';
+import {
+  Workspace,
+  WorkspaceCurrencyService,
+  WorkspacesApiService,
+} from '../../domains/workspaces';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader, StatusBadge, ToastService } from '@foundry/shared-ui';
+import {
+  CurrencyAutocomplete,
+  Field,
+  fieldError,
+  OptionAutocomplete,
+  PageHeader,
+  StatusBadge,
+  ToastService,
+} from '@foundry/shared-ui';
+import { clientOptions, projectOptions } from '../../shared/entity-options';
 import { LineItemDraft, LineItemsEditor } from '../../shared/line-items-editor';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { ReconciliationTimeline } from '../../shared/reconciliation-timeline';
@@ -92,6 +105,8 @@ const emptyInvoice = (): InvoiceForm => ({
   selector: 'app-invoices',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    OptionAutocomplete,
+    CurrencyAutocomplete,
     FormField,
     NgIcon,
     HlmButton,
@@ -120,6 +135,7 @@ export class Invoices {
   private readonly workspacesApi = inject(WorkspacesApiService);
   private readonly expensesApi = inject(ExpensesApiService);
   private readonly toast = inject(ToastService);
+  protected readonly fx = inject(WorkspaceCurrencyService);
 
   protected readonly loading = signal(true);
   protected readonly invoices = signal<Invoice[]>([]);
@@ -145,7 +161,23 @@ export class Invoices {
   });
   protected readonly fieldError = fieldError;
 
+  protected readonly clientOptions = computed(() =>
+    clientOptions(this.clients()),
+  );
+  protected readonly clientFilterOptions = computed(() =>
+    clientOptions(this.clients(), { value: 'all', label: 'All clients' }),
+  );
+  /** Projects of the invoice's client (all projects until one is chosen). */
+  protected readonly clientProjectOptions = computed(() => {
+    const cid = this.model().clientId;
+    return projectOptions(
+      this.projects().filter((p) => !cid || p.clientId === cid),
+      { value: '', label: 'None' },
+    );
+  });
+
   constructor() {
+    this.fx.refresh();
     this.refresh();
   }
 
@@ -191,14 +223,6 @@ export class Invoices {
   protected readonly statusLabel = (v: string) => this.statusLabels[v] ?? v;
   protected readonly statusFilterLabel = (v: string) =>
     v === 'all' ? 'All statuses' : this.statusLabel(v);
-  protected readonly clientLabel = (v: string) => {
-    const c = this.clientMap()[v];
-    return c ? c.company || c.name : v;
-  };
-  protected readonly clientFilterLabel = (v: string) =>
-    v === 'all' ? 'All clients' : this.clientLabel(v);
-  protected readonly projectLabel = (v: string) =>
-    v ? (this.projects().find((p) => p.id === v)?.name ?? v) : 'None';
 
   protected readonly filtered = computed(() => {
     const term = this.query().toLowerCase();
@@ -221,6 +245,7 @@ export class Invoices {
       .sort((a, b) => (a.issueDate < b.issueDate ? 1 : -1));
   });
 
+  /** Header total, in the workspace currency. */
   protected readonly totalOutstanding = computed(() =>
     this.filtered()
       .filter(
@@ -229,13 +254,11 @@ export class Invoices {
           i.status === 'viewed' ||
           i.status === 'overdue',
       )
-      .reduce((s, i) => s + invoiceTotal(i).total, 0),
+      .reduce(
+        (s, i) => s + this.fx.toWorkspace(invoiceTotal(i).total, i.currency),
+        0,
+      ),
   );
-
-  protected get clientProjects() {
-    const cid = this.model().clientId;
-    return this.projects().filter((p) => !cid || p.clientId === cid);
-  }
 
   protected get totals() {
     return invoiceTotal({ ...this.model(), items: this.allLines() });
@@ -407,6 +430,7 @@ export class Invoices {
       : this.invoicesApi.update(v.id, common);
     request.subscribe({
       next: (invoice) => {
+        this.fx.ensure(invoice.currency);
         this.saving.set(false);
         // Billed-on markers moved - reload so the picker reflects them.
         this.loadClientExpenses(invoice.clientId);

@@ -54,7 +54,12 @@ import {
   WorkspacesApiService,
 } from '../../domains/workspaces';
 import { Accent, ThemeService } from '../../core/theme.service';
-import { Field, fieldError, ToastService } from '@foundry/shared-ui';
+import {
+  CurrencyAutocomplete,
+  Field,
+  fieldError,
+  ToastService,
+} from '@foundry/shared-ui';
 import { PortalSettings } from './portal/portal-settings';
 
 const LOGO_TYPES = ['image/png', 'image/jpeg'];
@@ -72,6 +77,7 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
   selector: 'app-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CurrencyAutocomplete,
     FormField,
     NgIcon,
     HlmButton,
@@ -308,14 +314,6 @@ export class Settings {
     email(p.email, { message: 'Enter a valid email address' });
   });
   protected readonly fieldError = fieldError;
-
-  protected readonly currencyLabel = (v: string) =>
-    ({
-      USD: 'USD - US Dollar',
-      EUR: 'EUR - Euro',
-      GBP: 'GBP - British Pound',
-      KES: 'KES - Kenyan Shilling',
-    })[v] ?? v;
 
   constructor() {
     this.destroyRef.onDestroy(() => this.revokeLogoUrl());

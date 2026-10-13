@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
+import { Currency } from '@foundry/shared-util';
 import { PortalAuthApiService } from './portal-auth-api.service';
 import { PortalTokenStore } from './portal-token.store';
 import {
@@ -22,6 +23,10 @@ export class PortalAuthService {
 
   readonly authenticated = computed(() => this.tokenStore.token() !== null);
   readonly me = signal<PortalMe | null>(null);
+  /** The client's currency - project budgets and rates are quoted in it. */
+  readonly currency = computed<Currency>(
+    () => this.me()?.clientPortal.client.currency ?? 'USD',
+  );
   /** This session's portal slug (/:slug/...) - available immediately after
    * login/accept-invite, and restored from storage across reloads even
    * before `/me` resolves. */

@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -54,4 +55,13 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Internal notes for the workspace team - never exposed through the client portal',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  notes?: string;
 }

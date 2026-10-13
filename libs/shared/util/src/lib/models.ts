@@ -1,6 +1,6 @@
-// Shared kernel: value types used across several domains.
+import { Currency } from './currencies';
 
-export type Currency = 'USD' | 'EUR' | 'GBP' | 'KES';
+// Shared kernel: value types used across several domains.
 
 /** Lifecycle shared by workspaces and clients. */
 export type ClientStatus = 'active' | 'lead' | 'archived';

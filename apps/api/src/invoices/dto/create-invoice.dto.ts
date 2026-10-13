@@ -13,7 +13,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { LineItemDto } from '../../common/dto/line-item.dto';
-import { Currency, InvoiceStatus } from '../../generated/prisma/enums';
+import { InvoiceStatus } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA, IsCurrencyCode } from '../../common/currency';
 
 export class InvoiceLineItemDto extends LineItemDto {
   @ApiPropertyOptional({
@@ -54,10 +55,10 @@ export class CreateInvoiceDto {
   @IsDateString()
   dueDate: string;
 
-  @ApiPropertyOptional({ enum: Object.values(Currency), enumName: 'Currency' })
+  @ApiPropertyOptional(CURRENCY_SCHEMA)
   @IsOptional()
-  @IsEnum(Currency)
-  currency?: Currency;
+  @IsCurrencyCode()
+  currency?: string;
 
   @ApiPropertyOptional({ example: 19, default: 0, description: 'Percent' })
   @IsOptional()

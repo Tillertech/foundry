@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CURRENCY_SCHEMA } from '../../common/currency';
 import { ClientPortalUserStatus } from '../../generated/prisma/enums';
 
 export class PortalPermissionSummaryEntity {
@@ -24,6 +25,13 @@ export class PortalMeClientEntity {
 
   @ApiPropertyOptional({ nullable: true, type: String })
   company: string | null;
+
+  @ApiProperty({
+    ...CURRENCY_SCHEMA,
+    description:
+      "The client's currency - what project budgets and rates are quoted in",
+  })
+  currency: string;
 }
 
 export class PortalMeClientPortalEntity {
