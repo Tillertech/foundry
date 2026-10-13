@@ -1,14 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional } from 'class-validator';
-import { Currency } from '../../generated/prisma/enums';
+import { IsOptional } from 'class-validator';
+import { CURRENCY_SCHEMA, IsCurrencyCode } from '../../common/currency';
 
 export class ExchangeRatesQueryDto {
   @ApiPropertyOptional({
-    enum: Object.values(Currency),
-    enumName: 'Currency',
+    ...CURRENCY_SCHEMA,
     description: 'Target currency; defaults to the default workspace currency',
   })
   @IsOptional()
-  @IsEnum(Currency)
-  target?: Currency;
+  @IsCurrencyCode()
+  target?: string;
 }

@@ -22,13 +22,6 @@ enum NotificationKind {
   milestone_completed
 }
 
-enum Currency {
-  USD
-  EUR
-  GBP
-  KES
-}
-
 enum ClientStatus {
   active
   lead
@@ -145,7 +138,7 @@ model Workspace {
   /// Registered legal entity name, when it differs from the trading name.
   legalName          String?      @db.VarChar(500)
   slug               String       @db.VarChar(500)
-  currency           Currency     @default(USD)
+  currency           String       @default("USD") @db.VarChar(3)
   city               String?      @db.VarChar(500)
   country            String?      @db.VarChar(500)
   email              String?      @db.VarChar(500)
@@ -189,7 +182,7 @@ model Client {
   email     String
   company   String?
   // todo: add website
-  currency  Currency     @default(USD)
+  currency  String       @default("USD") @db.VarChar(3)
   status    ClientStatus @default(active)
   phone     String?      @db.VarChar(250)
   taxId     String?
@@ -220,6 +213,8 @@ model Project {
   startDate   DateTime
   endDate     DateTime?
   description String?
+  // internal notes on proj
+  notes       String?
 
   clientId String @db.Uuid
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -263,7 +258,7 @@ model Invoice {
   status         InvoiceStatus @default(draft)
   issueDate      DateTime
   dueDate        DateTime
-  currency       Currency      @default(USD)
+  currency       String        @default("USD") @db.VarChar(3)
   taxRate        Decimal       @default(0) @db.Decimal(5, 2)
   discount       Decimal       @default(0) @db.Decimal(12, 2)
   notes          String?
@@ -313,7 +308,7 @@ model Quote {
   status     QuoteStatus @default(draft)
   issueDate  DateTime
   validUntil DateTime
-  currency   Currency    @default(USD)
+  currency   String      @default("USD") @db.VarChar(3)
   taxRate    Decimal     @default(0) @db.Decimal(5, 2)
   notes      String?
   createdAt  DateTime    @default(now())
@@ -344,7 +339,7 @@ model QuoteItem {
 model Payment {
   id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   amount    Decimal       @db.Decimal(12, 2)
-  currency  Currency      @default(USD)
+  currency  String        @default("USD") @db.VarChar(3)
   method    PaymentMethod @default(bank_transfer)
   reference String?
   date      DateTime
@@ -370,7 +365,7 @@ model ReconciliationEntry {
   kind           ReconciliationKind @default(payment_applied)
   /// Payment amount applied (positive) or reversed (negative).
   amount         Decimal            @db.Decimal(12, 2)
-  currency       Currency           @default(USD)
+  currency       String             @default("USD") @db.VarChar(3)
   /// Amount still owed on the invoice after this entry.
   invoiceBalance Decimal?           @db.Decimal(12, 2)
   /// Project budget remaining after this entry (budget - payments received).
@@ -395,7 +390,7 @@ model Expense {
   vendor   String
   category ExpenseCategory @default(other)
   amount   Decimal         @db.Decimal(12, 2)
-  currency Currency        @default(USD)
+  currency String          @default("USD") @db.VarChar(3)
   date     DateTime
   billable Boolean         @default(false)
   notes    String?

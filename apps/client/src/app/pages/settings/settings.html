@@ -152,17 +152,7 @@
                 <input hlmInput class="w-full" [formField]="f.taxCode" />
               </app-field>
               <app-field label="Default currency">
-                <hlm-select class="w-full" [formField]="f.currency" [itemToString]="currencyLabel">
-                  <hlm-select-trigger class="w-full">
-                    <hlm-select-value />
-                  </hlm-select-trigger>
-                  <hlm-select-content *hlmSelectPortal>
-                    <hlm-select-item value="USD">USD - US Dollar</hlm-select-item>
-                    <hlm-select-item value="EUR">EUR - Euro</hlm-select-item>
-                    <hlm-select-item value="GBP">GBP - British Pound</hlm-select-item>
-                    <hlm-select-item value="KES">KES - Kenyan Shilling</hlm-select-item>
-                  </hlm-select-content>
-                </hlm-select>
+                <app-currency-autocomplete [formField]="f.currency" />
               </app-field>
               <app-field label="Default tax rate (%)">
                 <input hlmInput type="number" step="0.5" class="w-full" [formField]="f.taxRate" />

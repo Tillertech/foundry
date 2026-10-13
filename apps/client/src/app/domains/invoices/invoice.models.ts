@@ -1,4 +1,9 @@
-import { Currency, LineItemRequest, PaginationQuery } from '@foundry/shared-util';
+import {
+  Currency,
+  CurrencyRates,
+  LineItemRequest,
+  PaginationQuery,
+} from '@foundry/shared-util';
 
 export type { ReconciliationEntry, ReconciliationKind } from '@foundry/shared-util';
 
@@ -73,8 +78,8 @@ export interface ListInvoicesQuery extends PaginationQuery {
   status?: InvoiceStatus;
 }
 
-/** Multipliers from each currency into `target` (the workspace currency). */
-export interface ExchangeRates {
-  target: Currency;
-  rates: Record<Currency, number>;
-}
+/**
+ * Multipliers into `target` (the workspace currency) for each currency the
+ * workspace's records use.
+ */
+export type ExchangeRates = CurrencyRates;

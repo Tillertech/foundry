@@ -83,14 +83,14 @@
             <div class="p-5">
               <dt class="text-xs text-muted-foreground">Budget</dt>
               <dd class="mt-1.5 text-xl font-semibold tabular-nums">
-                {{ money(p.budget) }}
+                {{ money(p.budget, auth.currency()) }}
               </dd>
             </div>
             @if (p.hourlyRate) {
               <div class="p-5">
                 <dt class="text-xs text-muted-foreground">Hourly rate</dt>
                 <dd class="mt-1.5 text-xl font-semibold tabular-nums">
-                  {{ money(p.hourlyRate) }}
+                  {{ money(p.hourlyRate, auth.currency()) }}
                 </dd>
               </div>
             }

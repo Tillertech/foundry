@@ -68,7 +68,7 @@ export class InvoicesController {
   @ApiOperation({
     summary: 'Conversion rates into the workspace currency',
     description:
-      'Rates from every supported currency into the default workspace currency (or ?target=), for normalizing mixed-currency amounts.',
+      "Rates into the default workspace currency (or ?target=) for every currency the caller's clients, invoices, quotes, payments and expenses use, for normalizing mixed-currency amounts.",
   })
   @ApiOkResponse({ type: ExchangeRatesEntity })
   exchangeRates(

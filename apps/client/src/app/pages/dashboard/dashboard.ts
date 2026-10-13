@@ -22,7 +22,6 @@ import { AuthService } from '../../domains/auth';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
 import { Expense, ExpensesApiService } from '../../domains/expenses';
 import {
-  ExchangeRates,
   Invoice,
   InvoicesApiService,
 } from '../../domains/invoices';
@@ -35,7 +34,11 @@ import {
   money,
   num,
 } from '@foundry/shared-util';
-import { Workspace, WorkspacesApiService } from '../../domains/workspaces';
+import {
+  Workspace,
+  WorkspaceCurrencyService,
+  WorkspacesApiService,
+} from '../../domains/workspaces';
 import { StatusBadge } from '@foundry/shared-ui';
 import { RevenueChart } from './revenue-chart';
 
@@ -75,23 +78,20 @@ export class Dashboard {
   private readonly clientsApi = inject(ClientsApiService);
   private readonly expensesApi = inject(ExpensesApiService);
   private readonly workspacesApi = inject(WorkspacesApiService);
+  private readonly fx = inject(WorkspaceCurrencyService);
 
   private readonly invoices = signal<Invoice[]>([]);
   private readonly payments = signal<Payment[]>([]);
   private readonly clients = signal<ApiClient[]>([]);
   private readonly expenses = signal<Expense[]>([]);
   private readonly workspace = signal<Workspace | null>(null);
-  private readonly rates = signal<ExchangeRates | null>(null);
 
   constructor() {
     this.workspacesApi.getDefault().subscribe({
       next: (ws) => this.workspace.set(ws),
       error: () => undefined,
     });
-    this.invoicesApi.exchangeRates().subscribe({
-      next: (rates) => this.rates.set(rates),
-      error: () => undefined,
-    });
+    this.fx.refresh();
     this.invoicesApi.list({ take: 100 }).subscribe({
       next: (r) => this.invoices.set(r.results),
       error: () => undefined,
@@ -128,17 +128,12 @@ export class Dashboard {
   );
 
   /** Display currency: the workspace default. */
-  private readonly wsCurrency = computed<Currency>(
+  protected readonly wsCurrency = computed<Currency>(
     () => this.workspace()?.currency ?? 'USD',
   );
 
-  /**
-   * Converts an amount into the workspace currency; falls back to the raw
-   * amount until the rates arrive (or if the rate service is down).
-   */
   private toWs(amount: number, currency: Currency): number {
-    const rates = this.rates();
-    return amount * (rates?.rates?.[currency] ?? 1);
+    return this.fx.toWorkspace(amount, currency);
   }
 
   private invoiceTotalWs(inv: Invoice): number {

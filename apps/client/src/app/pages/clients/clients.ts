@@ -13,7 +13,15 @@ import {
   minLength,
   required,
 } from '@angular/forms/signals';
-import { fieldError, Field, PageHeader, StatusBadge, ToastService } from '@foundry/shared-ui';
+import { WorkspaceCurrencyService } from '../../domains/workspaces';
+import {
+  CurrencyAutocomplete,
+  Field,
+  fieldError,
+  PageHeader,
+  StatusBadge,
+  ToastService,
+} from '@foundry/shared-ui';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBuilding2,
@@ -76,6 +84,7 @@ const emptyClient = (): ClientForm => ({
   selector: 'app-clients',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CurrencyAutocomplete,
     FormField,
     NgIcon,
     HlmButton,
@@ -107,6 +116,7 @@ export class Clients {
   private readonly clientPortalApi = inject(ClientPortalApiService);
   private readonly invoicesApi = inject(InvoicesApiService);
   private readonly toast = inject(ToastService);
+  protected readonly fx = inject(WorkspaceCurrencyService);
 
   protected readonly loading = signal(true);
   protected readonly clients = signal<ApiClient[]>([]);
@@ -131,16 +141,6 @@ export class Clients {
   public readonly itemToString = (value: string) =>
     this.items.find((item) => item.value === value)?.label || '';
 
-  protected readonly currencyLabel = (v: string) =>
-    ({
-      USD: 'USD - US Dollar',
-      EUR: 'EUR - Euro',
-      GBP: 'GBP - British Pound',
-      KES: 'KES - Kenyan Shilling',
-    })[v] ?? v;
-  protected readonly statusLabel = (v: string) =>
-    ({ active: 'Active', lead: 'Lead', archived: 'Archived' })[v] ?? v;
-
   protected readonly model = signal<ClientForm>(emptyClient());
   protected readonly f = form(this.model, (p) => {
     required(p.name, { message: 'Contact name is required' });
@@ -149,7 +149,11 @@ export class Clients {
   });
   protected readonly fieldError = fieldError;
 
+  protected readonly statusLabel = (v: string) =>
+    ({ active: 'Active', lead: 'Lead', archived: 'Archived' })[v] ?? v;
+
   constructor() {
+    this.fx.refresh();
     this.refresh();
   }
 
@@ -193,7 +197,7 @@ export class Clients {
   });
 
   protected openNew(): void {
-    this.model.set(emptyClient());
+    this.model.set({ ...emptyClient(), currency: this.fx.currency() });
     this.isNew = true;
     this.enablePortalOnCreate.set(false);
     this.sheetOpen.set(true);
@@ -240,6 +244,7 @@ export class Clients {
       : this.clientsApi.update(v.id, body);
     request.subscribe({
       next: (client) => {
+        this.fx.ensure(client.currency);
         this.clients.update((list) =>
           isNew
             ? [client, ...list]

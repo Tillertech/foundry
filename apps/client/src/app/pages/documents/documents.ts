@@ -38,7 +38,14 @@ import {
 } from '../../domains/documents';
 import { Project, ProjectsApiService } from '../../domains/projects';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader, ToastService } from '@foundry/shared-ui';
+import {
+  Field,
+  fieldError,
+  OptionAutocomplete,
+  PageHeader,
+  ToastService,
+} from '@foundry/shared-ui';
+import { clientOptions, projectOptions } from '../../shared/entity-options';
 import { ListSkeleton } from '../../shared/list-skeleton';
 
 interface DocumentForm {
@@ -71,6 +78,7 @@ const typeLabels: Record<DocumentType, { label: string; icon: string }> = {
   selector: 'app-documents',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    OptionAutocomplete,
     FormField,
     NgIcon,
     HlmButton,
@@ -134,13 +142,6 @@ export class Documents {
     typeLabels[v as DocumentType]?.label ?? v;
   protected readonly typeFilterLabel = (v: string) =>
     v === 'all' ? 'All types' : this.typeLabel(v);
-  protected readonly clientLabel = (v: string) => {
-    if (!v) return 'Not linked';
-    const c = this.clients().find((x) => x.id === v);
-    return c ? c.company || c.name : v;
-  };
-  protected readonly projectLabel = (v: string) =>
-    v ? (this.projects().find((p) => p.id === v)?.name ?? v) : 'Not linked';
 
   /**
    * Projects the document can be linked to: the chosen client's own, or any
@@ -150,6 +151,13 @@ export class Documents {
     const clientId = this.model().clientId;
     return this.projects().filter((p) => !clientId || p.clientId === clientId);
   });
+
+  protected readonly clientOptions = computed(() =>
+    clientOptions(this.clients(), { value: '', label: 'Not linked' }),
+  );
+  protected readonly projectOptions = computed(() =>
+    projectOptions(this.linkableProjects(), { value: '', label: 'Not linked' }),
+  );
 
   constructor() {
     // Switching client drops a project that belonged to the previous one.

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Currency, InvoiceStatus } from '../../generated/prisma/enums';
+import { InvoiceStatus } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA } from '../../common/currency';
 
 export class ReportStatusCountEntity {
   @ApiProperty({ enum: Object.values(InvoiceStatus), enumName: 'InvoiceStatus' })
@@ -59,11 +60,10 @@ export class ReportCategoryEntity {
 
 export class ReportCurrencyEntity {
   @ApiProperty({
-    enum: Object.values(Currency),
-    enumName: 'Currency',
+    ...CURRENCY_SCHEMA,
     description: 'Currency the customer actually paid in',
   })
-  currency: Currency;
+  currency: string;
 
   @ApiProperty({ example: 3, description: 'Payments received in this currency' })
   count: number;
@@ -80,11 +80,10 @@ export class ReportCurrencyEntity {
 
 export class ReportSummaryEntity {
   @ApiProperty({
-    enum: Object.values(Currency),
-    enumName: 'Currency',
+    ...CURRENCY_SCHEMA,
     description: 'Workspace currency every converted figure is expressed in',
   })
-  currency: Currency;
+  currency: string;
 
   @ApiPropertyOptional({ nullable: true, type: String, example: '2026-01-01' })
   from: string | null;

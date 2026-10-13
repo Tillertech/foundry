@@ -12,7 +12,14 @@ import {
   ProjectMilestonesSummary,
 } from '../../domains/milestones';
 import { Project, ProjectsApiService } from '../../domains/projects';
-import { PageHeader, StatusBadge, ToastService } from '@foundry/shared-ui';
+import { WorkspaceCurrencyService } from '../../domains/workspaces';
+import {
+  OptionAutocomplete,
+  PageHeader,
+  StatusBadge,
+  ToastService,
+} from '@foundry/shared-ui';
+import { clientOptions } from '../../shared/entity-options';
 import { ListSkeleton } from '../../shared/list-skeleton';
 import { ProjectFormSheet } from '../../shared/project-form-sheet';
 
@@ -20,6 +27,7 @@ import { ProjectFormSheet } from '../../shared/project-form-sheet';
   selector: 'app-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    OptionAutocomplete,
     NgIcon,
     HlmButton,
     HlmInput,
@@ -38,6 +46,7 @@ export class Projects {
   private readonly clientsApi = inject(ClientsApiService);
   private readonly milestonesApi = inject(MilestonesApiService);
   private readonly toast = inject(ToastService);
+  protected readonly fx = inject(WorkspaceCurrencyService);
 
   protected readonly loading = signal(true);
   protected readonly projects = signal<Project[]>([]);
@@ -53,7 +62,12 @@ export class Projects {
   protected readonly sheetOpen = signal(false);
   protected readonly editingProject = signal<Project | null>(null);
 
+  protected readonly clientFilterOptions = computed(() =>
+    clientOptions(this.clients(), { value: 'all', label: 'All clients' }),
+  );
+
   constructor() {
+    this.fx.refresh();
     this.refresh();
   }
 
@@ -97,12 +111,6 @@ export class Projects {
     on_hold: 'On hold',
     completed: 'Completed',
   };
-  protected readonly clientLabel = (v: string) => {
-    const c = this.clientMap()[v];
-    return c ? c.company || c.name : v;
-  };
-  protected readonly clientFilterLabel = (v: string) =>
-    v === 'all' ? 'All clients' : this.clientLabel(v);
   protected readonly statusLabel = (v: string) => this.statusLabels[v] ?? v;
   protected readonly statusFilterLabel = (v: string) =>
     v === 'all' ? 'All statuses' : this.statusLabel(v);

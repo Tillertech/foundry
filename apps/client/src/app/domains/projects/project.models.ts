@@ -11,6 +11,8 @@ export interface Project {
   startDate: string;
   endDate: string | null;
   description: string | null;
+  /** Internal to the workspace - the client portal never receives it. */
+  notes: string | null;
   clientId: string;
 }
 
@@ -23,6 +25,7 @@ export interface CreateProjectRequest {
   startDate: string;
   endDate?: string;
   description?: string;
+  notes?: string;
 }
 
 export type UpdateProjectRequest = Partial<CreateProjectRequest>;

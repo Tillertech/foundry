@@ -33,7 +33,14 @@ describe('InvoicesService', () => {
       delete: jest.Mock;
     };
     expense: { findMany: jest.Mock };
-    workspace: { findUnique: jest.Mock; findFirst: jest.Mock };
+    workspace: {
+      findUnique: jest.Mock;
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+    };
+    client: { findMany: jest.Mock };
+    quote: { findMany: jest.Mock };
+    payment: { findMany: jest.Mock };
   };
   let pagination: { paginate: jest.Mock };
   let clients: { findOne: jest.Mock };
@@ -94,7 +101,11 @@ describe('InvoicesService', () => {
       workspace: {
         findUnique: jest.fn().mockResolvedValue({ invoicePrefix: null }),
         findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
       },
+      client: { findMany: jest.fn().mockResolvedValue([]) },
+      quote: { findMany: jest.fn().mockResolvedValue([]) },
+      payment: { findMany: jest.fn().mockResolvedValue([]) },
     };
     pagination = { paginate: jest.fn() };
     clients = { findOne: jest.fn().mockResolvedValue(client) };
@@ -922,7 +933,10 @@ describe('InvoicesService', () => {
       expect(cache.get).toHaveBeenCalledWith('fx_EUR_USD');
     });
 
-    it('builds every currency rate into an explicit target', async () => {
+    it('builds a rate for each currency in use into an explicit target', async () => {
+      prisma.workspace.findMany.mockResolvedValue([{ currency: 'USD' }]);
+      prisma.client.findMany.mockResolvedValue([{ currency: 'EUR' }]);
+      prisma.payment.findMany.mockResolvedValue([{ currency: 'JPY' }]);
       cache.get.mockImplementation(async (key: string) => ({
         ...rate,
         mid: key === 'fx_EUR_KES' ? 140 : 2,
@@ -931,18 +945,47 @@ describe('InvoicesService', () => {
       const result = await service.exchangeRates(ownerId, 'KES' as any);
 
       expect(result.target).toBe('KES');
-      expect(result.rates).toEqual({ USD: 2, EUR: 140, GBP: 2, KES: 1 });
-      expect(prisma.workspace.findFirst).not.toHaveBeenCalled();
+      // Only what the owner's records use - not the whole ISO catalogue.
+      expect(result.rates).toEqual({ USD: 2, EUR: 140, JPY: 2, KES: 1 });
+      expect(prisma.expense.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { workspace: { ownerId } } }),
+      );
+      expect(prisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { client: { workspace: { ownerId } } },
+          distinct: ['currency'],
+        }),
+      );
+    });
+
+    it('leaves out a currency whose rate cannot be fetched', async () => {
+      prisma.workspace.findMany.mockResolvedValue([{ currency: 'USD' }]);
+      prisma.expense.findMany.mockResolvedValue([
+        { currency: 'EUR' },
+        { currency: 'KPW' },
+      ]);
+      cache.get.mockImplementation(async (key: string) =>
+        key === 'fx_EUR_USD' ? rate : undefined,
+      );
+      http.get.mockReturnValue(throwError(() => new Error('ECONNRESET')));
+
+      const result = await service.exchangeRates(ownerId);
+
+      expect(result).toEqual({ target: 'USD', rates: { USD: 1, EUR: 1.0837 } });
     });
 
     it("defaults the target to the owner's default workspace currency", async () => {
-      prisma.workspace.findFirst.mockResolvedValue({ currency: 'GBP' });
+      prisma.workspace.findMany.mockResolvedValue([
+        { currency: 'GBP' },
+        { currency: 'KES' },
+      ]);
       cache.get.mockResolvedValue(rate);
 
       const result = await service.exchangeRates(ownerId);
 
       expect(result.target).toBe('GBP');
-      expect(prisma.workspace.findFirst).toHaveBeenCalledWith(
+      expect(Object.keys(result.rates).sort()).toEqual(['GBP', 'KES']);
+      expect(prisma.workspace.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { ownerId },
           orderBy: { createdAt: 'asc' },
@@ -951,12 +994,12 @@ describe('InvoicesService', () => {
     });
 
     it('falls back to USD when the owner has no workspace', async () => {
-      prisma.workspace.findFirst.mockResolvedValue(null);
       cache.get.mockResolvedValue(rate);
 
-      await expect(service.exchangeRates(ownerId)).resolves.toEqual(
-        expect.objectContaining({ target: 'USD' }),
-      );
+      await expect(service.exchangeRates(ownerId)).resolves.toEqual({
+        target: 'USD',
+        rates: { USD: 1 },
+      });
     });
   });
 });

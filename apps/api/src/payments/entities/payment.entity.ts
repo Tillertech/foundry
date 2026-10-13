@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Currency, PaymentMethod } from '../../generated/prisma/enums';
+import { PaymentMethod } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA } from '../../common/currency';
 
 export class PaymentEntity {
   @ApiProperty({ format: 'uuid' })
@@ -8,8 +9,8 @@ export class PaymentEntity {
   @ApiProperty({ type: String, description: 'Decimal serialized as string', example: '6000' })
   amount: string;
 
-  @ApiProperty({ enum: Object.values(Currency), enumName: 'Currency' })
-  currency: Currency;
+  @ApiProperty(CURRENCY_SCHEMA)
+  currency: string;
 
   @ApiProperty({ enum: Object.values(PaymentMethod), enumName: 'PaymentMethod' })
   method: PaymentMethod;

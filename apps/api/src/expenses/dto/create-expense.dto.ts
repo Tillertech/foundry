@@ -10,7 +10,8 @@ import {
   IsUUID,
   MinLength,
 } from 'class-validator';
-import { Currency, ExpenseCategory } from '../../generated/prisma/enums';
+import { ExpenseCategory } from '../../generated/prisma/enums';
+import { CURRENCY_SCHEMA, IsCurrencyCode } from '../../common/currency';
 
 export class CreateExpenseDto {
   @ApiProperty({ example: 'Figma' })
@@ -31,10 +32,10 @@ export class CreateExpenseDto {
   @IsPositive()
   amount: number;
 
-  @ApiPropertyOptional({ enum: Object.values(Currency), enumName: 'Currency' })
+  @ApiPropertyOptional(CURRENCY_SCHEMA)
   @IsOptional()
-  @IsEnum(Currency)
-  currency?: Currency;
+  @IsCurrencyCode()
+  currency?: string;
 
   @ApiProperty({ example: '2026-07-01' })
   @IsDateString()

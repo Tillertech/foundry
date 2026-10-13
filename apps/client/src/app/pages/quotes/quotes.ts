@@ -37,7 +37,16 @@ import {
 import { toast } from '@spartan-ng/brain/sonner';
 import { DateField } from '../../shared/date-field';
 import { EntitySheet } from '../../shared/entity-sheet';
-import { Field, fieldError, PageHeader, StatusBadge } from '@foundry/shared-ui';
+import { WorkspaceCurrencyService } from '../../domains/workspaces';
+import {
+  CurrencyAutocomplete,
+  Field,
+  fieldError,
+  OptionAutocomplete,
+  PageHeader,
+  StatusBadge,
+} from '@foundry/shared-ui';
+import { clientOptions } from '../../shared/entity-options';
 import { LineItemDraft, LineItemsEditor } from '../../shared/line-items-editor';
 import { ListSkeleton } from '../../shared/list-skeleton';
 
@@ -71,6 +80,8 @@ const emptyQuote = (): QuoteForm => ({
   selector: 'app-quotes',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    OptionAutocomplete,
+    CurrencyAutocomplete,
     FormField,
     NgIcon,
     BrnAlertDialogContent,
@@ -94,6 +105,7 @@ export class Quotes {
   private readonly quotesApi = inject(QuotesApiService);
   private readonly clientsApi = inject(ClientsApiService);
   private readonly projectsApi = inject(ProjectsApiService);
+  protected readonly fx = inject(WorkspaceCurrencyService);
 
   protected readonly loading = signal(true);
   protected readonly quotes = signal<Quote[]>([]);
@@ -114,7 +126,12 @@ export class Quotes {
   });
   protected readonly fieldError = fieldError;
 
+  protected readonly clientOptions = computed(() =>
+    clientOptions(this.clients()),
+  );
+
   constructor() {
+    this.fx.refresh();
     this.refresh();
   }
 
@@ -242,6 +259,7 @@ export class Quotes {
       : this.quotesApi.update(v.id, common);
     request.subscribe({
       next: (quote) => {
+        this.fx.ensure(quote.currency);
         this.saving.set(false);
         this.quotes.update((list) =>
           this.isNew

@@ -12,7 +12,12 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { ClientStatus, Currency } from '../../generated/prisma/enums';
+import { ClientStatus } from '../../generated/prisma/enums';
+import {
+  CURRENCY_SCHEMA,
+  DEFAULT_CURRENCY,
+  IsCurrencyCode,
+} from '../../common/currency';
 
 export class CreateWorkspaceDto {
   @ApiProperty({ example: 'Acme Studio' })
@@ -23,7 +28,8 @@ export class CreateWorkspaceDto {
 
   @ApiPropertyOptional({
     example: 'Acme Studio Ltd.',
-    description: 'Registered legal entity name, when it differs from the trading name',
+    description:
+      'Registered legal entity name, when it differs from the trading name',
   })
   @IsOptional()
   @IsString()
@@ -82,18 +88,18 @@ export class CreateWorkspaceDto {
   taxCode?: string;
 
   @ApiPropertyOptional({
-    enum: Object.values(Currency),
-    enumName: 'Currency',
-    default: Currency.USD,
+    ...CURRENCY_SCHEMA,
+    default: DEFAULT_CURRENCY,
   })
   @IsOptional()
-  @IsEnum(Currency)
-  currency?: Currency;
+  @IsCurrencyCode()
+  currency?: string;
 
   @ApiPropertyOptional({
     example: 16,
     default: 0,
-    description: 'Default tax rate (percent) applied to new invoices and quotes',
+    description:
+      'Default tax rate (percent) applied to new invoices and quotes',
   })
   @IsOptional()
   @IsNumber()

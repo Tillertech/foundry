@@ -110,7 +110,9 @@ export class PortalAuthService {
         clientPortal: {
           include: {
             permission: true,
-            client: { select: { id: true, name: true, company: true } },
+            client: {
+              select: { id: true, name: true, company: true, currency: true },
+            },
           },
         },
       },

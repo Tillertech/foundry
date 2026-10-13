@@ -1,7 +1,7 @@
 <div class="mx-auto max-w-[1400px] px-4 py-6 md:px-8 md:py-8">
   <app-page-header
     title="Payments"
-    [description]="filtered().length + ' payments · ' + money(total()) + ' total'"
+    [description]="filtered().length + ' payments · ' + fx.format(total()) + ' total'"
   >
     <button
       actions
@@ -97,7 +97,12 @@
             <p class="text-sm font-semibold tabular-nums text-success">
               +{{ money(p.amount, p.currency) }}
             </p>
-            <p class="text-[11px] text-muted-foreground">{{ day(p.date) }}</p>
+            <p class="text-[11px] text-muted-foreground">
+              @if (fx.approx(p.amount, p.currency); as approx) {
+                {{ approx }} ·
+              }
+              {{ day(p.date) }}
+            </p>
           </div>
         </button>
       </li>
@@ -117,23 +122,13 @@
     <div class="grid gap-4">
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Client" [error]="fieldError(f.clientId())">
-          <hlm-select
-            class="w-full"
-            [value]="model().clientId"
-            (valueChange)="onClientChange($event ?? '')"
-            [itemToString]="clientLabel"
-          >
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value placeholder="Select a client" />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              @for (c of clients(); track c.id) {
-              <hlm-select-item [value]="c.id"
-                >{{ c.company || c.name }}</hlm-select-item
-              >
-              }
-            </hlm-select-content>
-          </hlm-select>
+          <app-option-autocomplete
+          placeholder="Select a client"
+          emptyText="No client found"
+          [options]="clientOptions()"
+          [value]="model().clientId"
+          (valueChange)="onClientChange($event)"
+        />
         </app-field>
         <app-field label="Invoice (optional)">
           <hlm-select
@@ -169,17 +164,7 @@
           />
         </app-field>
         <app-field label="Currency">
-          <hlm-select class="w-full" [formField]="f.currency">
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              <hlm-select-item value="USD">USD</hlm-select-item>
-              <hlm-select-item value="EUR">EUR</hlm-select-item>
-              <hlm-select-item value="GBP">GBP</hlm-select-item>
-              <hlm-select-item value="KES">KES</hlm-select-item>
-            </hlm-select-content>
-          </hlm-select>
+          <app-currency-autocomplete [formField]="f.currency" />
         </app-field>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
