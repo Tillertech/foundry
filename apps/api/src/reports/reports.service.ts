@@ -84,8 +84,12 @@ export class ReportsService {
           }
         : {};
 
-    const convert = (base: string, amount: number) =>
-      this.invoices.convert(base, currency, amount);
+    // Converted at the full rate and left unrounded: figures are rounded once,
+    // when they are reported. Rounding every amount to cents first distorts
+    // totals of many small amounts in a weak currency (100 x 1 KES would read
+    // as 1.00 USD rather than 0.77).
+    const convert = async (base: string, amount: number) =>
+      amount * (await this.invoices.conversionRate(base, currency)).mid;
 
     const [invoices, payments, expenses] = await Promise.all([
       this.prisma.invoice.findMany({
