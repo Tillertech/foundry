@@ -1,9 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class PortalPermissionEntity {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
-
+/** The four view flags, wherever they are reported. */
+export class PortalPermissionFlagsEntity {
   @ApiProperty()
   viewProjects: boolean;
 
@@ -13,8 +11,19 @@ export class PortalPermissionEntity {
   @ApiProperty()
   viewQuotes: boolean;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Gates both invoices and payments' })
   viewPayments: boolean;
+}
+
+export class PortalPermissionEntity extends PortalPermissionFlagsEntity {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({
+    description:
+      "While true the portal follows its workspace's default permissions and the view* flags here are ignored",
+  })
+  inherit: boolean;
 
   @ApiProperty({ format: 'uuid' })
   clientPortalId: string;

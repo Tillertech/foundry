@@ -5,6 +5,10 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PortalEvents } from '../common/events';
+import {
+  effectivePortalPermission,
+  WORKSPACE_PORTAL_DEFAULTS_SELECT,
+} from '../common/portal-permissions';
 import { ClientPortalUserStatus } from '../generated/prisma/enums';
 import type { ClientPortalUserModel as ClientPortalUser } from '../generated/prisma/models';
 
@@ -111,7 +115,13 @@ export class PortalAuthService {
           include: {
             permission: true,
             client: {
-              select: { id: true, name: true, company: true, currency: true },
+              select: {
+                id: true,
+                name: true,
+                company: true,
+                currency: true,
+                workspace: { select: WORKSPACE_PORTAL_DEFAULTS_SELECT },
+              },
             },
           },
         },
@@ -121,6 +131,7 @@ export class PortalAuthService {
       throw new NotFoundException('Portal user not found');
     }
     const { clientPortal } = user;
+    const { workspace, ...client } = clientPortal.client;
     return {
       id: user.id,
       name: user.name,
@@ -130,13 +141,12 @@ export class PortalAuthService {
         id: clientPortal.id,
         slug: clientPortal.slug,
         active: clientPortal.active,
-        permission: {
-          viewProjects: clientPortal.permission.viewProjects,
-          viewDocuments: clientPortal.permission.viewDocuments,
-          viewQuotes: clientPortal.permission.viewQuotes,
-          viewPayments: clientPortal.permission.viewPayments,
-        },
-        client: clientPortal.client,
+        // Effective flags - the portal SPA gates its navigation on these.
+        permission: effectivePortalPermission(
+          clientPortal.permission,
+          workspace,
+        ),
+        client,
       },
     };
   }

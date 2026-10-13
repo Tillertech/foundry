@@ -58,11 +58,15 @@ export class PortalProjectsService {
 
   async findAll(
     clientPortalId: string,
+    portalUserId: string,
     query: PaginationQueryDto,
     baseUrl: string,
   ): Promise<PaginationRes<PortalProject>> {
     await this.context.require(clientPortalId, 'viewProjects');
-    const projectIds = await this.context.sharedProjectIds(clientPortalId);
+    const projectIds = await this.context.sharedProjectIds(
+      clientPortalId,
+      portalUserId,
+    );
     return this.pagination.paginate<PortalProject>(
       this.prisma.project,
       {
@@ -80,9 +84,16 @@ export class PortalProjectsService {
     );
   }
 
-  async findOne(clientPortalId: string, id: string): Promise<PortalProject> {
+  async findOne(
+    clientPortalId: string,
+    portalUserId: string,
+    id: string,
+  ): Promise<PortalProject> {
     await this.context.require(clientPortalId, 'viewProjects');
-    const projectIds = await this.context.sharedProjectIds(clientPortalId);
+    const projectIds = await this.context.sharedProjectIds(
+      clientPortalId,
+      portalUserId,
+    );
     if (!projectIds.includes(id)) {
       throw new NotFoundException('Project not found');
     }

@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -12,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -42,6 +45,7 @@ export class PortalUsersController {
   @ApiOperation({ summary: 'Invite a user into a client portal' })
   @ApiCreatedResponse({ type: PortalUserEntity })
   @ApiNotFoundResponse()
+  @ApiBadRequestResponse({ description: 'Invalid project selection' })
   @ApiConflictResponse({ description: 'Email already invited to this portal' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreatePortalUserDto) {
     return this.portalUsersService.create(user.sub, dto);
@@ -67,15 +71,34 @@ export class PortalUsersController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a portal user, or suspend/reactivate their access' })
+  @ApiOperation({ summary:
+      'Update a portal user: profile, project access, or suspend/reactivate' })
   @ApiOkResponse({ type: PortalUserEntity })
   @ApiNotFoundResponse()
+  @ApiBadRequestResponse({
+    description: 'Invalid project selection, or activating an invited user',
+  })
   update(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePortalUserDto,
   ) {
     return this.portalUsersService.update(user.sub, id, dto);
+  }
+
+  @Post(':id/resend-invite')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Email a fresh invite link to a user who has not accepted yet',
+  })
+  @ApiOkResponse({ type: PortalUserEntity })
+  @ApiNotFoundResponse()
+  @ApiConflictResponse({ description: 'The invite was already accepted' })
+  resendInvite(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.portalUsersService.resendInvite(user.sub, id);
   }
 
   @Delete(':id')

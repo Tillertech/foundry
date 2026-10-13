@@ -48,6 +48,7 @@ export class PortalDocumentsController {
   ) {
     return this.service.findAll(
       user.clientPortalId,
+      user.sub,
       query,
       requestBaseUrl(req),
     );
@@ -62,7 +63,7 @@ export class PortalDocumentsController {
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.service.findOne(user.clientPortalId, id);
+    return this.service.findOne(user.clientPortalId, user.sub, id);
   }
 
   @Get(':id/download')
@@ -78,6 +79,7 @@ export class PortalDocumentsController {
   ): Promise<StreamableFile> {
     const { document, content } = await this.service.download(
       user.clientPortalId,
+      user.sub,
       id,
     );
     res.set({

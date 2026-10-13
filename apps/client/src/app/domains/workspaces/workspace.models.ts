@@ -27,6 +27,15 @@ export interface Workspace {
   remindersEnabled: boolean;
   /** Days before the due date reminders start (also the re-send interval). */
   reminderDaysBefore: number;
+  /**
+   * Default client-portal permissions: what every client portal may see
+   * unless that portal sets its own.
+   */
+  portalViewProjects: boolean;
+  portalViewDocuments: boolean;
+  portalViewQuotes: boolean;
+  /** Gates invoices as well as payments - the API has one flag for both. */
+  portalViewPayments: boolean;
   ownerId: string;
   createdAt: string;
   updatedAt: string;
@@ -52,6 +61,10 @@ export interface CreateWorkspaceRequest {
   status?: ClientStatus;
   remindersEnabled?: boolean;
   reminderDaysBefore?: number;
+  portalViewProjects?: boolean;
+  portalViewDocuments?: boolean;
+  portalViewQuotes?: boolean;
+  portalViewPayments?: boolean;
 }
 
 export type UpdateWorkspaceRequest = Partial<CreateWorkspaceRequest>;

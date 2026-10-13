@@ -101,6 +101,34 @@ export class WorkspaceEntity {
   })
   reminderDaysBefore: number;
 
+  @ApiProperty({
+    default: true,
+    description:
+      'Client-portal default: portals that inherit workspace permissions can see projects and milestones',
+  })
+  portalViewProjects: boolean;
+
+  @ApiProperty({
+    default: true,
+    description:
+      'Client-portal default: portals that inherit workspace permissions can see documents',
+  })
+  portalViewDocuments: boolean;
+
+  @ApiProperty({
+    default: true,
+    description:
+      'Client-portal default: portals that inherit workspace permissions can see quotes',
+  })
+  portalViewQuotes: boolean;
+
+  @ApiProperty({
+    default: true,
+    description:
+      'Client-portal default: portals that inherit workspace permissions can see invoices and payments',
+  })
+  portalViewPayments: boolean;
+
   @ApiProperty({ format: 'uuid' })
   ownerId: string;
 
