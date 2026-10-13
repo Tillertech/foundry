@@ -27,12 +27,15 @@ export class PortalDocumentsService {
     private readonly storage: StorageService,
   ) {}
 
-  private async scope(clientPortalId: string) {
+  private async scope(clientPortalId: string, portalUserId: string) {
     const { clientId } = await this.context.require(
       clientPortalId,
       'viewDocuments',
     );
-    const projectIds = await this.context.sharedProjectIds(clientPortalId);
+    const projectIds = await this.context.sharedProjectIds(
+      clientPortalId,
+      portalUserId,
+    );
     return {
       OR: [{ clientId }, { projectId: { in: projectIds } }],
     };
@@ -40,10 +43,11 @@ export class PortalDocumentsService {
 
   async findAll(
     clientPortalId: string,
+    portalUserId: string,
     query: PaginationQueryDto,
     baseUrl: string,
   ): Promise<PaginationRes<SafeDocument>> {
-    const where = await this.scope(clientPortalId);
+    const where = await this.scope(clientPortalId, portalUserId);
     return this.pagination.paginate<SafeDocument>(
       this.prisma.document,
       { where, omit: SAFE_OMIT },
@@ -57,8 +61,12 @@ export class PortalDocumentsService {
     );
   }
 
-  async findOne(clientPortalId: string, id: string): Promise<SafeDocument> {
-    const where = await this.scope(clientPortalId);
+  async findOne(
+    clientPortalId: string,
+    portalUserId: string,
+    id: string,
+  ): Promise<SafeDocument> {
+    const where = await this.scope(clientPortalId, portalUserId);
     const document = await this.prisma.document.findFirst({
       where: { AND: [{ id }, where] },
       omit: SAFE_OMIT,
@@ -74,9 +82,10 @@ export class PortalDocumentsService {
    */
   async download(
     clientPortalId: string,
+    portalUserId: string,
     id: string,
   ): Promise<{ document: Document; content: Buffer }> {
-    const where = await this.scope(clientPortalId);
+    const where = await this.scope(clientPortalId, portalUserId);
     const document = await this.prisma.document.findFirst({
       where: { AND: [{ id }, where] },
     });

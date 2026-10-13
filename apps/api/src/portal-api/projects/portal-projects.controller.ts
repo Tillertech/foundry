@@ -44,6 +44,7 @@ export class PortalProjectsController {
   ) {
     return this.service.findAll(
       user.clientPortalId,
+      user.sub,
       query,
       requestBaseUrl(req),
     );
@@ -57,6 +58,6 @@ export class PortalProjectsController {
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.service.findOne(user.clientPortalId, id);
+    return this.service.findOne(user.clientPortalId, user.sub, id);
   }
 }

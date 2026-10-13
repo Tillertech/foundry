@@ -13,6 +13,14 @@ export class UpdateClientPortalDto {
   @IsBoolean()
   active?: boolean;
 
+  @ApiPropertyOptional({
+    description:
+      "true: follow the workspace's default portal permissions (the view* flags are then ignored). false: use this portal's own view* flags. Sending any view* flag without this field implies false.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  inheritPermissions?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
