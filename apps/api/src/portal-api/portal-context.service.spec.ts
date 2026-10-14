@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PortalContextService } from './portal-context.service';
 
@@ -26,18 +27,18 @@ const portal = (over: Record<string, unknown> = {}) => ({
 describe('PortalContextService', () => {
   let service: PortalContextService;
   let prisma: {
-    clientPortal: { findUnique: jest.Mock };
-    clientPortalUser: { findFirst: jest.Mock };
-    clientPortalProject: { findMany: jest.Mock };
+    clientPortal: { findUnique: Mock };
+    clientPortalUser: { findFirst: Mock };
+    clientPortalProject: { findMany: Mock };
   };
 
   beforeEach(() => {
     prisma = {
-      clientPortal: { findUnique: jest.fn().mockResolvedValue(portal()) },
+      clientPortal: { findUnique: vi.fn().mockResolvedValue(portal()) },
       clientPortalUser: {
-        findFirst: jest.fn().mockResolvedValue({ allProjects: true }),
+        findFirst: vi.fn().mockResolvedValue({ allProjects: true }),
       },
-      clientPortalProject: { findMany: jest.fn().mockResolvedValue([]) },
+      clientPortalProject: { findMany: vi.fn().mockResolvedValue([]) },
     };
     service = new PortalContextService(prisma as any);
   });

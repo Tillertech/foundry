@@ -17,7 +17,7 @@ RUN apt-get update && \
 COPY package.json package-lock.json ./
 
 RUN npm cache clean --force
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
 COPY . .
 

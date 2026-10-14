@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DocumentEvents, FileEvents } from '../common/events';
 import { DocumentsService } from './documents.service';
@@ -43,19 +44,19 @@ describe('DocumentsService', () => {
   let service: DocumentsService;
   let prisma: {
     document: {
-      create: jest.Mock;
-      findMany: jest.Mock;
-      findFirst: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
+      create: Mock;
+      findMany: Mock;
+      findFirst: Mock;
+      update: Mock;
+      delete: Mock;
     };
   };
-  let pagination: { paginate: jest.Mock };
-  let clientsService: { findOne: jest.Mock };
-  let projectsService: { findOne: jest.Mock };
-  let storage: { upload: jest.Mock; read: jest.Mock; remove: jest.Mock };
-  let events: { emit: jest.Mock };
-  let workspaces: { findOne: jest.Mock; findDefault: jest.Mock };
+  let pagination: { paginate: Mock };
+  let clientsService: { findOne: Mock };
+  let projectsService: { findOne: Mock };
+  let storage: { upload: Mock; read: Mock; remove: Mock };
+  let events: { emit: Mock };
+  let workspaces: { findOne: Mock; findDefault: Mock };
 
   function matches(row: Row, where: Record<string, any> = {}): boolean {
     if (where.id !== undefined && row.id !== where.id) return false;
@@ -108,30 +109,30 @@ describe('DocumentsService', () => {
 
     prisma = {
       document: {
-        create: jest.fn(async ({ data }) => ({ id: 'd-new', ...data })),
-        findMany: jest.fn(async ({ where }) =>
+        create: vi.fn(async ({ data }) => ({ id: 'd-new', ...data })),
+        findMany: vi.fn(async ({ where }) =>
           rows.filter((r) => matches(r, where)),
         ),
-        findFirst: jest.fn(
+        findFirst: vi.fn(
           async ({ where }) => rows.find((r) => matches(r, where)) ?? null,
         ),
-        update: jest.fn(async ({ where, data }) => ({
+        update: vi.fn(async ({ where, data }) => ({
           ...rows.find((r) => r.id === where.id),
           ...data,
         })),
-        delete: jest.fn(async ({ where }) =>
+        delete: vi.fn(async ({ where }) =>
           rows.find((r) => r.id === where.id),
         ),
       },
     };
     pagination = {
-      paginate: jest.fn(async (delegate, args) => ({
+      paginate: vi.fn(async (delegate, args) => ({
         results: await delegate.findMany(args),
       })),
     };
     // Mirror ClientsService/ProjectsService/WorkspacesService owner scoping.
     clientsService = {
-      findOne: jest.fn(async (ownerId: string, id: string) => {
+      findOne: vi.fn(async (ownerId: string, id: string) => {
         if (ownerOfClient(id) !== ownerId) {
           throw new NotFoundException('Client not found');
         }
@@ -139,7 +140,7 @@ describe('DocumentsService', () => {
       }),
     };
     projectsService = {
-      findOne: jest.fn(async (ownerId: string, id: string) => {
+      findOne: vi.fn(async (ownerId: string, id: string) => {
         const project = projects[id];
         if (!project || ownerOfClient(project.clientId) !== ownerId) {
           throw new NotFoundException('Project not found');
@@ -148,30 +149,30 @@ describe('DocumentsService', () => {
       }),
     };
     workspaces = {
-      findOne: jest.fn(async (ownerId: string, id: string) => {
+      findOne: vi.fn(async (ownerId: string, id: string) => {
         if (workspaceOwner[id] !== ownerId) {
           throw new NotFoundException('Workspace not found');
         }
         return { id };
       }),
-      findDefault: jest.fn(async (ownerId: string) => ({
+      findDefault: vi.fn(async (ownerId: string) => ({
         id: Object.keys(workspaceOwner).find(
           (ws) => workspaceOwner[ws] === ownerId,
         ),
       })),
     };
     storage = {
-      upload: jest.fn(async () => ({
+      upload: vi.fn(async () => ({
         key: 'stored-key.pdf',
         url: 'http://api/uploads/stored-key.pdf',
         size: 3,
         mimeType: 'application/pdf',
         originalName: 'MSA.pdf',
       })),
-      read: jest.fn(async () => Buffer.from('bytes')),
-      remove: jest.fn(),
+      read: vi.fn(async () => Buffer.from('bytes')),
+      remove: vi.fn(),
     };
-    events = { emit: jest.fn() };
+    events = { emit: vi.fn() };
 
     service = new DocumentsService(
       prisma as any,

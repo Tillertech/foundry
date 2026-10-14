@@ -39,7 +39,8 @@ export default [
             "@angular-eslint/component-selector": [
                 "error",
                 {
-                    type: "element",
+                    // spartan carousel controls are attribute components (button[hlm-carousel-next])
+                    type: ["element", "attribute"],
                     prefix: "hlm",
                     style: "kebab-case"
                 }

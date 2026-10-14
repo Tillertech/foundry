@@ -8,8 +8,8 @@ describe('NotificationGateway', () => {
   const socket = (token?: string) => ({
     id: 'sock-1',
     handshake: { auth: token ? { token } : {}, headers: {} },
-    join: jest.fn(),
-    disconnect: jest.fn(),
+    join: vi.fn(),
+    disconnect: vi.fn(),
   });
 
   beforeEach(() => {

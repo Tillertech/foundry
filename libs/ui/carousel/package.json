@@ -2,8 +2,16 @@
   "name": "@spartan-ng/helm/carousel",
   "version": "0.0.1",
   "peerDependencies": {
-    "@angular/common": "^21.2.0",
-    "@angular/core": "^21.2.0"
+    "@angular/core": "^22.1.0",
+    "@spartan-ng/helm/utils": "0.0.1",
+    "@ng-icons/core": "^32.2.0",
+    "@ng-icons/lucide": "^32.2.0",
+    "@spartan-ng/helm/button": "0.0.1",
+    "clsx": "^2.1.1",
+    "@angular/cdk": "22.1.8",
+    "embla-carousel": ">=8.0.0 <9.0.0",
+    "embla-carousel-angular": "^22.0.0"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "private": true
 }
