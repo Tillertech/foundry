@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { PortalJwtAuthGuard } from './portal-jwt-auth.guard';
 
@@ -20,14 +21,14 @@ function contextWith(authorization?: string) {
 
 describe('PortalJwtAuthGuard', () => {
   let guard: PortalJwtAuthGuard;
-  let jwt: { verify: jest.Mock };
-  let prisma: { clientPortalUser: { findUnique: jest.Mock } };
+  let jwt: { verify: Mock };
+  let prisma: { clientPortalUser: { findUnique: Mock } };
 
   beforeEach(() => {
-    jwt = { verify: jest.fn().mockReturnValue(payload) };
+    jwt = { verify: vi.fn().mockReturnValue(payload) };
     prisma = {
       clientPortalUser: {
-        findUnique: jest
+        findUnique: vi
           .fn()
           .mockResolvedValue({ status: 'active', clientPortalId: 'portal-1' }),
       },

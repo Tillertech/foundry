@@ -23,10 +23,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Generate Prisma client
         run: npx prisma generate --config=apps/api/prisma.config.ts
 
       - name: Run unit tests
-        run: npx nx run-many -t test
+        run: npx nx run-many -t test vite:test

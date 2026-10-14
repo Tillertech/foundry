@@ -37,7 +37,7 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
       (closed)="open.set(false)"
     >
       <hlm-sheet-content
-        *brnSheetContent="let ctx"
+        *hlmSheetPortal="let ctx"
         class="flex min-w-0 flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
       >
         <div hlmSheetHeader class="border-b border-border px-6 py-4 text-left">
@@ -70,9 +70,7 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
                   <ng-icon name="lucideTrash2" size="16" />
                   Delete
                 </button>
-                <hlm-alert-dialog-content
-                  *brnAlertDialogContent="let dialogCtx"
-                >
+                <hlm-alert-dialog-content *hlmAlertDialogPortal="let dialogCtx">
                   <div hlmAlertDialogHeader>
                     <h3 hlmAlertDialogTitle>Delete this record?</h3>
                     <p hlmAlertDialogDescription>

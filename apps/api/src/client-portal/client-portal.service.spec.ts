@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { ClientPortalService } from './client-portal.service';
 
@@ -47,41 +48,41 @@ describe('ClientPortalService', () => {
   let service: ClientPortalService;
   let prisma: {
     clientPortal: {
-      findUnique: jest.Mock;
-      findFirst: jest.Mock;
-      create: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
+      findUnique: Mock;
+      findFirst: Mock;
+      create: Mock;
+      update: Mock;
+      delete: Mock;
     };
-    project: { findMany: jest.Mock; findFirst: jest.Mock };
-    clientPortalProject: { upsert: jest.Mock };
+    project: { findMany: Mock; findFirst: Mock };
+    clientPortalProject: { upsert: Mock };
   };
-  let clients: { findOne: jest.Mock };
-  let portalUsers: { create: jest.Mock };
+  let clients: { findOne: Mock };
+  let portalUsers: { create: Mock };
 
   beforeEach(() => {
     prisma = {
       clientPortal: {
-        findUnique: jest.fn().mockResolvedValue(null),
-        findFirst: jest.fn().mockResolvedValue(portalRow()),
-        create: jest.fn().mockResolvedValue({ id: 'portal-1' }),
-        update: jest.fn().mockResolvedValue({ id: 'portal-1' }),
-        delete: jest.fn(),
+        findUnique: vi.fn().mockResolvedValue(null),
+        findFirst: vi.fn().mockResolvedValue(portalRow()),
+        create: vi.fn().mockResolvedValue({ id: 'portal-1' }),
+        update: vi.fn().mockResolvedValue({ id: 'portal-1' }),
+        delete: vi.fn(),
       },
       project: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'p1' }, { id: 'p2' }]),
-        findFirst: jest.fn().mockResolvedValue({ id: 'p1' }),
+        findMany: vi.fn().mockResolvedValue([{ id: 'p1' }, { id: 'p2' }]),
+        findFirst: vi.fn().mockResolvedValue({ id: 'p1' }),
       },
-      clientPortalProject: { upsert: jest.fn() },
+      clientPortalProject: { upsert: vi.fn() },
     };
     clients = {
-      findOne: jest.fn().mockResolvedValue({
+      findOne: vi.fn().mockResolvedValue({
         id: 'client-1',
         name: 'Northwind',
         email: 'hello@northwind.test',
       }),
     };
-    portalUsers = { create: jest.fn() };
+    portalUsers = { create: vi.fn() };
     service = new ClientPortalService(
       prisma as any,
       clients as any,

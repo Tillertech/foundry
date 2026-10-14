@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
   BadRequestException,
   ConflictException,
@@ -26,28 +27,28 @@ describe('InvoicesService', () => {
   let service: InvoicesService;
   let prisma: {
     invoice: {
-      create: jest.Mock;
-      findMany: jest.Mock;
-      findFirst: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
+      create: Mock;
+      findMany: Mock;
+      findFirst: Mock;
+      update: Mock;
+      delete: Mock;
     };
-    expense: { findMany: jest.Mock };
+    expense: { findMany: Mock };
     workspace: {
-      findUnique: jest.Mock;
-      findFirst: jest.Mock;
-      findMany: jest.Mock;
+      findUnique: Mock;
+      findFirst: Mock;
+      findMany: Mock;
     };
-    client: { findMany: jest.Mock };
-    quote: { findMany: jest.Mock };
-    payment: { findMany: jest.Mock };
+    client: { findMany: Mock };
+    quote: { findMany: Mock };
+    payment: { findMany: Mock };
   };
-  let pagination: { paginate: jest.Mock };
-  let clients: { findOne: jest.Mock };
-  let projects: { findOne: jest.Mock };
-  let events: { emit: jest.Mock };
-  let cache: { get: jest.Mock; set: jest.Mock };
-  let http: { get: jest.Mock };
+  let pagination: { paginate: Mock };
+  let clients: { findOne: Mock };
+  let projects: { findOne: Mock };
+  let events: { emit: Mock };
+  let cache: { get: Mock; set: Mock };
+  let http: { get: Mock };
 
   const ownerId = 'owner-1';
   const client = { id: 'client-1', workspaceId: 'ws-1' };
@@ -91,32 +92,32 @@ describe('InvoicesService', () => {
   beforeEach(() => {
     prisma = {
       invoice: {
-        create: jest.fn(),
-        findMany: jest.fn().mockResolvedValue([]),
-        findFirst: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
+        create: vi.fn(),
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
       },
-      expense: { findMany: jest.fn().mockResolvedValue([]) },
+      expense: { findMany: vi.fn().mockResolvedValue([]) },
       workspace: {
-        findUnique: jest.fn().mockResolvedValue({ invoicePrefix: null }),
-        findFirst: jest.fn(),
-        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: vi.fn().mockResolvedValue({ invoicePrefix: null }),
+        findFirst: vi.fn(),
+        findMany: vi.fn().mockResolvedValue([]),
       },
-      client: { findMany: jest.fn().mockResolvedValue([]) },
-      quote: { findMany: jest.fn().mockResolvedValue([]) },
-      payment: { findMany: jest.fn().mockResolvedValue([]) },
+      client: { findMany: vi.fn().mockResolvedValue([]) },
+      quote: { findMany: vi.fn().mockResolvedValue([]) },
+      payment: { findMany: vi.fn().mockResolvedValue([]) },
     };
-    pagination = { paginate: jest.fn() };
-    clients = { findOne: jest.fn().mockResolvedValue(client) };
+    pagination = { paginate: vi.fn() };
+    clients = { findOne: vi.fn().mockResolvedValue(client) };
     projects = {
-      findOne: jest
+      findOne: vi
         .fn()
         .mockResolvedValue({ id: 'project-1', clientId: client.id }),
     };
-    events = { emit: jest.fn() };
-    cache = { get: jest.fn(), set: jest.fn() };
-    http = { get: jest.fn() };
+    events = { emit: vi.fn() };
+    cache = { get: vi.fn(), set: vi.fn() };
+    http = { get: vi.fn() };
 
     service = new InvoicesService(
       prisma as any,
@@ -130,7 +131,9 @@ describe('InvoicesService', () => {
   });
 
   describe('numbering', () => {
-    beforeEach(echoCreate);
+    beforeEach(() => {
+      echoCreate();
+    });
 
     it('starts a fresh workspace sequence at 1001 with the default prefix', async () => {
       const result = await service.create(ownerId, baseDto);
@@ -310,7 +313,9 @@ describe('InvoicesService', () => {
   });
 
   describe('create', () => {
-    beforeEach(echoCreate);
+    beforeEach(() => {
+      echoCreate();
+    });
 
     it('validates the client and project belong to the caller before creating', async () => {
       await service.create(ownerId, { ...baseDto, projectId: 'project-1' });
@@ -385,7 +390,9 @@ describe('InvoicesService', () => {
       ...extra,
     });
 
-    beforeEach(echoCreate);
+    beforeEach(() => {
+      echoCreate();
+    });
 
     const createdItems = () =>
       prisma.invoice.create.mock.calls[0][0].data.items.create;

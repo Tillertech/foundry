@@ -12,15 +12,15 @@ describe('PaginationService', () => {
   }));
 
   const prismaDelegate = {
-    findMany: jest.fn(),
-    findFirst: jest.fn(),
-    count: jest.fn().mockResolvedValue(30),
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    count: vi.fn().mockResolvedValue(30),
   };
 
   beforeEach(() => {
     cursorService = new CursorService();
     service = new PaginationService(cursorService);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   /**

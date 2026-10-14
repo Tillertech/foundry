@@ -142,7 +142,7 @@ import { Field, fieldError, ToastService } from '@foundry/shared-ui';
             <div class="flex justify-center">
               <brn-input-otp
                 hlm
-                maxLength="6"
+                [length]="6"
                 inputMode="numeric"
                 [(ngModel)]="code"
                 name="otp"
