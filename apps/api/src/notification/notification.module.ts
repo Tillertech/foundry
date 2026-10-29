@@ -29,7 +29,7 @@ const DEV_TEMPLATE_DIRS = [
   join(process.cwd(), 'src', 'notification', 'mail', 'templates'),
 ];
 
-// todo
+// WIP
 // MAIL_TEMPLATES_DIR overrides both, e.g. to serve your own branded templates
 // or when the API runs from a different working directory.
 const TEMPLATE_DIR =

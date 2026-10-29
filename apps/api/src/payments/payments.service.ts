@@ -17,6 +17,7 @@ import { ReconciliationService } from '../reconciliation/reconciliation.service'
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { ListPaymentsQueryDto } from './dto/list-payments-query.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 @Injectable()
 export class PaymentsService {
@@ -27,6 +28,7 @@ export class PaymentsService {
     private readonly invoices: InvoicesService,
     private readonly reconciliation: ReconciliationService,
     private readonly events: EventEmitter2,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   async create(ownerId: string, dto: CreatePaymentDto): Promise<Payment> {
@@ -58,7 +60,7 @@ export class PaymentsService {
       this.prisma.payment,
       {
         where: {
-          client: { workspace: { ownerId } },
+          client: { workspace: this.workspaceScope.owned(ownerId) },
           ...(clientId ? { clientId } : {}),
           ...(invoiceId ? { invoiceId } : {}),
           ...(method ? { method } : {}),
@@ -89,7 +91,11 @@ export class PaymentsService {
   ): Promise<Payment> {
     const before = await this.findOne(ownerId, id);
     if (dto.invoiceId) {
-      await this.assertInvoiceForClient(ownerId, dto.invoiceId, before.clientId);
+      await this.assertInvoiceForClient(
+        ownerId,
+        dto.invoiceId,
+        before.clientId,
+      );
     }
     const payment = await this.prisma.payment.update({
       where: { id },

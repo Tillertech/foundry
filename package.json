@@ -1,7 +1,7 @@
 {
-  "name": "@org/source",
+  "name": "@tillertech/foundry",
   "version": "0.0.0",
-  "license": "MIT",
+  "license": "GNU",
   "scripts": {},
   "private": true,
   "dependencies": {

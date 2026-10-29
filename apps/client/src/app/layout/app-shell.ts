@@ -35,6 +35,7 @@ import { AuthService } from '../domains/auth';
 import { NotificationsMenu } from './notifications-menu';
 import { ApiClient, ClientsApiService } from '../domains/clients';
 import { ThemeService } from '../core/theme.service';
+import { FoundrySlot, slotComponents } from '../core/extensions';
 
 interface NavItem {
   path: string;
@@ -53,6 +54,7 @@ interface NavItem {
     NgIcon,
     HlmButton,
     NotificationsMenu,
+    FoundrySlot,
   ],
   providers: [
     provideIcons({
@@ -86,6 +88,10 @@ export class AppShell {
   private readonly clientsApi = inject(ClientsApiService);
 
   protected readonly collapsed = signal(false);
+
+  /** Extensions can replace the sidebar wordmark (see core/extensions.ts). */
+  protected readonly hasSidebarHeader =
+    slotComponents('shell.sidebar.header').length > 0;
   private readonly clients = signal<ApiClient[]>([]);
 
   constructor() {

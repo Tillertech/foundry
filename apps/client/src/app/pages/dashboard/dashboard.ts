@@ -87,7 +87,7 @@ export class Dashboard {
   private readonly workspace = signal<Workspace | null>(null);
 
   constructor() {
-    this.workspacesApi.getDefault().subscribe({
+    this.workspacesApi.current().subscribe({
       next: (ws) => this.workspace.set(ws),
       error: () => undefined,
     });

@@ -12,6 +12,7 @@ import { InvoiceEvents } from '../common/events';
 import { Prisma } from '../generated/prisma/client';
 import { InvoicesService } from './invoices.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 function uniqueError(field: string) {
   return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
@@ -127,6 +128,7 @@ describe('InvoicesService', () => {
       events as any,
       cache as any,
       http as any,
+      new WorkspaceScope(),
     );
   });
 
@@ -267,7 +269,9 @@ describe('InvoicesService', () => {
 
       await expect(
         service.create(ownerId, { ...baseDto, number: 'CUSTOM-1' }),
-      ).rejects.toThrow('One of the expenses was just billed on another invoice');
+      ).rejects.toThrow(
+        'One of the expenses was just billed on another invoice',
+      );
     });
 
     it('does not swallow unrelated database errors', async () => {
@@ -305,10 +309,17 @@ describe('InvoicesService', () => {
       await expect(
         service.update(ownerId, 'invoice-1', {
           items: [
-            { description: 'Figma', quantity: 1, rate: 1, expenseId: 'expense-1' },
+            {
+              description: 'Figma',
+              quantity: 1,
+              rate: 1,
+              expenseId: 'expense-1',
+            },
           ],
         }),
-      ).rejects.toThrow('One of the expenses was just billed on another invoice');
+      ).rejects.toThrow(
+        'One of the expenses was just billed on another invoice',
+      );
     });
   });
 
@@ -337,7 +348,9 @@ describe('InvoicesService', () => {
     });
 
     it('propagates a missing client without creating anything', async () => {
-      clients.findOne.mockRejectedValue(new NotFoundException('Client not found'));
+      clients.findOne.mockRejectedValue(
+        new NotFoundException('Client not found'),
+      );
 
       await expect(service.create(ownerId, baseDto)).rejects.toBeInstanceOf(
         NotFoundException,
@@ -403,7 +416,7 @@ describe('InvoicesService', () => {
       expect(prisma.expense.findMany).not.toHaveBeenCalled();
     });
 
-    it("pins an expense line to 1 x the expense amount, whatever the request says", async () => {
+    it('pins an expense line to 1 x the expense amount, whatever the request says', async () => {
       prisma.expense.findMany.mockResolvedValue([expense()]);
 
       await service.create(ownerId, {
@@ -503,7 +516,9 @@ describe('InvoicesService', () => {
 
       await expect(
         service.create(ownerId, { ...baseDto, items: [expenseLine()] }),
-      ).rejects.toThrow('Expense from Figma is already billed on another invoice');
+      ).rejects.toThrow(
+        'Expense from Figma is already billed on another invoice',
+      );
     });
 
     it('rejects the same expense twice on one invoice before hitting the database', async () => {
@@ -648,7 +663,9 @@ describe('InvoicesService', () => {
 
       await expect(
         service.update(ownerId, 'invoice-1', { projectId: 'project-9' }),
-      ).rejects.toThrow("Project belongs to a different client than the invoice's");
+      ).rejects.toThrow(
+        "Project belongs to a different client than the invoice's",
+      );
       expect(prisma.invoice.update).not.toHaveBeenCalled();
     });
 
@@ -666,7 +683,12 @@ describe('InvoicesService', () => {
 
       await service.update(ownerId, 'invoice-1', {
         items: [
-          { description: 'Figma', quantity: 1, rate: 45.5, expenseId: 'expense-1' },
+          {
+            description: 'Figma',
+            quantity: 1,
+            rate: 45.5,
+            expenseId: 'expense-1',
+          },
         ],
       });
 
@@ -687,7 +709,12 @@ describe('InvoicesService', () => {
       await expect(
         service.update(ownerId, 'invoice-1', {
           items: [
-            { description: 'Figma', quantity: 1, rate: 1, expenseId: 'expense-1' },
+            {
+              description: 'Figma',
+              quantity: 1,
+              rate: 1,
+              expenseId: 'expense-1',
+            },
           ],
         }),
       ).rejects.toThrow('not the invoice currency EUR');
@@ -699,7 +726,12 @@ describe('InvoicesService', () => {
       await service.update(ownerId, 'invoice-1', {
         currency: 'EUR',
         items: [
-          { description: 'Hotel', quantity: 1, rate: 1, expenseId: 'expense-1' },
+          {
+            description: 'Hotel',
+            quantity: 1,
+            rate: 1,
+            expenseId: 'expense-1',
+          },
         ],
       });
 
@@ -801,23 +833,27 @@ describe('InvoicesService', () => {
       expect(result.status).toBe('sent');
     });
 
-    it.each(['sent', 'viewed', 'partially_paid', 'overdue', 'paid', 'overpaid'])(
-      're-sending a %s invoice keeps its status',
-      async (status) => {
-        prisma.invoice.findFirst.mockResolvedValue(invoice({ status }));
+    it.each([
+      'sent',
+      'viewed',
+      'partially_paid',
+      'overdue',
+      'paid',
+      'overpaid',
+    ])('re-sending a %s invoice keeps its status', async (status) => {
+      prisma.invoice.findFirst.mockResolvedValue(invoice({ status }));
 
-        const result = await service.send(ownerId, 'invoice-1');
+      const result = await service.send(ownerId, 'invoice-1');
 
-        expect(prisma.invoice.update).toHaveBeenCalledWith(
-          expect.objectContaining({ data: {} }),
-        );
-        expect(result.status).toBe(status);
-        expect(events.emit).toHaveBeenCalledWith(
-          InvoiceEvents.SENT,
-          expect.anything(),
-        );
-      },
-    );
+      expect(prisma.invoice.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: {} }),
+      );
+      expect(result.status).toBe(status);
+      expect(events.emit).toHaveBeenCalledWith(
+        InvoiceEvents.SENT,
+        expect.anything(),
+      );
+    });
 
     it('refuses to send a cancelled invoice', async () => {
       prisma.invoice.findFirst.mockResolvedValue(

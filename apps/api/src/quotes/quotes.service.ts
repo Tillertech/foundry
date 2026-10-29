@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { ListQuotesQueryDto } from './dto/list-quotes-query.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 export type QuoteWithItems = Quote & { items: QuoteItem[] };
 
@@ -25,6 +26,7 @@ export class QuotesService {
     private readonly pagination: PaginationService,
     private readonly clients: ClientsService,
     private readonly events: EventEmitter2,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   async create(ownerId: string, dto: CreateQuoteDto): Promise<QuoteWithItems> {
@@ -50,7 +52,7 @@ export class QuotesService {
       this.prisma.quote,
       {
         where: {
-          client: { workspace: { ownerId } },
+          client: { workspace: this.workspaceScope.owned(ownerId) },
           ...(clientId ? { clientId } : {}),
           ...(status ? { status } : {}),
         },

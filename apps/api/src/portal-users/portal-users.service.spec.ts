@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PortalEvents } from '../common/events';
 import { PortalUsersService } from './portal-users.service';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 const ownerId = 'owner-1';
 
@@ -88,6 +89,7 @@ describe('PortalUsersService', () => {
       prisma as any,
       pagination as any,
       events as any,
+      new WorkspaceScope(),
     );
   });
 

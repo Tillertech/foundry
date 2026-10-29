@@ -35,6 +35,7 @@ import { Decimal } from '@prisma/client/runtime/client';
 import { ConversionRate } from './dto/conversion-date.dto';
 import { ExchangeRatesEntity } from './entities/exchange-rates.entity';
 import { DEFAULT_CURRENCY } from '../common/currency';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 const DEFAULT_INVOICE_PREFIX = 'INV-';
 const DEFAULT_INVOICE_START = 1001;
@@ -67,6 +68,7 @@ export class InvoicesService {
     private readonly events: EventEmitter2,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private readonly httpService: HttpService,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   async create(
@@ -257,7 +259,7 @@ export class InvoicesService {
       this.prisma.invoice,
       {
         where: {
-          client: { workspace: { ownerId } },
+          client: { workspace: this.workspaceScope.owned(ownerId) },
           ...(clientId ? { clientId } : {}),
           ...(projectId ? { projectId } : {}),
           ...(status ? { status } : {}),
@@ -455,27 +457,28 @@ export class InvoicesService {
     target?: string,
   ): Promise<ExchangeRatesEntity> {
     const workspaces = await this.prisma.workspace.findMany({
-      where: { ownerId },
+      where: this.workspaceScope.owned(ownerId),
       orderBy: { createdAt: 'asc' },
       select: { currency: true },
     });
     const resolved = target ?? workspaces[0]?.currency ?? DEFAULT_CURRENCY;
 
-    const owned = { client: { workspace: { ownerId } } };
+    const scoped = this.workspaceScope.owned(ownerId);
+    const owned = { client: { workspace: scoped } };
     const distinct = {
       distinct: ['currency' as const],
       select: { currency: true },
     };
     const used = await Promise.all([
       this.prisma.client.findMany({
-        where: { workspace: { ownerId } },
+        where: { workspace: scoped },
         ...distinct,
       }),
       this.prisma.invoice.findMany({ where: owned, ...distinct }),
       this.prisma.quote.findMany({ where: owned, ...distinct }),
       this.prisma.payment.findMany({ where: owned, ...distinct }),
       this.prisma.expense.findMany({
-        where: { workspace: { ownerId } },
+        where: { workspace: scoped },
         ...distinct,
       }),
     ]);

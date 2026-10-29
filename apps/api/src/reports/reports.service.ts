@@ -15,6 +15,7 @@ import {
   ReportSummaryEntity,
 } from './entities/report-summary.entity';
 import { DEFAULT_CURRENCY } from '../common/currency';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 /** Invoice statuses that still owe money. */
 const OPEN_STATUSES: InvoiceStatus[] = [
@@ -35,6 +36,7 @@ export class ReportsService {
     private readonly prisma: PrismaService,
     private readonly invoices: InvoicesService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   /**
@@ -48,14 +50,14 @@ export class ReportsService {
     query: ReportSummaryQueryDto,
   ): Promise<ReportSummaryEntity> {
     const workspace = await this.prisma.workspace.findFirst({
-      where: { ownerId },
+      where: this.workspaceScope.owned(ownerId),
       orderBy: { createdAt: 'asc' },
       select: { currency: true },
     });
     const currency = workspace?.currency ?? DEFAULT_CURRENCY;
     // Keyed by currency too: switching the workspace currency must not serve
     // figures converted into the previous one for the rest of the TTL.
-    const cacheKey = `reports_${ownerId}_${currency}_${query.from ?? 'all'}_${query.to ?? 'all'}`;
+    const cacheKey = `reports_${ownerId}_${this.workspaceScope.cacheKey()}_${currency}_${query.from ?? 'all'}_${query.to ?? 'all'}`;
     const cached = await this.cache.get<ReportSummaryEntity>(cacheKey);
     if (cached) return cached;
 
@@ -93,7 +95,10 @@ export class ReportsService {
 
     const [invoices, payments, expenses] = await Promise.all([
       this.prisma.invoice.findMany({
-        where: { client: { workspace: { ownerId } }, ...range('issueDate') },
+        where: {
+          client: { workspace: this.workspaceScope.owned(ownerId) },
+          ...range('issueDate'),
+        },
         include: {
           items: true,
           payments: { select: { amount: true } },
@@ -101,7 +106,10 @@ export class ReportsService {
         },
       }),
       this.prisma.payment.findMany({
-        where: { client: { workspace: { ownerId } }, ...range('date') },
+        where: {
+          client: { workspace: this.workspaceScope.owned(ownerId) },
+          ...range('date'),
+        },
         select: {
           amount: true,
           currency: true,
@@ -110,7 +118,10 @@ export class ReportsService {
         },
       }),
       this.prisma.expense.findMany({
-        where: { workspace: { ownerId }, ...range('date') },
+        where: {
+          workspace: this.workspaceScope.owned(ownerId),
+          ...range('date'),
+        },
         select: { amount: true, currency: true, category: true, date: true },
       }),
     ]);

@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects-query.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 @Injectable()
 export class ProjectsService {
@@ -19,6 +20,7 @@ export class ProjectsService {
     private readonly pagination: PaginationService,
     private readonly clients: ClientsService,
     private readonly events: EventEmitter2,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   async create(ownerId: string, dto: CreateProjectDto): Promise<Project> {
@@ -50,7 +52,7 @@ export class ProjectsService {
       this.prisma.project,
       {
         where: {
-          client: { workspace: { ownerId } },
+          client: { workspace: this.workspaceScope.owned(ownerId) },
           ...(clientId ? { clientId } : {}),
           ...(status ? { status } : {}),
         },

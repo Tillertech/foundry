@@ -1,6 +1,7 @@
 import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { ClientPortalService } from './client-portal.service';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 const ownerId = 'owner-1';
 
@@ -88,6 +89,7 @@ describe('ClientPortalService', () => {
       clients as any,
       {} as any,
       portalUsers as any,
+      new WorkspaceScope(),
     );
   });
 

@@ -26,6 +26,14 @@ export class WorkspacesApiService {
     return this.http.get<Workspace>(`${this.base}/default`);
   }
 
+  /**
+   * The workspace requests act on: the default one, unless an extension
+   * scopes requests with the x-workspace-id header.
+   */
+  current(): Observable<Workspace> {
+    return this.http.get<Workspace>(`${this.base}/current`);
+  }
+
   get(id: string): Observable<Workspace> {
     return this.http.get<Workspace>(`${this.base}/${id}`);
   }

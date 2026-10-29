@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { WorkspaceModel as Workspace } from '../generated/prisma/models';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
@@ -18,6 +19,7 @@ export class WorkspacesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   create(ownerId: string, dto: CreateWorkspaceDto): Promise<Workspace> {
@@ -41,6 +43,15 @@ export class WorkspacesService {
     });
     if (!workspace) throw new NotFoundException('No workspace found');
     return workspace;
+  }
+
+  /**
+   * The workspace this request acts on: the one named by the
+   * `x-workspace-id` header (it must be the caller's), else the default.
+   */
+  findActive(ownerId: string): Promise<Workspace> {
+    const id = this.workspaceScope.activeId();
+    return id ? this.findOne(ownerId, id) : this.findDefault(ownerId);
   }
 
   async findOne(ownerId: string, id: string): Promise<Workspace> {

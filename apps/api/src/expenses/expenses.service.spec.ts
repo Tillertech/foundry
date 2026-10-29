@@ -1,6 +1,7 @@
 import type { Mock } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 /**
  * Minimal in-memory expense store that evaluates the `where` shapes the
@@ -49,7 +50,7 @@ describe('ExpensesService', () => {
   };
   let pagination: { paginate: Mock };
   let projects: { findOne: Mock };
-  let workspaces: { findOne: Mock; findDefault: Mock };
+  let workspaces: { findOne: Mock; findActive: Mock };
 
   /** Evaluates the subset of Prisma's where syntax the service uses. */
   function matches(row: Row, where: Record<string, any> = {}): boolean {
@@ -128,9 +129,7 @@ describe('ExpensesService', () => {
           ...rows.find((r) => r.id === where.id),
           ...data,
         })),
-        delete: vi.fn(async ({ where }) =>
-          rows.find((r) => r.id === where.id),
-        ),
+        delete: vi.fn(async ({ where }) => rows.find((r) => r.id === where.id)),
       },
       client: {
         findUnique: vi.fn(async ({ where }) =>
@@ -158,7 +157,7 @@ describe('ExpensesService', () => {
         return { id, clientId };
       }),
     };
-    // Mirrors WorkspacesService.findOne/findDefault.
+    // Mirrors WorkspacesService.findOne/findActive (no x-workspace-id: the default).
     workspaces = {
       findOne: vi.fn(async (ownerId: string, id: string) => {
         if (workspaceOwner[id] !== ownerId) {
@@ -166,7 +165,7 @@ describe('ExpensesService', () => {
         }
         return { id };
       }),
-      findDefault: vi.fn(async (ownerId: string) => {
+      findActive: vi.fn(async (ownerId: string) => {
         const id = Object.keys(workspaceOwner).find(
           (ws) => workspaceOwner[ws] === ownerId,
         );
@@ -180,6 +179,7 @@ describe('ExpensesService', () => {
       pagination as any,
       projects as any,
       workspaces as any,
+      new WorkspaceScope(),
     );
   });
 
@@ -292,7 +292,7 @@ describe('ExpensesService', () => {
     it("files a project-less expense in the caller's default workspace", async () => {
       await service.create(OWNER_A, dto);
 
-      expect(workspaces.findDefault).toHaveBeenCalledWith(OWNER_A);
+      expect(workspaces.findActive).toHaveBeenCalledWith(OWNER_A);
       expect(createdData()).toEqual({ ...dto, workspaceId: 'ws-a1' });
     });
 
@@ -300,7 +300,7 @@ describe('ExpensesService', () => {
       await service.create(OWNER_A, { ...dto, workspaceId: 'ws-a2' });
 
       expect(workspaces.findOne).toHaveBeenCalledWith(OWNER_A, 'ws-a2');
-      expect(workspaces.findDefault).not.toHaveBeenCalled();
+      expect(workspaces.findActive).not.toHaveBeenCalled();
       expect(createdData().workspaceId).toBe('ws-a2');
     });
 
@@ -313,7 +313,7 @@ describe('ExpensesService', () => {
         projectId: 'project-a2',
         workspaceId: 'ws-a2',
       });
-      expect(workspaces.findDefault).not.toHaveBeenCalled();
+      expect(workspaces.findActive).not.toHaveBeenCalled();
     });
 
     it("accepts a requested workspace that agrees with the project's", async () => {
