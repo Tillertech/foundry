@@ -2,8 +2,13 @@
   "name": "@spartan-ng/helm/navigation-menu",
   "version": "0.0.1",
   "peerDependencies": {
-    "@angular/common": "^21.2.0",
-    "@angular/core": "^21.2.0"
+    "@angular/core": "^22.1.0",
+    "@angular/cdk": "22.1.8",
+    "@spartan-ng/helm/utils": "0.0.1",
+    "@spartan-ng/brain": "1.6.3",
+    "@ng-icons/core": "^32.2.0",
+    "@ng-icons/lucide": "^32.2.0"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "private": true
 }

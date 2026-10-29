@@ -29,11 +29,15 @@ const DEV_TEMPLATE_DIRS = [
   join(process.cwd(), 'src', 'notification', 'mail', 'templates'),
 ];
 
+// todo
+// MAIL_TEMPLATES_DIR overrides both, e.g. to serve your own branded templates
+// or when the API runs from a different working directory.
 const TEMPLATE_DIR =
-  process.env.NODE_ENV === 'production'
+  process.env['MAIL_TEMPLATES_DIR'] ??
+  (process.env.NODE_ENV === 'production'
     ? join(__dirname, 'mail', 'templates')
     : (DEV_TEMPLATE_DIRS.find((dir) => existsSync(dir)) ??
-      DEV_TEMPLATE_DIRS[0]);
+      DEV_TEMPLATE_DIRS[0]));
 
 @Module({
   imports: [

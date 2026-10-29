@@ -2,8 +2,12 @@
   "name": "@spartan-ng/helm/utils",
   "version": "0.0.1",
   "peerDependencies": {
-    "@angular/common": "^21.2.0",
-    "@angular/core": "^21.2.0"
+    "@angular/common": "^22.1.0",
+    "@angular/core": "^22.1.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.5.0",
+    "@angular/cdk": "22.1.8"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "private": true
 }

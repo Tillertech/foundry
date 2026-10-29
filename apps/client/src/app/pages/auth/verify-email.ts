@@ -69,7 +69,7 @@ import {
           <div class="flex justify-center">
             <brn-input-otp
               hlm
-              maxLength="6"
+              [length]="6"
               inputMode="numeric"
               autocomplete="one-time-code"
               [(ngModel)]="code"

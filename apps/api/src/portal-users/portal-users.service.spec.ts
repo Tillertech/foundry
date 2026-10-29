@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import {
   BadRequestException,
   ConflictException,
@@ -32,18 +33,18 @@ const row = (over: Record<string, unknown> = {}) => ({
 describe('PortalUsersService', () => {
   let service: PortalUsersService;
   let prisma: {
-    clientPortal: { findFirst: jest.Mock };
+    clientPortal: { findFirst: Mock };
     clientPortalUser: {
-      findUnique: jest.Mock;
-      findFirst: jest.Mock;
-      create: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
+      findUnique: Mock;
+      findFirst: Mock;
+      create: Mock;
+      update: Mock;
+      delete: Mock;
     };
-    project: { count: jest.Mock };
+    project: { count: Mock };
   };
-  let pagination: { paginate: jest.Mock };
-  let events: { emit: jest.Mock };
+  let pagination: { paginate: Mock };
+  let events: { emit: Mock };
 
   /** findRow() loads the user together with its portal. */
   const existingUser = (over: Record<string, unknown> = {}) =>
@@ -58,11 +59,11 @@ describe('PortalUsersService', () => {
 
   beforeEach(() => {
     prisma = {
-      clientPortal: { findFirst: jest.fn().mockResolvedValue(portal) },
+      clientPortal: { findFirst: vi.fn().mockResolvedValue(portal) },
       clientPortalUser: {
-        findUnique: jest.fn().mockResolvedValue(null),
-        findFirst: jest.fn().mockResolvedValue(null),
-        create: jest.fn(async ({ data }) =>
+        findUnique: vi.fn().mockResolvedValue(null),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn(async ({ data }) =>
           row({
             name: data.name,
             email: data.email,
@@ -70,19 +71,19 @@ describe('PortalUsersService', () => {
             projects: data.projects.create,
           }),
         ),
-        update: jest.fn(async ({ data }) =>
+        update: vi.fn(async ({ data }) =>
           row({
             ...('allProjects' in data ? { allProjects: data.allProjects } : {}),
             ...(data.status ? { status: data.status } : {}),
             projects: data.projects?.create ?? [],
           }),
         ),
-        delete: jest.fn(),
+        delete: vi.fn(),
       },
-      project: { count: jest.fn().mockResolvedValue(0) },
+      project: { count: vi.fn().mockResolvedValue(0) },
     };
-    pagination = { paginate: jest.fn() };
-    events = { emit: jest.fn() };
+    pagination = { paginate: vi.fn() };
+    events = { emit: vi.fn() };
     service = new PortalUsersService(
       prisma as any,
       pagination as any,

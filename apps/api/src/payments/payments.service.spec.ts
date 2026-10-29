@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PaymentEvents } from '../common/events';
 import { PaymentsService } from './payments.service';
@@ -5,12 +6,12 @@ import { PaymentsService } from './payments.service';
 describe('PaymentsService - client/invoice consistency', () => {
   let service: PaymentsService;
   let prisma: {
-    payment: { create: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
+    payment: { create: Mock; findFirst: Mock; update: Mock };
   };
-  let clients: { findOne: jest.Mock };
-  let invoices: { findOne: jest.Mock };
-  let reconciliation: { applyPayment: jest.Mock; adjustPayment: jest.Mock };
-  let events: { emit: jest.Mock };
+  let clients: { findOne: Mock };
+  let invoices: { findOne: Mock };
+  let reconciliation: { applyPayment: Mock; adjustPayment: Mock };
+  let events: { emit: Mock };
 
   const ownerId = 'owner-1';
   const invoiceFor = (clientId: string) => ({ id: 'invoice-1', clientId });
@@ -24,21 +25,21 @@ describe('PaymentsService - client/invoice consistency', () => {
   beforeEach(() => {
     prisma = {
       payment: {
-        create: jest.fn(async ({ data }) => ({ id: 'payment-1', ...data })),
-        findFirst: jest
+        create: vi.fn(async ({ data }) => ({ id: 'payment-1', ...data })),
+        findFirst: vi
           .fn()
           .mockResolvedValue({ id: 'payment-1', clientId: 'client-a' }),
-        update: jest.fn(async ({ data }) => ({
+        update: vi.fn(async ({ data }) => ({
           id: 'payment-1',
           clientId: 'client-a',
           ...data,
         })),
       },
     };
-    clients = { findOne: jest.fn().mockResolvedValue({ id: 'client-a' }) };
-    invoices = { findOne: jest.fn().mockResolvedValue(invoiceFor('client-a')) };
-    reconciliation = { applyPayment: jest.fn(), adjustPayment: jest.fn() };
-    events = { emit: jest.fn() };
+    clients = { findOne: vi.fn().mockResolvedValue({ id: 'client-a' }) };
+    invoices = { findOne: vi.fn().mockResolvedValue(invoiceFor('client-a')) };
+    reconciliation = { applyPayment: vi.fn(), adjustPayment: vi.fn() };
+    events = { emit: vi.fn() };
     service = new PaymentsService(
       prisma as any,
       undefined as any,

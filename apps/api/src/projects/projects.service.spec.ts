@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { ProjectEvents } from '../common/events';
 import { ProjectsService } from './projects.service';
@@ -5,25 +6,25 @@ import { ProjectsService } from './projects.service';
 describe('ProjectsService', () => {
   let service: ProjectsService;
   let tx: {
-    clientPortalProject: { deleteMany: jest.Mock; upsert: jest.Mock };
-    expense: { updateMany: jest.Mock };
-    document: { updateMany: jest.Mock };
-    project: { update: jest.Mock };
+    clientPortalProject: { deleteMany: Mock; upsert: Mock };
+    expense: { updateMany: Mock };
+    document: { updateMany: Mock };
+    project: { update: Mock };
   };
   let prisma: {
     project: {
-      create: jest.Mock;
-      findFirst: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
+      create: Mock;
+      findFirst: Mock;
+      update: Mock;
+      delete: Mock;
     };
-    client: { findUnique: jest.Mock };
-    clientPortal: { findUnique: jest.Mock };
-    $transaction: jest.Mock;
+    client: { findUnique: Mock };
+    clientPortal: { findUnique: Mock };
+    $transaction: Mock;
   };
-  let pagination: { paginate: jest.Mock };
-  let clients: { findOne: jest.Mock };
-  let events: { emit: jest.Mock };
+  let pagination: { paginate: Mock };
+  let clients: { findOne: Mock };
+  let events: { emit: Mock };
 
   const ownerId = 'owner-1';
   const ownerScope = { client: { workspace: { ownerId } } };
@@ -45,38 +46,38 @@ describe('ProjectsService', () => {
     });
     tx = {
       clientPortalProject: {
-        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
-        upsert: jest.fn(),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        upsert: vi.fn(),
       },
-      expense: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
-      document: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
-      project: { update: jest.fn(applyUpdate) },
+      expense: { updateMany: vi.fn().mockResolvedValue({ count: 2 }) },
+      document: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      project: { update: vi.fn(applyUpdate) },
     };
     prisma = {
       project: {
-        create: jest.fn(async ({ data }) => ({ id: 'project-new', ...data })),
-        findFirst: jest.fn().mockResolvedValue(project()),
-        update: jest.fn(applyUpdate),
-        delete: jest.fn(async ({ where }) => project({ id: where.id })),
+        create: vi.fn(async ({ data }) => ({ id: 'project-new', ...data })),
+        findFirst: vi.fn().mockResolvedValue(project()),
+        update: vi.fn(applyUpdate),
+        delete: vi.fn(async ({ where }) => project({ id: where.id })),
       },
       client: {
-        findUnique: jest.fn(
+        findUnique: vi.fn(
           async ({ where }) =>
             [clientA, clientB].find((c) => c.id === where.id) ?? null,
         ),
       },
-      clientPortal: { findUnique: jest.fn().mockResolvedValue(null) },
-      $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
+      clientPortal: { findUnique: vi.fn().mockResolvedValue(null) },
+      $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
     };
-    pagination = { paginate: jest.fn() };
+    pagination = { paginate: vi.fn() };
     clients = {
-      findOne: jest.fn(async (_owner: string, id: string) => {
+      findOne: vi.fn(async (_owner: string, id: string) => {
         const found = [clientA, clientB].find((c) => c.id === id);
         if (!found) throw new NotFoundException('Client not found');
         return found;
       }),
     };
-    events = { emit: jest.fn() };
+    events = { emit: vi.fn() };
 
     service = new ProjectsService(
       prisma as any,

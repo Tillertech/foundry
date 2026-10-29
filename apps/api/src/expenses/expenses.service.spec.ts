@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
 
@@ -38,17 +39,17 @@ describe('ExpensesService', () => {
   let service: ExpensesService;
   let prisma: {
     expense: {
-      create: jest.Mock;
-      findMany: jest.Mock;
-      findFirst: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
+      create: Mock;
+      findMany: Mock;
+      findFirst: Mock;
+      update: Mock;
+      delete: Mock;
     };
-    client: { findUnique: jest.Mock };
+    client: { findUnique: Mock };
   };
-  let pagination: { paginate: jest.Mock };
-  let projects: { findOne: jest.Mock };
-  let workspaces: { findOne: jest.Mock; findDefault: jest.Mock };
+  let pagination: { paginate: Mock };
+  let projects: { findOne: Mock };
+  let workspaces: { findOne: Mock; findDefault: Mock };
 
   /** Evaluates the subset of Prisma's where syntax the service uses. */
   function matches(row: Row, where: Record<string, any> = {}): boolean {
@@ -116,23 +117,23 @@ describe('ExpensesService', () => {
 
     prisma = {
       expense: {
-        create: jest.fn(async ({ data }) => ({ id: 'e-new', ...data })),
-        findMany: jest.fn(async ({ where }) =>
+        create: vi.fn(async ({ data }) => ({ id: 'e-new', ...data })),
+        findMany: vi.fn(async ({ where }) =>
           rows.filter((r) => matches(r, where)),
         ),
-        findFirst: jest.fn(
+        findFirst: vi.fn(
           async ({ where }) => rows.find((r) => matches(r, where)) ?? null,
         ),
-        update: jest.fn(async ({ where, data }) => ({
+        update: vi.fn(async ({ where, data }) => ({
           ...rows.find((r) => r.id === where.id),
           ...data,
         })),
-        delete: jest.fn(async ({ where }) =>
+        delete: vi.fn(async ({ where }) =>
           rows.find((r) => r.id === where.id),
         ),
       },
       client: {
-        findUnique: jest.fn(async ({ where }) =>
+        findUnique: vi.fn(async ({ where }) =>
           clientWorkspace[where.id]
             ? { workspaceId: clientWorkspace[where.id] }
             : null,
@@ -140,13 +141,13 @@ describe('ExpensesService', () => {
       },
     };
     pagination = {
-      paginate: jest.fn(async (delegate, args) => ({
+      paginate: vi.fn(async (delegate, args) => ({
         results: await delegate.findMany(args),
       })),
     };
     // Mirrors ProjectsService.findOne's owner scoping.
     projects = {
-      findOne: jest.fn(async (ownerId: string, id: string) => {
+      findOne: vi.fn(async (ownerId: string, id: string) => {
         const clientId = projectClient[id];
         if (
           !clientId ||
@@ -159,13 +160,13 @@ describe('ExpensesService', () => {
     };
     // Mirrors WorkspacesService.findOne/findDefault.
     workspaces = {
-      findOne: jest.fn(async (ownerId: string, id: string) => {
+      findOne: vi.fn(async (ownerId: string, id: string) => {
         if (workspaceOwner[id] !== ownerId) {
           throw new NotFoundException('Workspace not found');
         }
         return { id };
       }),
-      findDefault: jest.fn(async (ownerId: string) => {
+      findDefault: vi.fn(async (ownerId: string) => {
         const id = Object.keys(workspaceOwner).find(
           (ws) => workspaceOwner[ws] === ownerId,
         );

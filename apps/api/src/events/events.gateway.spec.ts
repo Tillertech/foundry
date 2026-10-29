@@ -12,7 +12,7 @@ describe('EventsGateway', () => {
     await moduleRef.init();
 
     const gateway = moduleRef.get(EventsGateway);
-    const emit = jest.fn();
+    const emit = vi.fn();
     gateway.server = { emit } as any;
     const bus = moduleRef.get(EventEmitter2);
 

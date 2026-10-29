@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { MilestoneEvents } from '../common/events';
 import { MilestonesService } from './milestones.service';
@@ -6,17 +7,17 @@ describe('MilestonesService', () => {
   let service: MilestonesService;
   let prisma: {
     milestone: {
-      create: jest.Mock;
-      findMany: jest.Mock;
-      findFirst: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
+      create: Mock;
+      findMany: Mock;
+      findFirst: Mock;
+      update: Mock;
+      delete: Mock;
     };
-    project: { findUnique: jest.Mock };
-    $transaction: jest.Mock;
+    project: { findUnique: Mock };
+    $transaction: Mock;
   };
-  let projects: { findOne: jest.Mock };
-  let events: { emit: jest.Mock };
+  let projects: { findOne: Mock };
+  let events: { emit: Mock };
 
   const ownerId = 'owner-1';
   const now = new Date('2026-09-23T12:00:00Z');
@@ -40,25 +41,25 @@ describe('MilestonesService', () => {
   const project = { id: 'project-1', name: 'Website rebuild', clientId: client.id };
 
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(now);
+    vi.useFakeTimers().setSystemTime(now);
     prisma = {
       milestone: {
-        create: jest.fn(async ({ data }) => ({ id: 'm-new', ...data })),
-        findMany: jest.fn().mockResolvedValue([]),
-        findFirst: jest.fn(),
-        update: jest.fn(async ({ where, data }) => ({
+        create: vi.fn(async ({ data }) => ({ id: 'm-new', ...data })),
+        findMany: vi.fn().mockResolvedValue([]),
+        findFirst: vi.fn(),
+        update: vi.fn(async ({ where, data }) => ({
           ...milestone({ id: where.id }),
           ...data,
         })),
-        delete: jest.fn(async ({ where }) => milestone({ id: where.id })),
+        delete: vi.fn(async ({ where }) => milestone({ id: where.id })),
       },
       project: {
-        findUnique: jest.fn().mockResolvedValue({ ...project, client }),
+        findUnique: vi.fn().mockResolvedValue({ ...project, client }),
       },
-      $transaction: jest.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
+      $transaction: vi.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
     };
-    projects = { findOne: jest.fn().mockResolvedValue(project) };
-    events = { emit: jest.fn() };
+    projects = { findOne: vi.fn().mockResolvedValue(project) };
+    events = { emit: vi.fn() };
 
     service = new MilestonesService(
       prisma as any,
@@ -67,7 +68,7 @@ describe('MilestonesService', () => {
     );
   });
 
-  afterEach(() => jest.useRealTimers());
+  afterEach(() => vi.useRealTimers());
 
   describe('create', () => {
     const dto = { projectId: 'project-1', name: 'Launch' };

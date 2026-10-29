@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { throwError } from 'rxjs';
 import { CacheTimer } from '../common/cache-timer';
@@ -49,16 +50,16 @@ const invoice = (over: Record<string, unknown> = {}) => ({
 describe('ReportsService', () => {
   let service: ReportsService;
   let prisma: {
-    workspace: { findFirst: jest.Mock };
-    invoice: { findMany: jest.Mock };
-    payment: { findMany: jest.Mock };
-    expense: { findMany: jest.Mock };
+    workspace: { findFirst: Mock };
+    invoice: { findMany: Mock };
+    payment: { findMany: Mock };
+    expense: { findMany: Mock };
   };
   /** Report-summary cache (ReportsService). */
-  let cache: { get: jest.Mock; set: jest.Mock };
+  let cache: { get: Mock; set: Mock };
   /** Exchange-rate cache (InvoicesService) - kept apart so each is asserted on its own. */
-  let rateCache: { get: jest.Mock; set: jest.Mock };
-  let http: { get: jest.Mock };
+  let rateCache: { get: Mock; set: Mock };
+  let http: { get: Mock };
 
   const workspaceCurrency = (currency: string | null) =>
     prisma.workspace.findFirst.mockResolvedValue(
@@ -68,25 +69,25 @@ describe('ReportsService', () => {
   beforeEach(() => {
     prisma = {
       workspace: {
-        findFirst: jest.fn().mockResolvedValue({ currency: 'KES' }),
+        findFirst: vi.fn().mockResolvedValue({ currency: 'KES' }),
       },
-      invoice: { findMany: jest.fn().mockResolvedValue([]) },
-      payment: { findMany: jest.fn().mockResolvedValue([]) },
-      expense: { findMany: jest.fn().mockResolvedValue([]) },
+      invoice: { findMany: vi.fn().mockResolvedValue([]) },
+      payment: { findMany: vi.fn().mockResolvedValue([]) },
+      expense: { findMany: vi.fn().mockResolvedValue([]) },
     };
-    cache = { get: jest.fn().mockResolvedValue(undefined), set: jest.fn() };
+    cache = { get: vi.fn().mockResolvedValue(undefined), set: vi.fn() };
     rateCache = {
-      get: jest.fn(async (key: string) => {
+      get: vi.fn(async (key: string) => {
         const pair = key.replace(/^fx_/, '');
         return pair in RATES
           ? { base: pair.slice(0, 3), target: pair.slice(4), mid: RATES[pair] }
           : undefined;
       }),
-      set: jest.fn(),
+      set: vi.fn(),
     };
     // Any pair missing from RATES falls through to the network, which is down.
     http = {
-      get: jest.fn(() => throwError(() => new Error('ECONNRESET'))),
+      get: vi.fn(() => throwError(() => new Error('ECONNRESET'))),
     };
 
     // The real rate lookup rather than a stand-in for it.
