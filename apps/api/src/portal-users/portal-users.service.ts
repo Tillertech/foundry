@@ -19,6 +19,7 @@ import { Prisma } from '../generated/prisma/client';
 import type { ClientPortalUserModel as ClientPortalUser } from '../generated/prisma/models';
 import { ClientPortalUserStatus } from '../generated/prisma/enums';
 import { PortalEvents } from '../common/events';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 const SALT_ROUNDS = 12;
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -54,6 +55,7 @@ export class PortalUsersService {
     private readonly prisma: PrismaService,
     private readonly pagination: PaginationService,
     private readonly events: EventEmitter2,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   /**
@@ -144,7 +146,9 @@ export class PortalUsersService {
       this.prisma.clientPortalUser,
       {
         where: {
-          clientPortal: { client: { workspace: { ownerId } } },
+          clientPortal: {
+            client: { workspace: this.workspaceScope.owned(ownerId) },
+          },
           ...(clientPortalId ? { clientPortalId } : {}),
           ...(status ? { status } : {}),
         },

@@ -2,6 +2,7 @@ import type { Mock } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PaymentEvents } from '../common/events';
 import { PaymentsService } from './payments.service';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 describe('PaymentsService - client/invoice consistency', () => {
   let service: PaymentsService;
@@ -47,6 +48,7 @@ describe('PaymentsService - client/invoice consistency', () => {
       invoices as any,
       reconciliation as any,
       events as any,
+      new WorkspaceScope(),
     );
   });
 

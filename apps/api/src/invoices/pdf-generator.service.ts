@@ -20,7 +20,65 @@ export interface PdfBrand {
   subName?: string;
   /** PNG/JPEG data URL - pdfmake renders no other image formats. */
   logoDataUrl?: string;
+  /** Visual overrides; anything left out keeps Foundry's default look. */
+  theme?: PdfTheme;
 }
+
+export type PdfDocumentKind = 'invoice' | 'quote' | 'receipt';
+
+/**
+ * Optional styling for generated documents. Every field is optional and
+ * falls back to Foundry's built-in design, so a partial theme (just an
+ * accent colour, say) is fine.
+ */
+export interface PdfTheme {
+  /** Document number, totals, accent bar and rules. Hex, e.g. "#ea580c". */
+  accent?: string;
+  /** Body text. */
+  ink?: string;
+  /** Labels and secondary text. */
+  muted?: string;
+  /** Hairline rules. */
+  line?: string;
+  /** Items-table header: solid fill, accent underline, or a plain hairline. */
+  headerStyle?: 'solid' | 'underline' | 'minimal';
+  /** Fill for the solid header style. */
+  headerFill?: string;
+  /** Alternate-row shading in the items table. */
+  striped?: boolean;
+  density?: 'compact' | 'comfortable' | 'spacious';
+  /** One of the PDF standard font families (no embedding needed). */
+  font?: 'Helvetica' | 'Times' | 'Courier';
+  pageSize?: 'A4' | 'LETTER' | 'LEGAL';
+  /** Page margins in points. */
+  margins?: { x: number; y: number };
+  /** Thin accent bar under the masthead. */
+  accentBar?: boolean;
+  showLogo?: boolean;
+  showNotes?: boolean;
+  showPageNumbers?: boolean;
+  /** Closing line; an empty string hides it. */
+  thankYou?: string;
+  /** Extra blocks printed after the notes. */
+  terms?: string;
+  paymentInstructions?: string;
+  /** Left side of the page footer (defaults to the brand name). */
+  footerText?: string;
+}
+
+/**
+ * Supplies a theme per workspace and document kind. Provide it from a global
+ * module to restyle generated documents (see EXTENDING.md); without one,
+ * every document uses the default design.
+ */
+export interface PdfThemeResolver {
+  resolve(request: {
+    workspaceId: string;
+    kind: PdfDocumentKind;
+  }): Promise<PdfTheme | null | undefined>;
+}
+
+export const PDF_THEME_RESOLVER = Symbol('PDF_THEME_RESOLVER');
 
 /**
  * A billing party (the workspace issuing the document, or the client being
@@ -124,8 +182,103 @@ const DANGER = '#dc2626'; // discounts
 const SETTLED = '#16a34a'; // paid-in-full status
 const PARTIAL = '#2563eb'; // partial-payment status
 
-const CONTENT_WIDTH = 515; // A4 width minus the 40pt side margins
 const TOTALS_WIDTH = 220;
+
+/** Page widths in points for the supported sizes. */
+const PAGE_WIDTH: Record<NonNullable<PdfTheme['pageSize']>, number> = {
+  A4: 595.28,
+  LETTER: 612,
+  LEGAL: 612,
+};
+
+const PADDING: Record<NonNullable<PdfTheme['density']>, [number, number]> = {
+  compact: [4, 6],
+  comfortable: [7, 9],
+  spacious: [10, 12],
+};
+
+/** A theme with every default filled in. */
+interface ResolvedTheme {
+  ink: string;
+  muted: string;
+  faint: string;
+  accent: string;
+  accentBar: string;
+  accentSoft: string;
+  line: string;
+  zebra: string | null;
+  headerStyle: NonNullable<PdfTheme['headerStyle']>;
+  headerFill: string;
+  font: NonNullable<PdfTheme['font']>;
+  pageSize: NonNullable<PdfTheme['pageSize']>;
+  marginX: number;
+  marginY: number;
+  contentWidth: number;
+  padding: [number, number];
+  showAccentBar: boolean;
+  showLogo: boolean;
+  showNotes: boolean;
+  showPageNumbers: boolean;
+  thankYou: string | undefined;
+  terms: string | undefined;
+  paymentInstructions: string | undefined;
+  footerText: string | undefined;
+}
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/** Mixes a hex colour towards white (amount 0..1) - pdfmake has no fill opacity on tables. */
+function tint(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * amount);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(mix);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+function resolveTheme(theme: PdfTheme | undefined): ResolvedTheme {
+  const t = theme ?? {};
+  const color = (value: string | undefined, fallback: string) =>
+    value && HEX.test(value) ? value : fallback;
+  const accent = color(t.accent, ACCENT);
+  const pageSize = t.pageSize ?? 'A4';
+  const marginX = clamp(t.margins?.x ?? 40, 24, 96);
+  const marginY = clamp(t.margins?.y ?? 56, 24, 96);
+  return {
+    ink: color(t.ink, INK),
+    muted: color(t.muted, MUTED),
+    faint: FAINT,
+    accent,
+    accentBar: t.accent ? accent : ACCENT_BAR,
+    accentSoft: t.accent ? tint(accent, 0.9) : ACCENT_SOFT,
+    line: color(t.line, LINE),
+    zebra:
+      t.striped === false
+        ? null
+        : t.accent && t.striped
+          ? tint(accent, 0.96)
+          : ZEBRA,
+    headerStyle: t.headerStyle ?? 'solid',
+    headerFill: color(t.headerFill, HEADER_BG),
+    font: t.font ?? 'Helvetica',
+    pageSize,
+    marginX,
+    marginY,
+    contentWidth: PAGE_WIDTH[pageSize] - marginX * 2,
+    padding: PADDING[t.density ?? 'comfortable'],
+    showAccentBar: t.accentBar ?? true,
+    showLogo: t.showLogo ?? true,
+    showNotes: t.showNotes ?? true,
+    showPageNumbers: t.showPageNumbers ?? true,
+    thankYou: t.thankYou,
+    terms: t.terms?.trim() || undefined,
+    paymentInstructions: t.paymentInstructions?.trim() || undefined,
+    footerText: t.footerText?.trim() || undefined,
+  };
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n));
+}
 
 @Injectable()
 export class PdfGeneratorService {
@@ -136,6 +289,18 @@ export class PdfGeneratorService {
         bold: 'Helvetica-Bold',
         italics: 'Helvetica-Oblique',
         bolditalics: 'Helvetica-BoldOblique',
+      },
+      Times: {
+        normal: 'Times-Roman',
+        bold: 'Times-Bold',
+        italics: 'Times-Italic',
+        bolditalics: 'Times-BoldItalic',
+      },
+      Courier: {
+        normal: 'Courier',
+        bold: 'Courier-Bold',
+        italics: 'Courier-Oblique',
+        bolditalics: 'Courier-BoldOblique',
       },
     });
   }
@@ -167,6 +332,7 @@ export class PdfGeneratorService {
 
   /** Payment receipt confirming an invoice payment - full settlement or a partial installment. */
   async receiptPdf(data: ReceiptPdfData): Promise<Buffer> {
+    const t = resolveTheme(data.brand?.theme);
     const money = (n: number) => this.money(data.currency, n);
     const settled = data.balanceDue <= 0;
     const statusLabel = settled ? 'PAID IN FULL' : 'PARTIAL PAYMENT';
@@ -174,15 +340,16 @@ export class PdfGeneratorService {
 
     const brandName = data.brand?.name?.trim() || 'FOUNDRY';
     const brandSub = data.brand?.subName?.trim() || 'Studio Workspace';
-    const brandStack: Content[] = data.brand?.logoDataUrl
-      ? [
-          { image: data.brand.logoDataUrl, fit: [150, 48] },
-          { text: brandName, style: 'brandSub', margin: [0, 6, 0, 0] },
-        ]
-      : [
-          { text: brandName.toUpperCase(), style: 'brand' },
-          { text: brandSub, style: 'brandSub' },
-        ];
+    const brandStack: Content[] =
+      t.showLogo && data.brand?.logoDataUrl
+        ? [
+            { image: data.brand.logoDataUrl, fit: [150, 48] },
+            { text: brandName, style: 'brandSub', margin: [0, 6, 0, 0] },
+          ]
+        : [
+            { text: brandName.toUpperCase(), style: 'brand' },
+            { text: brandSub, style: 'brandSub' },
+          ];
 
     const summaryBody: TableCell[][] = [
       [
@@ -224,9 +391,9 @@ export class PdfGeneratorService {
     const summaryLayout: CustomTableLayout = {
       hLineWidth: (i, node) => (i === node.table.body.length - 1 ? 1 : 0),
       vLineWidth: () => 0,
-      hLineColor: () => ACCENT_BAR,
+      hLineColor: () => t.accentBar,
       fillColor: (rowIndex, node) =>
-        rowIndex === node.table.body.length - 1 ? ACCENT_SOFT : null,
+        rowIndex === node.table.body.length - 1 ? t.accentSoft : null,
       paddingLeft: (col) => (col === 0 ? 12 : 8),
       paddingRight: (col) => (col === 0 ? 12 : 12),
       paddingTop: (i, node) => (i === node.table.body.length - 1 ? 9 : 5),
@@ -271,7 +438,14 @@ export class PdfGeneratorService {
       },
       {
         canvas: [
-          { type: 'rect', x: 0, y: 0, w: CONTENT_WIDTH, h: 3, color: statusColor },
+          {
+            type: 'rect',
+            x: 0,
+            y: 0,
+            w: t.contentWidth,
+            h: 3,
+            color: statusColor,
+          },
         ],
         margin: [0, 0, 0, 22],
       },
@@ -305,19 +479,19 @@ export class PdfGeneratorService {
     });
 
     const styles: StyleDictionary = {
-      brand: { fontSize: 26, bold: true, color: INK, characterSpacing: 2 },
-      brandSub: { fontSize: 10, color: MUTED, characterSpacing: 1 },
+      brand: { fontSize: 26, bold: true, color: t.ink, characterSpacing: 2 },
+      brandSub: { fontSize: 10, color: t.muted, characterSpacing: 1 },
       docType: {
         fontSize: 13,
         bold: true,
-        color: MUTED,
+        color: t.muted,
         alignment: 'right',
         characterSpacing: 3,
       },
       docNumber: {
         fontSize: 22,
         bold: true,
-        color: ACCENT,
+        color: t.accent,
         alignment: 'right',
         margin: [0, 3, 0, 0],
       },
@@ -327,48 +501,56 @@ export class PdfGeneratorService {
         alignment: 'right',
         characterSpacing: 1,
       },
-      eyebrow: { fontSize: 8, bold: true, color: FAINT, characterSpacing: 1.5 },
-      partyName: { fontSize: 13, bold: true, color: INK },
-      partyDetail: { fontSize: 10, color: MUTED },
-      partyLine: { fontSize: 9.5, color: MUTED, lineHeight: 1.35 },
-      metaLabel: { fontSize: 10, color: MUTED },
-      metaValue: { fontSize: 10, bold: true, color: INK },
-      sumLabel: { fontSize: 10, color: MUTED },
-      sumValue: { fontSize: 10, color: INK, alignment: 'right' },
-      sumTotalLabel: { fontSize: 12, bold: true, color: INK },
+      eyebrow: {
+        fontSize: 8,
+        bold: true,
+        color: t.faint,
+        characterSpacing: 1.5,
+      },
+      partyName: { fontSize: 13, bold: true, color: t.ink },
+      partyDetail: { fontSize: 10, color: t.muted },
+      partyLine: { fontSize: 9.5, color: t.muted, lineHeight: 1.35 },
+      metaLabel: { fontSize: 10, color: t.muted },
+      metaValue: { fontSize: 10, bold: true, color: t.ink },
+      sumLabel: { fontSize: 10, color: t.muted },
+      sumValue: { fontSize: 10, color: t.ink, alignment: 'right' },
+      sumTotalLabel: { fontSize: 12, bold: true, color: t.ink },
       sumTotalValue: {
         fontSize: 12,
         bold: true,
-        color: ACCENT,
+        color: t.accent,
         alignment: 'right',
       },
       thanks: {
         fontSize: 10,
-        color: FAINT,
+        color: t.faint,
         alignment: 'center',
         characterSpacing: 0.5,
       },
     };
 
     const definition: TDocumentDefinitions = {
-      defaultStyle: { font: 'Helvetica', fontSize: 10, color: INK },
-      pageMargins: [40, 56, 40, 64],
+      pageSize: t.pageSize,
+      defaultStyle: { font: t.font, fontSize: 10, color: t.ink },
+      pageMargins: [t.marginX, t.marginY, t.marginX, t.marginY + 8],
       content,
       styles,
       footer: (currentPage, pageCount) => ({
-        margin: [40, 0, 40, 32],
+        margin: [t.marginX, 0, t.marginX, 32],
         columns: [
           {
-            text: brandName.toUpperCase(),
+            text: (t.footerText ?? brandName).toUpperCase(),
             fontSize: 8,
             bold: true,
-            color: FAINT,
+            color: t.faint,
             characterSpacing: 1,
           },
           {
-            text: `Page ${currentPage} of ${pageCount}`,
+            text: t.showPageNumbers
+              ? `Page ${currentPage} of ${pageCount}`
+              : '',
             fontSize: 8,
-            color: FAINT,
+            color: t.faint,
             alignment: 'right',
           },
         ],
@@ -386,6 +568,7 @@ export class PdfGeneratorService {
   }
 
   private async documentPdf(data: DocumentPdfData): Promise<Buffer> {
+    const t = resolveTheme(data.brand?.theme);
     const discount = Math.max(0, data.discount || 0);
     const taxRate = data.taxRate || 0;
     const subtotal = data.items.reduce((s, it) => s + it.quantity * it.rate, 0);
@@ -410,17 +593,25 @@ export class PdfGeneratorService {
     // Cell padding, zebra striping and the dark header all live in the layout -
     // pdfmake ignores a `padding` property set directly on cells.
     const itemsLayout: CustomTableLayout = {
-      hLineWidth: (i, node) => (i === node.table.body.length ? 0.5 : 0),
+      // Rule under the header row (underline/minimal styles) and at the end.
+      hLineWidth: (i, node) => {
+        if (i === node.table.body.length) return 0.5;
+        if (i === 1 && t.headerStyle === 'underline') return 1.5;
+        if (i === 1 && t.headerStyle === 'minimal') return 0.5;
+        return 0;
+      },
       vLineWidth: () => 0,
-      hLineColor: () => LINE,
+      hLineColor: (i) =>
+        i === 1 && t.headerStyle === 'underline' ? t.accent : t.line,
       fillColor: (rowIndex) => {
-        if (rowIndex === 0) return HEADER_BG;
-        return rowIndex % 2 === 0 ? ZEBRA : null;
+        if (rowIndex === 0)
+          return t.headerStyle === 'solid' ? t.headerFill : null;
+        return rowIndex % 2 === 0 ? t.zebra : null;
       },
       paddingLeft: () => 10,
       paddingRight: () => 10,
-      paddingTop: (i) => (i === 0 ? 9 : 7),
-      paddingBottom: (i) => (i === 0 ? 9 : 7),
+      paddingTop: (i) => (i === 0 ? t.padding[1] : t.padding[0]),
+      paddingBottom: (i) => (i === 0 ? t.padding[1] : t.padding[0]),
     };
 
     const regular = data.items.filter((it) => !it.expense);
@@ -466,9 +657,9 @@ export class PdfGeneratorService {
       // A single accent rule sits above the highlighted total row.
       hLineWidth: (i, node) => (i === node.table.body.length - 1 ? 1 : 0),
       vLineWidth: () => 0,
-      hLineColor: () => ACCENT_BAR,
+      hLineColor: () => t.accentBar,
       fillColor: (rowIndex, node) =>
-        rowIndex === node.table.body.length - 1 ? ACCENT_SOFT : null,
+        rowIndex === node.table.body.length - 1 ? t.accentSoft : null,
       paddingLeft: (col) => (col === 0 ? 12 : 8),
       paddingRight: (col) => (col === 0 ? 12 : 12),
       paddingTop: (i, node) => (i === node.table.body.length - 1 ? 9 : 5),
@@ -477,19 +668,24 @@ export class PdfGeneratorService {
 
     const brandName = data.brand?.name?.trim() || 'FOUNDRY';
     const brandSub = data.brand?.subName?.trim() || 'Studio Workspace';
-    const brandStack: Content[] = data.brand?.logoDataUrl
-      ? [
-          { image: data.brand.logoDataUrl, fit: [150, 48] },
-          { text: brandName, style: 'brandSub', margin: [0, 6, 0, 0] },
-        ]
-      : [
-          { text: brandName.toUpperCase(), style: 'brand' },
-          { text: brandSub, style: 'brandSub' },
-        ];
+    const brandStack: Content[] =
+      t.showLogo && data.brand?.logoDataUrl
+        ? [
+            { image: data.brand.logoDataUrl, fit: [150, 48] },
+            { text: brandName, style: 'brandSub', margin: [0, 6, 0, 0] },
+          ]
+        : [
+            { text: brandName.toUpperCase(), style: 'brand' },
+            { text: brandSub, style: 'brandSub' },
+          ];
 
     const dateRows: Content[] = data.dates.map((date, index) => ({
       columns: [
-        { text: date.label, style: 'metaLabel', alignment: 'right' as Alignment },
+        {
+          text: date.label,
+          style: 'metaLabel',
+          alignment: 'right' as Alignment,
+        },
         {
           text: date.value,
           style: 'metaValue',
@@ -520,16 +716,16 @@ export class PdfGeneratorService {
         margin: [0, 0, 0, 16],
       },
 
-      // Brand accent bar in place of a plain divider.
+      // Brand accent bar in place of a plain divider (a hairline when off).
       {
         canvas: [
           {
             type: 'rect',
             x: 0,
             y: 0,
-            w: CONTENT_WIDTH,
-            h: 3,
-            color: ACCENT_BAR,
+            w: t.contentWidth,
+            h: t.showAccentBar ? 3 : 0.5,
+            color: t.showAccentBar ? t.accentBar : t.line,
           },
         ],
         margin: [0, 0, 0, 22],
@@ -614,7 +810,7 @@ export class PdfGeneratorService {
       },
     ];
 
-    if (data.notes) {
+    if (data.notes && t.showNotes) {
       content.push({
         margin: [0, 32, 0, 0],
         stack: [
@@ -624,74 +820,104 @@ export class PdfGeneratorService {
       });
     }
 
-    content.push({
-      text: 'Thank you for your business.',
-      style: 'thanks',
-      margin: [0, 36, 0, 0],
-    });
+    for (const [label, text] of [
+      ['TERMS', t.terms],
+      ['PAYMENT', t.paymentInstructions],
+    ] as const) {
+      if (!text) continue;
+      content.push({
+        margin: [0, 20, 0, 0],
+        stack: [
+          { text: label, style: 'eyebrow' },
+          { text, style: 'notes', margin: [0, 5, 0, 0] },
+        ],
+      });
+    }
+
+    const thankYou = t.thankYou ?? 'Thank you for your business.';
+    if (thankYou.trim()) {
+      content.push({
+        text: thankYou,
+        style: 'thanks',
+        margin: [0, 36, 0, 0],
+      });
+    }
 
     const styles: StyleDictionary = {
-      brand: { fontSize: 26, bold: true, color: INK, characterSpacing: 2 },
-      brandSub: { fontSize: 10, color: MUTED, characterSpacing: 1 },
+      brand: { fontSize: 26, bold: true, color: t.ink, characterSpacing: 2 },
+      brandSub: { fontSize: 10, color: t.muted, characterSpacing: 1 },
       docType: {
         fontSize: 13,
         bold: true,
-        color: MUTED,
+        color: t.muted,
         alignment: 'right',
         characterSpacing: 3,
       },
       docNumber: {
         fontSize: 22,
         bold: true,
-        color: ACCENT,
+        color: t.accent,
         alignment: 'right',
         margin: [0, 3, 0, 0],
       },
-      eyebrow: { fontSize: 8, bold: true, color: FAINT, characterSpacing: 1.5 },
-      partyName: { fontSize: 13, bold: true, color: INK },
-      partyDetail: { fontSize: 10, color: MUTED },
-      partyLine: { fontSize: 9.5, color: MUTED, lineHeight: 1.35 },
-      metaLabel: { fontSize: 10, color: MUTED },
-      metaValue: { fontSize: 10, bold: true, color: INK },
-      th: { fontSize: 9, bold: true, color: '#ffffff', characterSpacing: 0.5 },
-      cell: { fontSize: 10, color: INK },
-      sumLabel: { fontSize: 10, color: MUTED },
-      sumValue: { fontSize: 10, color: INK, alignment: 'right' },
-      sumTotalLabel: { fontSize: 12, bold: true, color: INK },
+      eyebrow: {
+        fontSize: 8,
+        bold: true,
+        color: t.faint,
+        characterSpacing: 1.5,
+      },
+      partyName: { fontSize: 13, bold: true, color: t.ink },
+      partyDetail: { fontSize: 10, color: t.muted },
+      partyLine: { fontSize: 9.5, color: t.muted, lineHeight: 1.35 },
+      metaLabel: { fontSize: 10, color: t.muted },
+      metaValue: { fontSize: 10, bold: true, color: t.ink },
+      th: {
+        fontSize: 9,
+        bold: true,
+        color: t.headerStyle === 'solid' ? '#ffffff' : t.muted,
+        characterSpacing: 0.5,
+      },
+      cell: { fontSize: 10, color: t.ink },
+      sumLabel: { fontSize: 10, color: t.muted },
+      sumValue: { fontSize: 10, color: t.ink, alignment: 'right' },
+      sumTotalLabel: { fontSize: 12, bold: true, color: t.ink },
       sumTotalValue: {
         fontSize: 12,
         bold: true,
-        color: ACCENT,
+        color: t.accent,
         alignment: 'right',
       },
-      notes: { fontSize: 10, color: MUTED, lineHeight: 1.3 },
+      notes: { fontSize: 10, color: t.muted, lineHeight: 1.3 },
       thanks: {
         fontSize: 10,
-        color: FAINT,
+        color: t.faint,
         alignment: 'center',
         characterSpacing: 0.5,
       },
     };
 
     const definition: TDocumentDefinitions = {
-      defaultStyle: { font: 'Helvetica', fontSize: 10, color: INK },
-      pageMargins: [40, 56, 40, 64],
+      pageSize: t.pageSize,
+      defaultStyle: { font: t.font, fontSize: 10, color: t.ink },
+      pageMargins: [t.marginX, t.marginY, t.marginX, t.marginY + 8],
       content,
       styles,
       footer: (currentPage, pageCount) => ({
-        margin: [40, 0, 40, 32],
+        margin: [t.marginX, 0, t.marginX, 32],
         columns: [
           {
-            text: brandName.toUpperCase(),
+            text: (t.footerText ?? brandName).toUpperCase(),
             fontSize: 8,
             bold: true,
-            color: FAINT,
+            color: t.faint,
             characterSpacing: 1,
           },
           {
-            text: `Page ${currentPage} of ${pageCount}`,
+            text: t.showPageNumbers
+              ? `Page ${currentPage} of ${pageCount}`
+              : '',
             fontSize: 8,
-            color: FAINT,
+            color: t.faint,
             alignment: 'right',
           },
         ],
@@ -705,16 +931,17 @@ export class PdfGeneratorService {
    * Builds a labelled address block for one billing party, emitting only the
    * lines that carry a value so optional client/workspace fields stay clean.
    */
-  private partyStack(
-    label: string,
-    party: PdfParty,
-  ): { stack: Content[] } {
+  private partyStack(label: string, party: PdfParty): { stack: Content[] } {
     const lines: Content[] = [
       { text: label, style: 'eyebrow' },
       { text: party.name, style: 'partyName', margin: [0, 5, 0, 0] },
     ];
     if (party.detail?.trim()) {
-      lines.push({ text: party.detail, style: 'partyDetail', margin: [0, 2, 0, 0] });
+      lines.push({
+        text: party.detail,
+        style: 'partyDetail',
+        margin: [0, 2, 0, 0],
+      });
     }
 
     const locality = [party.city, party.postCode, party.country]
@@ -732,9 +959,11 @@ export class PdfGeneratorService {
       });
     }
 
-    const contactLines = [party.email?.trim(), party.phone?.trim(), party.website?.trim()].filter(
-      (v): v is string => !!v,
-    );
+    const contactLines = [
+      party.email?.trim(),
+      party.phone?.trim(),
+      party.website?.trim(),
+    ].filter((v): v is string => !!v);
     if (contactLines.length) {
       lines.push({
         text: contactLines.join('\n'),

@@ -83,7 +83,7 @@ export class PortalSettings {
       next: (res) => this.invitedUsers.set(res.count ?? res.results.length),
       error: () => undefined,
     });
-    this.workspacesApi.getDefault().subscribe({
+    this.workspacesApi.current().subscribe({
       next: (ws) => {
         this.workspace.set(ws);
         this.loadingDefaults.set(false);

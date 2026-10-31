@@ -200,7 +200,7 @@ export class Invoices {
       next: (res) => this.projects.set(res.results),
       error: () => undefined,
     });
-    this.workspacesApi.getDefault().subscribe({
+    this.workspacesApi.current().subscribe({
       next: (ws) => this.workspace.set(ws),
       error: () => undefined,
     });

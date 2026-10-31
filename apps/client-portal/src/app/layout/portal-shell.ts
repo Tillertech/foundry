@@ -19,7 +19,6 @@ import {
   lucideFolderOpen,
   lucideLayoutDashboard,
   lucideLogOut,
-  lucideMessagesSquare,
   lucideMoon,
   lucideSun,
   lucideUserRound,
@@ -49,7 +48,6 @@ interface NavItem {
       lucideFolderOpen,
       lucideLayoutDashboard,
       lucideLogOut,
-      lucideMessagesSquare,
       lucideMoon,
       lucideSun,
       lucideUserRound,
@@ -134,13 +132,6 @@ export class PortalShell {
         exact: false,
         visible: () => permission?.viewPayments ?? false,
       },
-      {
-        to: `${base}/messages`,
-        label: 'Messages',
-        icon: 'lucideMessagesSquare',
-        exact: false,
-        visible: () => true,
-      },
     ].filter((item) => item.visible());
   });
 
@@ -148,7 +139,7 @@ export class PortalShell {
     const base = this.base();
     return this.nav()
       .filter((item) =>
-        [base, `${base}/projects`, `${base}/invoices`, `${base}/messages`].includes(
+        [base, `${base}/projects`, `${base}/invoices`, `${base}/documents`].includes(
           item.to,
         ),
       )

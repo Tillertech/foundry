@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -11,6 +11,10 @@ import { BullModule } from '@nestjs/bullmq';
 import { ClientPortalModule } from '../client-portal/client-portal.module';
 import { ClientsModule } from '../clients/clients.module';
 import { PaginationModule } from '../common/pagination/pagination.module';
+import {
+  WorkspaceScopeMiddleware,
+  WorkspaceScopeModule,
+} from '../common/workspace-scope/workspace-scope';
 import { DocumentsModule } from '../documents/documents.module';
 import { EventsModule } from '../events/events.module';
 import { ExpensesModule } from '../expenses/expenses.module';
@@ -72,6 +76,7 @@ import { APP_GUARD } from '@nestjs/core';
       ],
     }),
     PrismaModule,
+    WorkspaceScopeModule,
     PaginationModule,
     StorageModule,
     AuthModule,
@@ -102,4 +107,9 @@ import { APP_GUARD } from '@nestjs/core';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    // workspace a request acts on.
+    consumer.apply(WorkspaceScopeMiddleware).forRoutes('{*path}');
+  }
+}

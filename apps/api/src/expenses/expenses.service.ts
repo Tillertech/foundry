@@ -14,6 +14,7 @@ import { WorkspacesService } from '../workspaces/workspaces.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { ListExpensesQueryDto } from './dto/list-expenses-query.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 export type Expense = ExpenseModel & {
   invoiceItem: { invoice: { id: string; number: string } } | null;
@@ -36,6 +37,7 @@ export class ExpensesService {
     private readonly pagination: PaginationService,
     private readonly projects: ProjectsService,
     private readonly workspaces: WorkspacesService,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   private scope(ownerId: string) {
@@ -73,7 +75,10 @@ export class ExpensesService {
       this.prisma.expense,
       {
         where: {
-          workspace: { ownerId, ...(workspaceId ? { id: workspaceId } : {}) },
+          workspace: {
+            ...this.workspaceScope.owned(ownerId),
+            ...(workspaceId ? { id: workspaceId } : {}),
+          },
           ...(projectId ? { projectId } : {}),
           ...(clientId ? { project: { clientId } } : {}),
           ...(category ? { category } : {}),
@@ -147,7 +152,7 @@ export class ExpensesService {
     }
     const workspace = requested
       ? await this.workspaces.findOne(ownerId, requested)
-      : await this.workspaces.findDefault(ownerId);
+      : await this.workspaces.findActive(ownerId);
     return workspace.id;
   }
 

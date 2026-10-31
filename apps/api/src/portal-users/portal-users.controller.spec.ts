@@ -1,5 +1,6 @@
 import { PortalUsersController } from './portal-users.controller';
 import { PortalUsersService } from './portal-users.service';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 describe('PortalUsersController', () => {
   let controller: PortalUsersController;
@@ -9,6 +10,7 @@ describe('PortalUsersController', () => {
       undefined as any,
       undefined as any,
       undefined as any,
+      new WorkspaceScope(),
     );
     controller = new PortalUsersController(service);
   });

@@ -35,13 +35,7 @@ import { AuthService } from '../domains/auth';
 import { NotificationsMenu } from './notifications-menu';
 import { ApiClient, ClientsApiService } from '../domains/clients';
 import { ThemeService } from '../core/theme.service';
-
-interface NavItem {
-  path: string;
-  label: string;
-  icon: string;
-  exact?: boolean;
-}
+import { FoundrySlot, navItems, slotComponents } from '../core/extensions';
 
 @Component({
   selector: 'app-shell',
@@ -53,6 +47,7 @@ interface NavItem {
     NgIcon,
     HlmButton,
     NotificationsMenu,
+    FoundrySlot,
   ],
   providers: [
     provideIcons({
@@ -86,6 +81,10 @@ export class AppShell {
   private readonly clientsApi = inject(ClientsApiService);
 
   protected readonly collapsed = signal(false);
+
+  /** Extensions can replace the sidebar wordmark (see core/extensions.ts). */
+  protected readonly hasSidebarHeader =
+    slotComponents('shell.sidebar.header').length > 0;
   private readonly clients = signal<ApiClient[]>([]);
 
   constructor() {
@@ -108,23 +107,55 @@ export class AppShell {
     })),
   );
 
-  protected readonly nav: NavItem[] = [
+  /** Built-in items plus any contributed with provideNavItem. */
+  protected readonly nav = navItems([
     {
       path: '/',
       label: 'Dashboard',
       icon: 'lucideLayoutDashboard',
       exact: true,
+      order: 10,
     },
-    { path: '/clients', label: 'Clients', icon: 'lucideUsers' },
-    { path: '/projects', label: 'Projects', icon: 'lucideFolderKanban' },
-    { path: '/invoices', label: 'Invoices', icon: 'lucideFileText' },
-    { path: '/quotes', label: 'Quotes', icon: 'lucideFileSignature' },
-    { path: '/payments', label: 'Payments', icon: 'lucideWallet' },
-    { path: '/expenses', label: 'Expenses', icon: 'lucideReceipt' },
-    { path: '/documents', label: 'Documents', icon: 'lucideFolderOpen' },
-    { path: '/reports', label: 'Reports', icon: 'lucideChartColumn' },
-    { path: '/settings', label: 'Settings', icon: 'lucideSettings' },
-  ];
+    { path: '/clients', label: 'Clients', icon: 'lucideUsers', order: 20 },
+    {
+      path: '/projects',
+      label: 'Projects',
+      icon: 'lucideFolderKanban',
+      order: 30,
+    },
+    {
+      path: '/invoices',
+      label: 'Invoices',
+      icon: 'lucideFileText',
+      order: 40,
+    },
+    {
+      path: '/quotes',
+      label: 'Quotes',
+      icon: 'lucideFileSignature',
+      order: 50,
+    },
+    { path: '/payments', label: 'Payments', icon: 'lucideWallet', order: 60 },
+    { path: '/expenses', label: 'Expenses', icon: 'lucideReceipt', order: 70 },
+    {
+      path: '/documents',
+      label: 'Documents',
+      icon: 'lucideFolderOpen',
+      order: 80,
+    },
+    {
+      path: '/reports',
+      label: 'Reports',
+      icon: 'lucideChartColumn',
+      order: 90,
+    },
+    {
+      path: '/settings',
+      label: 'Settings',
+      icon: 'lucideSettings',
+      order: 100,
+    },
+  ]);
 
   /** Bottom nav shows the first four; the rest live behind the "More" drawer. */
   // todo: add logout

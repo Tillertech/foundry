@@ -2,6 +2,7 @@ import type { Mock } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DocumentEvents, FileEvents } from '../common/events';
 import { DocumentsService } from './documents.service';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 /**
  * In-memory document store that evaluates the `where` shapes the service
@@ -56,7 +57,7 @@ describe('DocumentsService', () => {
   let projectsService: { findOne: Mock };
   let storage: { upload: Mock; read: Mock; remove: Mock };
   let events: { emit: Mock };
-  let workspaces: { findOne: Mock; findDefault: Mock };
+  let workspaces: { findOne: Mock; findActive: Mock };
 
   function matches(row: Row, where: Record<string, any> = {}): boolean {
     if (where.id !== undefined && row.id !== where.id) return false;
@@ -120,9 +121,7 @@ describe('DocumentsService', () => {
           ...rows.find((r) => r.id === where.id),
           ...data,
         })),
-        delete: vi.fn(async ({ where }) =>
-          rows.find((r) => r.id === where.id),
-        ),
+        delete: vi.fn(async ({ where }) => rows.find((r) => r.id === where.id)),
       },
     };
     pagination = {
@@ -155,7 +154,7 @@ describe('DocumentsService', () => {
         }
         return { id };
       }),
-      findDefault: vi.fn(async (ownerId: string) => ({
+      findActive: vi.fn(async (ownerId: string) => ({
         id: Object.keys(workspaceOwner).find(
           (ws) => workspaceOwner[ws] === ownerId,
         ),
@@ -182,6 +181,7 @@ describe('DocumentsService', () => {
       storage as any,
       events as any,
       workspaces as any,
+      new WorkspaceScope(),
     );
   });
 
@@ -291,7 +291,7 @@ describe('DocumentsService', () => {
     it("files an unlinked upload in the caller's default workspace", async () => {
       await service.create(OWNER_A, {}, file);
 
-      expect(workspaces.findDefault).toHaveBeenCalledWith(OWNER_A);
+      expect(workspaces.findActive).toHaveBeenCalledWith(OWNER_A);
       expect(createdData()).toEqual({
         workspaceId: 'ws-a1',
         name: 'MSA.pdf',
@@ -305,7 +305,7 @@ describe('DocumentsService', () => {
       await service.create(OWNER_A, { workspaceId: 'ws-a2' }, file);
 
       expect(createdData().workspaceId).toBe('ws-a2');
-      expect(workspaces.findDefault).not.toHaveBeenCalled();
+      expect(workspaces.findActive).not.toHaveBeenCalled();
     });
 
     it("takes the workspace from the client's", async () => {

@@ -9,6 +9,7 @@ import { WorkspacesService } from '../workspaces/workspaces.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { ListClientsQueryDto } from './dto/list-clients-query.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 @Injectable()
 export class ClientsService {
@@ -16,13 +17,14 @@ export class ClientsService {
     private readonly prisma: PrismaService,
     private readonly pagination: PaginationService,
     private readonly workspaces: WorkspacesService,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   async create(ownerId: string, dto: CreateClientDto): Promise<Client> {
     const { workspaceId, ...data } = dto;
     const workspace = workspaceId
       ? await this.workspaces.findOne(ownerId, workspaceId)
-      : await this.workspaces.findDefault(ownerId);
+      : await this.workspaces.findActive(ownerId);
     return this.prisma.client.create({
       data: { ...data, workspaceId: workspace.id },
     });
@@ -38,7 +40,10 @@ export class ClientsService {
       this.prisma.client,
       {
         where: {
-          workspace: { ownerId, ...(workspaceId ? { id: workspaceId } : {}) },
+          workspace: {
+            ...this.workspaceScope.owned(ownerId),
+            ...(workspaceId ? { id: workspaceId } : {}),
+          },
           ...(status ? { status } : {}),
           ...(search
             ? {

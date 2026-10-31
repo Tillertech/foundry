@@ -1,3 +1,4 @@
+import { NgComponentOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -5,6 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import {
   FormField,
   email,
@@ -61,6 +63,7 @@ import {
   ToastService,
 } from '@foundry/shared-ui';
 import { PortalSettings } from './portal/portal-settings';
+import { SETTINGS_SECTIONS } from '../../core/extensions';
 
 const LOGO_TYPES = ['image/png', 'image/jpeg'];
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
@@ -88,6 +91,7 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
     HlmTabsImports,
     Field,
     PortalSettings,
+    NgComponentOutlet,
   ],
   providers: [
     provideIcons({
@@ -132,15 +136,41 @@ export class Settings {
   protected readonly logoUrl = signal<string | null>(null);
   protected readonly logoBusy = signal(false);
 
-  protected readonly comingSoon = [
+  /** Tabs contributed by extensions (core/extensions.ts), in order. */
+  protected readonly extraSections = [
+    ...(inject(SETTINGS_SECTIONS, { optional: true }) ?? []),
+  ].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  private readonly extraIds = new Set(this.extraSections.map((s) => s.id));
+  /** Contributed tabs without a built-in trigger of the same id. */
+  protected readonly newSections = this.extraSections.filter(
+    (s) =>
+      ![
+        'workspace',
+        'branding',
+        'portal',
+        'appearance',
+        'notifications',
+        'advanced',
+      ].includes(s.id),
+  );
+
+  /** `?tab=<id>` opens a specific tab, e.g. when returning from a sub-page. */
+  protected readonly initialTab =
+    inject(ActivatedRoute).snapshot.queryParamMap.get('tab') ?? 'workspace';
+
+  protected readonly comingSoonAll = [
     {
-      id: 'templates',
+      id: 'branding',
       icon: 'lucideFileText',
-      title: 'Template designer',
+      title: 'Document branding',
       description:
-        'Configure branded layouts and copy for invoices, quotes, receipts and emails.',
+        'Brand colours and layout options for invoices, quotes and receipts. Your logo and business details already apply from the Workspace tab.',
     },
   ];
+  /** Placeholders an extension hasn't replaced. */
+  protected readonly comingSoon = this.comingSoonAll.filter(
+    (f) => !this.extraIds.has(f.id),
+  );
 
   /**
    * thought; add email to toggles
@@ -177,13 +207,15 @@ export class Settings {
     },
   ];
 
-
   protected readonly reminderKind: {
     kind: NotificationKind;
     icon: string;
     label: string;
-  } = { kind: 'invoice_reminder', icon: 'lucideClock', label: 'Invoice reminders' };
-
+  } = {
+    kind: 'invoice_reminder',
+    icon: 'lucideClock',
+    label: 'Invoice reminders',
+  };
 
   protected readonly inAppKinds: {
     kind: NotificationKind;
@@ -317,7 +349,7 @@ export class Settings {
 
   constructor() {
     this.destroyRef.onDestroy(() => this.revokeLogoUrl());
-    this.workspacesApi.getDefault().subscribe({
+    this.workspacesApi.current().subscribe({
       next: (ws) => {
         this.workspace.set(ws);
         this.model.set({

@@ -18,6 +18,7 @@ import { WorkspacesService } from '../workspaces/workspaces.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { ListDocumentsQueryDto } from './dto/list-documents-query.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 @Injectable()
 export class DocumentsService {
@@ -29,6 +30,7 @@ export class DocumentsService {
     private readonly storage: StorageService,
     private readonly events: EventEmitter2,
     private readonly workspaces: WorkspacesService,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   private scope(ownerId: string) {
@@ -57,7 +59,7 @@ export class DocumentsService {
       linked ??
       (requested
         ? await this.workspaces.findOne(ownerId, requested)
-        : await this.workspaces.findDefault(ownerId)
+        : await this.workspaces.findActive(ownerId)
       ).id;
     const stored = await this.storage.upload(file);
     this.events.emit(FileEvents.UPLOADED, stored);
@@ -83,7 +85,10 @@ export class DocumentsService {
       this.prisma.document,
       {
         where: {
-          workspace: { ownerId, ...(workspaceId ? { id: workspaceId } : {}) },
+          workspace: {
+            ...this.workspaceScope.owned(ownerId),
+            ...(workspaceId ? { id: workspaceId } : {}),
+          },
           ...(clientId ? { clientId } : {}),
           ...(projectId ? { projectId } : {}),
           ...(type ? { type } : {}),
@@ -129,7 +134,6 @@ export class DocumentsService {
       data: { ...dto, ...(relinked ? { workspaceId: relinked } : {}) },
     });
   }
-
 
   private async linkedWorkspace(
     ownerId: string,

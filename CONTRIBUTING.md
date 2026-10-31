@@ -55,9 +55,16 @@ feature is about administration, compliance, multi-party access, or
 operating at scale, it belongs in the commercial Cloud offering and
 should not be built in this repository.
 
+"Payments" in the lifecycle means recording payments, matching them to
+invoices and reconciling balances - all Community. Collecting payments
+online, where your clients pay through a payment provider in the
+client portal, is part of Cloud.
+
 **Community owns:**
 
-- Clients, Quotes, Projects, Invoices, Payments, Expenses, Documents
+- Clients, Quotes, Projects, Invoices, Expenses, Documents
+- Payments - recording them, matching them to invoices and reconciling
+  balances
 - Basic reporting and dashboards
 - Recurring invoicing and retainer billing
 - Time tracking against projects
@@ -67,12 +74,11 @@ should not be built in this repository.
 - Realtime in-app notifications
 - REST API - read/write access to your own data
 - Plugin architecture and extension hooks - third parties can build and
-  distribute plugins for Community
+  distribute plugins for Community (see [EXTENDING.md](./EXTENDING.md))
 - CSV/JSON import and export of all data
 - E-signature acceptance on quotes
-- Basic client-facing portal (view and download quotes and invoices via
-  tokenized links)
-- Online payment collection on invoices (Stripe, direct)
+- Client portal - client logins to view projects, quotes, invoices,
+  payments and documents, and to approve quotes
 
 **Cloud owns (not this repository):**
 
@@ -81,8 +87,9 @@ should not be built in this repository.
 - Immutable audit log
 - Multi-workspace management
 - Advanced template designer (build layouts from scratch)
-- Full interactive client portal with quote acceptance workflow,
-  document exchange, and messaging
+- Online payment collection in the client portal (clients pay invoices
+  by card)
+- Client portal document exchange and messaging
 - Automation engine - conditional multi-step workflow rules
 - Outbound webhooks and API keys for third-party integrations at scale
 - White-label (hide that Foundry is the vendor)

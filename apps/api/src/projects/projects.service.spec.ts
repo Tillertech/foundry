@@ -2,6 +2,7 @@ import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { ProjectEvents } from '../common/events';
 import { ProjectsService } from './projects.service';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 describe('ProjectsService', () => {
   let service: ProjectsService;
@@ -84,6 +85,7 @@ describe('ProjectsService', () => {
       pagination as any,
       clients as any,
       events as any,
+      new WorkspaceScope(),
     );
   });
 

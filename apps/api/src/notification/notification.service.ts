@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import type {
   DocumentSharedEvent,
   InvoicePaidEvent,
@@ -24,9 +30,12 @@ import type {
 } from '../generated/prisma/models';
 import {
   InvoicePdfData,
+  PDF_THEME_RESOLVER,
   PdfBrand,
+  PdfDocumentKind,
   PdfGeneratorService,
   PdfParty,
+  PdfThemeResolver,
 } from '../invoices/pdf-generator.service';
 import type { ClientModel as Client } from '../generated/prisma/models';
 import { logoMimeType } from '../workspaces/workspaces.service';
@@ -45,6 +54,7 @@ import { NotificationGateway } from './notification.gateway';
 import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
 
 interface BillerWorkspace {
+  id: string;
   ownerId: string;
   name: string;
   legalName: string | null;
@@ -70,6 +80,9 @@ export class NotificationService {
     private readonly pagination: PaginationService,
     private readonly pdfService: PdfGeneratorService,
     private readonly storage: StorageService,
+    @Optional()
+    @Inject(PDF_THEME_RESOLVER)
+    private readonly pdfThemes?: PdfThemeResolver,
   ) {}
 
   /** Emails the invoice (with PDF attached) and pushes a realtime event to the owner. */
@@ -91,7 +104,7 @@ export class NotificationService {
       taxRate: Number(invoice.taxRate),
       discount: Number(invoice.discount),
       notes: invoice.notes ?? undefined,
-      brand: await this.pdfBrand(workspace),
+      brand: await this.pdfBrand(workspace, 'invoice'),
     });
 
     const delivered = await this.mail.sendInvoice(client.email, context, pdf);
@@ -139,7 +152,7 @@ export class NotificationService {
       taxRate: Number(invoice.taxRate),
       discount: Number(invoice.discount),
       notes: invoice.notes ?? undefined,
-      brand: await this.pdfBrand(workspace),
+      brand: await this.pdfBrand(workspace, 'invoice'),
     });
   }
 
@@ -301,7 +314,7 @@ export class NotificationService {
       })),
       taxRate: Number(quote.taxRate),
       notes: quote.notes ?? undefined,
-      brand: await this.pdfBrand(workspace),
+      brand: await this.pdfBrand(workspace, 'quote'),
     });
 
     const delivered = await this.mail.sendQuote(client.email, context, pdf);
@@ -463,9 +476,7 @@ export class NotificationService {
       const progressNote = progress.hasProgress
         ? ` - ${progress.completedMilestones} of ${progress.totalMilestones} milestones done (${progress.progress}%)`
         : '';
-      const clientNote = recipients
-        ? ` ${client.name} was notified.`
-        : '';
+      const clientNote = recipients ? ` ${client.name} was notified.` : '';
       await this.notify(workspace.ownerId, {
         kind: NotificationKind.milestone_completed,
         title: `Milestone completed: ${milestone.name}`,
@@ -562,6 +573,7 @@ export class NotificationService {
 
   /** Workspace fields needed to render the issuer (FROM) block on PDFs. */
   private static readonly BILLER_SELECT = {
+    id: true,
     ownerId: true,
     name: true,
     legalName: true,
@@ -608,12 +620,23 @@ export class NotificationService {
 
   private async pdfBrand(
     workspace: BillerWorkspace | null,
+    kind: PdfDocumentKind,
   ): Promise<PdfBrand | undefined> {
     if (!workspace) return undefined;
     const brand: PdfBrand = {
       name: workspace.name,
       subName: workspace.legalName ?? undefined,
     };
+    if (this.pdfThemes) {
+      try {
+        brand.theme =
+          (await this.pdfThemes.resolve({ workspaceId: workspace.id, kind })) ??
+          undefined;
+      } catch (error) {
+        // A broken theme must never block an invoice going out.
+        this.logger.warn(`PDF theme lookup failed: ${String(error)}`);
+      }
+    }
     if (workspace.storageKey) {
       try {
         const logo = await this.storage.read(workspace.storageKey);
@@ -648,12 +671,14 @@ export class NotificationService {
       invoiceTotal: Number(context.total),
       amountPaidToDate: Number(context.amountPaid),
       balanceDue: Number(context.balanceDue),
-      brand: await this.pdfBrand(workspace),
+      brand: await this.pdfBrand(workspace, 'receipt'),
     });
   }
 
   /** Invoice lines for the PDF, with re-billed expenses flagged for their own section. */
-  private pdfLines(invoice: InvoiceSentEvent['invoice']): InvoicePdfData['items'] {
+  private pdfLines(
+    invoice: InvoiceSentEvent['invoice'],
+  ): InvoicePdfData['items'] {
     return invoice.items.map((item) => ({
       description: item.description,
       quantity: Number(item.quantity),

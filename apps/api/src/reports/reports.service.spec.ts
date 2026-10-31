@@ -5,6 +5,7 @@ import { CacheTimer } from '../common/cache-timer';
 import { Prisma } from '../generated/prisma/client';
 import { InvoicesService } from '../invoices/invoices.service';
 import { ReportsService } from './reports.service';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 const ownerId = 'owner-1';
 
@@ -99,8 +100,14 @@ describe('ReportsService', () => {
       {} as any,
       rateCache as any,
       http as any,
+      new WorkspaceScope(),
     );
-    service = new ReportsService(prisma as any, invoices, cache as any);
+    service = new ReportsService(
+      prisma as any,
+      invoices,
+      cache as any,
+      new WorkspaceScope(),
+    );
   });
 
   describe('net profit', () => {
@@ -412,7 +419,7 @@ describe('ReportsService', () => {
       });
 
       expect(cache.set).toHaveBeenCalledWith(
-        'reports_owner-1_KES_2026-07-01_2026-07-31',
+        'reports_owner-1_all_KES_2026-07-01_2026-07-31',
         summary,
         CacheTimer.custom(5),
       );
@@ -423,7 +430,7 @@ describe('ReportsService', () => {
       cache.get.mockResolvedValue(cached);
 
       await expect(service.summary(ownerId, {})).resolves.toBe(cached);
-      expect(cache.get).toHaveBeenCalledWith('reports_owner-1_KES_all_all');
+      expect(cache.get).toHaveBeenCalledWith('reports_owner-1_all_KES_all_all');
       expect(prisma.payment.findMany).not.toHaveBeenCalled();
       expect(rateCache.get).not.toHaveBeenCalled();
     });
@@ -449,8 +456,8 @@ describe('ReportsService', () => {
         expect.objectContaining({ currency: 'USD', netProfit: 82.6 }),
       );
       expect([...store.keys()]).toEqual([
-        'reports_owner-1_KES_all_all',
-        'reports_owner-1_USD_all_all',
+        'reports_owner-1_all_KES_all_all',
+        'reports_owner-1_all_USD_all_all',
       ]);
     });
   });

@@ -24,6 +24,7 @@ import {
   SafePortalUser,
   toSafePortalUser,
 } from '../portal-users/portal-users.service';
+import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 const MAX_SLUG_ATTEMPTS = 5;
 
@@ -73,6 +74,7 @@ export class ClientPortalService {
     private readonly clientService: ClientsService,
     private readonly pagination: PaginationService,
     private readonly portalUsers: PortalUsersService,
+    private readonly workspaceScope: WorkspaceScope,
   ) {}
 
   /**
@@ -148,7 +150,7 @@ export class ClientPortalService {
       this.prisma.clientPortal,
       {
         where: {
-          client: { workspace: { ownerId } },
+          client: { workspace: this.workspaceScope.owned(ownerId) },
           ...(clientId ? { clientId } : {}),
           ...(active !== undefined ? { active } : {}),
         },

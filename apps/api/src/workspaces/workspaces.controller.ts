@@ -51,7 +51,9 @@ export class WorkspacesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List my workspaces (oldest first; first is default)' })
+  @ApiOperation({
+    summary: 'List my workspaces (oldest first; first is default)',
+  })
   @ApiOkResponse({ type: [WorkspaceEntity] })
   findAll(@CurrentUser() user: JwtPayload) {
     return this.workspacesService.findAll(user.sub);
@@ -65,11 +67,26 @@ export class WorkspacesController {
     return this.workspacesService.findDefault(user.sub);
   }
 
+  @Get('current')
+  @ApiOperation({
+    summary: 'Get the workspace this request acts on',
+    description:
+      'The workspace named by the optional `x-workspace-id` header, otherwise the default one.',
+  })
+  @ApiOkResponse({ type: WorkspaceEntity })
+  @ApiNotFoundResponse()
+  findCurrent(@CurrentUser() user: JwtPayload) {
+    return this.workspacesService.findActive(user.sub);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a workspace' })
   @ApiOkResponse({ type: WorkspaceEntity })
   @ApiNotFoundResponse()
-  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.workspacesService.findOne(user.sub, id);
   }
 
@@ -89,7 +106,10 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Delete a workspace (cascades to its clients)' })
   @ApiOkResponse({ type: WorkspaceEntity })
   @ApiNotFoundResponse()
-  remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+  remove(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.workspacesService.remove(user.sub, id);
   }
 
@@ -109,7 +129,9 @@ export class WorkspacesController {
     FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }),
   )
   @ApiCreatedResponse({ type: WorkspaceEntity })
-  @ApiBadRequestResponse({ description: 'Missing file or unsupported image type' })
+  @ApiBadRequestResponse({
+    description: 'Missing file or unsupported image type',
+  })
   @ApiNotFoundResponse()
   uploadLogo(
     @CurrentUser() user: JwtPayload,
