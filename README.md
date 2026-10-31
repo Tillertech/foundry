@@ -202,7 +202,7 @@ Bug reports, feature requests and pull requests are welcome - please read [CONTR
 - What belongs in Community vs. what's out of scope here
 - The development setup and pull request workflow
 
-Local development setup, code style, and Nx generator commands are all documented there.
+Local development setup, code style, and Nx generator commands are all documented there. To build a plugin instead of changing the core, see [EXTENDING.md](./EXTENDING.md).
 
 ---
 

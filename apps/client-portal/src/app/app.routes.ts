@@ -90,12 +90,6 @@ export const appRoutes: Route[] = [
               import('./pages/documents/documents').then((m) => m.Documents),
           },
           {
-            path: 'messages',
-            title: 'Messages - Client Portal',
-            loadComponent: () =>
-              import('./pages/messages/messages').then((m) => m.Messages),
-          },
-          {
             path: 'profile',
             title: 'Profile - Client Portal',
             loadComponent: () =>

@@ -146,7 +146,7 @@ export class Settings {
     (s) =>
       ![
         'workspace',
-        'templates',
+        'branding',
         'portal',
         'appearance',
         'notifications',
@@ -160,11 +160,11 @@ export class Settings {
 
   protected readonly comingSoonAll = [
     {
-      id: 'templates',
+      id: 'branding',
       icon: 'lucideFileText',
-      title: 'Template designer',
+      title: 'Document branding',
       description:
-        'Configure branded layouts and copy for invoices, quotes, receipts and emails.',
+        'Brand colours and layout options for invoices, quotes and receipts. Your logo and business details already apply from the Workspace tab.',
     },
   ];
   /** Placeholders an extension hasn't replaced. */

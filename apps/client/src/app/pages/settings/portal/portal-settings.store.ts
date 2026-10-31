@@ -14,7 +14,7 @@ export class PortalSettingsStore {
   readonly enabled = signal(true);
   readonly slug = signal('acme-studio');
   readonly welcomeMessage = signal(
-    'Welcome to your client portal. Track projects, approve quotes and pay invoices - all in one place.',
+    'Welcome to your client portal. Track projects and find your quotes, invoices and documents - all in one place.',
   );
 
   setEnabled(enabled: boolean): void {
