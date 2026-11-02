@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f4f5;font-family:Helvetica,Arial,sans-serif;color:#18181b;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
+            <tr>
+              <td style="padding:32px 40px;border-bottom:1px solid #e4e4e7;">
+                <h1 style="margin:0;font-size:20px;">Foundry</h1>
+                <p style="margin:8px 0 0;color:#71717a;font-size:14px;">Account export</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px 40px;">
+                <p style="margin:0 0 16px;font-size:14px;">Hi {{name}},</p>
+                {{#if ok}}
+                  <p style="margin:0 0 16px;font-size:14px;">
+                    Your account export is ready ({{size}}). It holds your
+                    workspaces, records and files in one file you can keep
+                    or move.
+                  </p>
+                  <p style="margin:0 0 24px;font-size:14px;">
+                    Sign in and download it from Settings → Advanced. It is
+                    kept until {{expires}}.
+                  </p>
+                {{else}}
+                  <p style="margin:0 0 24px;font-size:14px;">
+                    Your account export could not be completed. Nothing was
+                    changed. Try again from Settings → Advanced, and contact
+                    support if it keeps failing.
+                  </p>
+                {{/if}}
+                {{#if settingsUrl}}
+                  <p style="margin:0;text-align:center;">
+                    <a href="{{settingsUrl}}" style="display:inline-block;padding:12px 28px;background:#18181b;color:#ffffff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
+                      Open Settings
+                    </a>
+                  </p>
+                {{/if}}
+                <p style="margin:24px 0 0;font-size:13px;color:#71717a;">
+                  If you did not ask for an export, change your password and
+                  check who has access to your account.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -24,7 +24,9 @@ export type SlotName =
   /** Full-width strip above every page (notices, banners). */
   | 'shell.banner'
   /** Topbar, before the notifications menu. */
-  | 'shell.topbar.actions';
+  | 'shell.topbar.actions'
+  /** Sign-in page, below the form card (extra ways in, notices). */
+  | 'auth.login.footer';
 
 export interface SlotRegistration {
   slot: SlotName;

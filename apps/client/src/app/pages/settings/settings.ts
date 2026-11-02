@@ -25,6 +25,7 @@ import {
   lucideCheck,
   lucideClock,
   lucideCreditCard,
+  lucideDownload,
   lucideFileSignature,
   lucideFileText,
   lucideImage,
@@ -49,6 +50,7 @@ import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { apiErrorMessage, Currency } from '@foundry/shared-util';
+import { AccountExportStore } from '../../domains/account';
 import { NotificationKind } from '../../domains/notifications';
 import {
   UpdateWorkspaceRequest,
@@ -94,6 +96,7 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
     NgComponentOutlet,
   ],
   providers: [
+    AccountExportStore,
     provideIcons({
       lucideActivity,
       lucideFlag,
@@ -104,6 +107,7 @@ const accents: { id: Accent; label: string; swatch: string }[] = [
       lucideCheck,
       lucideClock,
       lucideCreditCard,
+      lucideDownload,
       lucideFileSignature,
       lucideFileText,
       lucideImage,
@@ -128,6 +132,7 @@ export class Settings {
   protected readonly theme = inject(ThemeService);
   private readonly workspacesApi = inject(WorkspacesApiService);
   private readonly toast = inject(ToastService);
+  protected readonly accountExport = inject(AccountExportStore);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly workspace = signal<Workspace | null>(null);
@@ -473,6 +478,43 @@ export class Settings {
         this.toast.error('Could not remove logo', apiErrorMessage(err));
       },
     });
+  }
+
+  /** 1.2 MB, for the export row. */
+  protected size(bytes = 0): string {
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let n = bytes;
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) {
+      n /= 1024;
+      i++;
+    }
+    return `${i === 0 ? n : n.toFixed(1)} ${units[i]}`;
+  }
+
+  protected day(iso?: string): string {
+    return iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '';
+  }
+
+  /** Starts a background export; the owner is notified when it is ready. */
+  protected async exportAccount(): Promise<void> {
+    try {
+      await this.accountExport.request();
+      this.toast.success(
+        "Export started",
+        "We'll notify you here and by email when it is ready.",
+      );
+    } catch (err) {
+      this.toast.error('Could not start the export', apiErrorMessage(err));
+    }
+  }
+
+  protected async downloadExport(): Promise<void> {
+    try {
+      await this.accountExport.download();
+    } catch (err) {
+      this.toast.error('Could not download the export', apiErrorMessage(err));
+    }
   }
 
   protected deleteWorkspace(): void {

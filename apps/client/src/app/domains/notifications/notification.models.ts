@@ -8,7 +8,9 @@ export type NotificationKind =
   | 'quote_sent'
   | 'document_shared'
   | 'project_status_changed'
-  | 'milestone_completed';
+  | 'milestone_completed'
+  /** An account export finished (or failed); has no resourceId. */
+  | 'account_export';
 
 /** In-app notification shown behind the header bell. */
 export interface AppNotification {

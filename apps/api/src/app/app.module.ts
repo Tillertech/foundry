@@ -32,6 +32,7 @@ import { ProjectsModule } from '../projects/projects.module';
 import { QuotesModule } from '../quotes/quotes.module';
 import { ReportsModule } from '../reports/reports.module';
 import { StorageModule } from '../storage/storage.module';
+import { DataTransferModule } from '../data-transfer/data-transfer.module';
 import { WorkspacesModule } from '../workspaces/workspaces.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -79,6 +80,7 @@ import { APP_GUARD } from '@nestjs/core';
     WorkspaceScopeModule,
     PaginationModule,
     StorageModule,
+    DataTransferModule,
     AuthModule,
     WorkspacesModule,
     ClientsModule,

@@ -5,7 +5,11 @@ import {
   PaginationRes,
   PaginationService,
 } from '../common/pagination/pagination.service';
-import { ProjectEvents } from '../common/events';
+import {
+  ProjectEvents,
+  type OwnedRecordEvent,
+  type ProjectMovedEvent,
+} from '../common/events';
 import type { ProjectModel as Project } from '../generated/prisma/models';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -24,7 +28,7 @@ export class ProjectsService {
   ) {}
 
   async create(ownerId: string, dto: CreateProjectDto): Promise<Project> {
-    await this.clients.findOne(ownerId, dto.clientId);
+    const client = await this.clients.findOne(ownerId, dto.clientId);
     // If this client already has a portal, share the new project into it by
     // default - otherwise it silently never shows up until someone manually
     // toggles it on, which defeats the "portal reflects reality" point.
@@ -32,7 +36,7 @@ export class ProjectsService {
       where: { clientId: dto.clientId },
       select: { id: true },
     });
-    return this.prisma.project.create({
+    const project = await this.prisma.project.create({
       data: {
         ...dto,
         ...(portal
@@ -40,6 +44,12 @@ export class ProjectsService {
           : {}),
       },
     });
+    this.events.emit(ProjectEvents.CREATED, {
+      id: project.id,
+      ownerId,
+      workspaceId: client.workspaceId,
+    } satisfies OwnedRecordEvent);
+    return project;
   }
 
   findAll(
@@ -81,10 +91,13 @@ export class ProjectsService {
     dto: UpdateProjectDto,
   ): Promise<Project> {
     const existing = await this.findOne(ownerId, id);
-    const project =
-      dto.clientId && dto.clientId !== existing.clientId
-        ? await this.reassignClient(ownerId, id, dto.clientId, dto)
-        : await this.prisma.project.update({ where: { id }, data: dto });
+    const moving = !!dto.clientId && dto.clientId !== existing.clientId;
+    const fromWorkspaceId = moving
+      ? (await this.clients.findOne(ownerId, existing.clientId)).workspaceId
+      : null;
+    const project = moving
+      ? await this.reassignClient(ownerId, id, dto.clientId as string, dto)
+      : await this.prisma.project.update({ where: { id }, data: dto });
 
     if (dto.status && dto.status !== existing.status) {
       const client = await this.prisma.client.findUnique({
@@ -97,6 +110,16 @@ export class ProjectsService {
           client,
         });
       }
+    }
+
+    if (fromWorkspaceId) {
+      const to = await this.clients.findOne(ownerId, project.clientId);
+      this.events.emit(ProjectEvents.MOVED, {
+        id,
+        ownerId,
+        workspaceId: to.workspaceId,
+        fromWorkspaceId,
+      } satisfies ProjectMovedEvent);
     }
 
     return project;
@@ -158,7 +181,14 @@ export class ProjectsService {
   }
 
   async remove(ownerId: string, id: string): Promise<Project> {
-    await this.findOne(ownerId, id);
-    return this.prisma.project.delete({ where: { id } });
+    const project = await this.findOne(ownerId, id);
+    const client = await this.clients.findOne(ownerId, project.clientId);
+    const deleted = await this.prisma.project.delete({ where: { id } });
+    this.events.emit(ProjectEvents.DELETED, {
+      id,
+      ownerId,
+      workspaceId: client.workspaceId,
+    } satisfies OwnedRecordEvent);
+    return deleted;
   }
 }

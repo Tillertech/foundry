@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { createReadStream } from 'node:fs';
+import { copyFile, mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import type { Readable } from 'node:stream';
+import { dirname, extname, join, relative, resolve } from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { StorageService, StoredFile } from './storage.service';
@@ -31,6 +33,34 @@ export class LocalStorageService extends StorageService {
       mimeType: file.mimetype,
       originalName: file.originalname,
     };
+  }
+
+  async put(key: string, content: Buffer): Promise<void> {
+    const path = this.inside(key);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, content);
+  }
+
+  async putFile(key: string, source: string): Promise<void> {
+    const path = this.inside(key);
+    await mkdir(dirname(path), { recursive: true });
+    await copyFile(source, path);
+  }
+
+  async stream(key: string): Promise<Readable> {
+    const path = this.inside(key);
+    await stat(path);
+    return createReadStream(path);
+  }
+
+  /** The absolute path for a key, refusing any key that escapes the root. */
+  private inside(key: string): string {
+    const path = resolve(this.root, key);
+    const rel = relative(resolve(this.root), path);
+    if (!rel || rel.startsWith('..') || resolve(rel) === rel) {
+      throw new Error(`Refusing a path outside the uploads directory: ${key}`);
+    }
+    return path;
   }
 
   read(key: string): Promise<Buffer> {

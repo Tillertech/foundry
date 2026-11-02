@@ -115,6 +115,45 @@ Set `MAIL_TEMPLATES_DIR` to a directory of Handlebars templates to replace the
 built-in emails. Copy `apps/api/src/notification/mail/templates` as a starting
 point and keep every file name, since each email looks up its template by name.
 
+### Lifecycle events
+
+The API emits an event on its `EventEmitter2` after each of these writes
+commits. Foundry itself never listens to them, so they cost nothing unless
+your module does. Use them to keep usage counters, search indexes or webhooks
+in step without polling.
+
+| Event | When |
+| --- | --- |
+| `WorkspaceEvents.CREATED` / `.DELETED` | A workspace is created or deleted |
+| `ClientEvents.CREATED` / `.DELETED` | A client is created or deleted |
+| `ProjectEvents.CREATED` / `.DELETED` | A project is created or deleted |
+| `ProjectEvents.MOVED` | A project moves to another client (`fromWorkspaceId` is set) |
+| `DocumentEvents.CREATED` / `.DELETED` | A stored document is added or removed |
+
+Every payload is an `OwnedRecordEvent`: `{ id, ownerId, workspaceId }`. It
+carries ids only, so read anything else you need. Cascades are not re-emitted.
+Deleting a workspace emits one `workspace.deleted` for everything inside it,
+and deleting a client emits one `client.deleted` for its projects.
+
+```ts
+import { OnEvent } from '@nestjs/event-emitter';
+import {
+  ProjectEvents,
+  type OwnedRecordEvent,
+} from '@foundry/upstream/api/extension-api';
+
+@Injectable()
+export class UsageListener {
+  @OnEvent(ProjectEvents.CREATED, { async: true })
+  async onProject(event: OwnedRecordEvent) {
+    // event.ownerId owns event.workspaceId
+  }
+}
+```
+
+Use `{ async: true }` and catch your own errors: a listener must never fail
+the request that triggered it.
+
 ---
 
 ## Workspace app
@@ -191,12 +230,23 @@ them:
 | `shell.sidebar.header` | top of the sidebar, in place of the Foundry wordmark | `collapsed: boolean` |
 | `shell.topbar.actions` | top bar, before the notifications menu               | none                 |
 | `shell.banner`         | full-width strip above every page                    | none                 |
+| `auth.login.footer`    | sign-in page, below the form card                    | none                 |
 
 ```ts
 provideSlot('shell.banner', MaintenanceNotice);
 ```
 
 Several components can share a slot. They render in `order`, lowest first.
+
+Signed-out pages of your own go in `routes.auth` (they render under `/auth`
+behind `guestGuard`); link to them from `auth.login.footer`.
+
+### Serving
+
+The production nginx config (`nginx.conf`) includes
+`/etc/nginx/locations.d/*.conf` inside its server block, before its own
+`/api` location. Drop a file there in your image to give one of your routes
+its own limits, for example a larger `client_max_body_size` for an upload.
 
 ### Session and workspaces
 

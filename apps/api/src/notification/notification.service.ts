@@ -6,6 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import type {
+  AccountExportFinishedEvent,
   DocumentSharedEvent,
   InvoicePaidEvent,
   InvoicePartiallyPaidEvent,
@@ -555,6 +556,28 @@ export class NotificationService {
     return { count };
   }
 
+  /** An account export finished or gave up: tell the owner in the app and by email. */
+  async onAccountExportFinished(event: AccountExportFinishedEvent): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: event.ownerId },
+      select: { email: true, name: true },
+    });
+    if (!user) return;
+    const size = event.bytes === undefined ? undefined : formatSize(event.bytes);
+    const expires = event.expiresAt
+      ? new Date(event.expiresAt).toUTCString().replace(/ \d\d:\d\d:\d\d GMT$/, '')
+      : undefined;
+    await this.notify(event.ownerId, {
+      kind: NotificationKind.account_export,
+      title: event.ok ? 'Your export is ready' : 'Your export failed',
+      body: event.ok
+        ? `Download it from Settings → Advanced (${size}). It is kept until ${expires}.`
+        : 'The account export could not be completed. Try again from Settings → Advanced.',
+      // No resourceId: it is a uuid column and export ids are queue job ids ("1").
+    });
+    await this.mail.sendAccountExport(user.email, { name: user.name, ok: event.ok, size, expires });
+  }
+
   /** Persists an in-app notification and pushes it over the socket. */
   private async notify(
     userId: string,
@@ -868,4 +891,16 @@ export class NotificationService {
       notes: quote.notes ?? '',
     };
   }
+}
+
+/** 1.2 MB, 340 KB... for notification text. */
+function formatSize(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let n = bytes;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${i === 0 ? n : n.toFixed(1)} ${units[i]}`;
 }

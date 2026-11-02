@@ -4,11 +4,6 @@ import { DocumentEvents, FileEvents } from '../common/events';
 import { DocumentsService } from './documents.service';
 import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
-/**
- * In-memory document store that evaluates the `where` shapes the service
- * builds, so tenant isolation is checked against real filtering rather than
- * just the query's shape.
- */
 interface Row {
   id: string;
   name: string;

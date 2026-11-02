@@ -23,11 +23,12 @@ import {
   setPendingVerification,
 } from '../../domains/auth';
 import { Field, fieldError, ToastService } from '@foundry/shared-ui';
+import { FoundrySlot } from '../../core/extensions';
 
 @Component({
   selector: 'app-login',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormField, RouterLink, NgIcon, HlmButton, HlmInput, Field],
+  imports: [FormField, RouterLink, NgIcon, HlmButton, HlmInput, Field, FoundrySlot],
   providers: [
     provideIcons({ lucideEye, lucideEyeOff, lucideLock, lucideMail }),
   ],
@@ -135,6 +136,8 @@ import { Field, fieldError, ToastService } from '@foundry/shared-ui';
             </a>
           </p>
         </form>
+
+        <foundry-slot name="auth.login.footer" />
       </div>
     </div>
   `,
