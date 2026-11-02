@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClientsService } from '../clients/clients.service';
-import { DocumentEvents, FileEvents } from '../common/events';
+import {
+  DocumentEvents,
+  FileEvents,
+  type OwnedRecordEvent,
+} from '../common/events';
 import {
   PaginationRes,
   PaginationService,
@@ -63,7 +67,7 @@ export class DocumentsService {
       ).id;
     const stored = await this.storage.upload(file);
     this.events.emit(FileEvents.UPLOADED, stored);
-    return this.prisma.document.create({
+    const document = await this.prisma.document.create({
       data: {
         ...data,
         workspaceId,
@@ -73,6 +77,12 @@ export class DocumentsService {
         mimeType: stored.mimeType,
       },
     });
+    this.events.emit(DocumentEvents.CREATED, {
+      id: document.id,
+      ownerId,
+      workspaceId,
+    } satisfies OwnedRecordEvent);
+    return document;
   }
 
   findAll(
@@ -188,6 +198,13 @@ export class DocumentsService {
     const document = await this.findOne(ownerId, id);
     await this.prisma.document.delete({ where: { id } });
     await this.storage.remove(document.storageKey);
+    if (document.workspaceId) {
+      this.events.emit(DocumentEvents.DELETED, {
+        id,
+        ownerId,
+        workspaceId: document.workspaceId,
+      } satisfies OwnedRecordEvent);
+    }
     return document;
   }
 }

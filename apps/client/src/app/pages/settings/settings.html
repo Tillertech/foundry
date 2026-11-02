@@ -469,7 +469,59 @@
       }
     </div>
 
-    <div hlmTabsContent="advanced">
+    <div hlmTabsContent="advanced" class="space-y-4">
+      <section class="surface-card p-6">
+        <div class="flex items-center gap-2">
+          <ng-icon name="lucideDownload" size="16" class="text-primary" />
+          <h2 class="text-sm font-semibold">Your data</h2>
+        </div>
+        <p class="mt-2 text-xs text-muted-foreground">
+          Download your account with every workspace, client, project, invoice
+          and stored file, as one file you can keep or move.
+        </p>
+        <div
+          class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5"
+        >
+          @let job = accountExport.current();
+          <div aria-live="polite">
+            <p class="text-sm font-medium">Export your account</p>
+            <p class="text-xs text-muted-foreground">
+              @switch (job?.state) {
+                @case ('queued') { Queued. You can leave this page; we'll notify you when it's ready. }
+                @case ('running') { Preparing your export. You can leave this page; we'll notify you when it's ready. }
+                @case ('ready') { Ready · {{ size(job?.bytes) }} · kept until {{ day(job?.expiresAt) }}. }
+                @case ('failed') { The last export failed. Try again. }
+                @default { One file. It's prepared in the background, and you're notified when it's ready. }
+              }
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            @if (job?.state === 'ready') {
+              <button
+                hlmBtn
+                size="sm"
+                type="button"
+                [disabled]="accountExport.busy()"
+                (click)="downloadExport()"
+              >
+                <ng-icon name="lucideDownload" size="14" />
+                Download
+              </button>
+            }
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              type="button"
+              [disabled]="accountExport.busy() || job?.state === 'queued' || job?.state === 'running'"
+              (click)="exportAccount()"
+            >
+              {{ job?.state === 'queued' || job?.state === 'running' ? 'Preparing…' : job?.state === 'ready' ? 'Export again' : 'Export' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section class="surface-card border-destructive/30 p-6">
         <div class="flex items-center gap-2">
           <ng-icon

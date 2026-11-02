@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { Readable } from 'node:stream';
 import { extname } from 'node:path';
 import {
   DeleteObjectCommand,
@@ -51,6 +54,38 @@ export class S3StorageService extends StorageService {
       mimeType: file.mimetype,
       originalName: file.originalname,
     };
+  }
+
+  async put(key: string, content: Buffer, mimeType?: string): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: content,
+        ...(mimeType && { ContentType: mimeType }),
+      }),
+    );
+  }
+
+  async putFile(key: string, path: string, mimeType?: string): Promise<void> {
+    const { size } = await stat(path);
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: createReadStream(path),
+        ContentLength: size,
+        ...(mimeType && { ContentType: mimeType }),
+      }),
+    );
+  }
+
+  async stream(key: string): Promise<Readable> {
+    const result = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    if (!(result.Body instanceof Readable)) throw new Error(`No body for ${key}`);
+    return result.Body;
   }
 
   async read(key: string): Promise<Buffer> {

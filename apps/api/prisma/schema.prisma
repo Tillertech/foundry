@@ -20,6 +20,7 @@ enum NotificationKind {
   document_shared
   project_status_changed
   milestone_completed
+  account_export
 }
 
 enum ClientStatus {

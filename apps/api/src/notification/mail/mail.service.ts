@@ -176,6 +176,23 @@ export class MailService {
     });
   }
 
+  /** Account export finished (ok) or gave up; the download itself needs a sign-in. */
+  sendAccountExport(
+    to: string,
+    context: { name: string; ok: boolean; size?: string; expires?: string },
+  ): Promise<boolean> {
+    const appUrl = this.config.get<string>('APP_URL')?.replace(/\/+$/, '');
+    return this.send(
+      to,
+      context.ok ? 'Your Foundry export is ready' : 'Your Foundry export failed',
+      'account-export',
+      {
+        ...context,
+        settingsUrl: appUrl ? `${appUrl}/settings?tab=advanced` : '',
+      },
+    );
+  }
+
   async sendPasswordResetOtp(to: string, name: string, otp: string) {
     await this.send(
       to,

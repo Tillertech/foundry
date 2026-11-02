@@ -3,8 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'node:crypto';
 import type { WorkspaceModel as Workspace } from '../generated/prisma/models';
+import {
+  WorkspaceEvents,
+  type OwnedRecordEvent,
+} from '../common/events';
 import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -20,12 +25,19 @@ export class WorkspacesService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly workspaceScope: WorkspaceScope,
+    private readonly events: EventEmitter2,
   ) {}
 
-  create(ownerId: string, dto: CreateWorkspaceDto): Promise<Workspace> {
-    return this.prisma.workspace.create({
+  async create(ownerId: string, dto: CreateWorkspaceDto): Promise<Workspace> {
+    const workspace = await this.prisma.workspace.create({
       data: { ...dto, slug: this.slugify(dto.name), ownerId },
     });
+    this.events.emit(WorkspaceEvents.CREATED, {
+      id: workspace.id,
+      ownerId,
+      workspaceId: workspace.id,
+    } satisfies OwnedRecordEvent);
+    return workspace;
   }
 
   /** Ordered oldest-first; the first workspace is the user's default. */
@@ -74,7 +86,13 @@ export class WorkspacesService {
   async remove(ownerId: string, id: string): Promise<Workspace> {
     const workspace = await this.findOne(ownerId, id);
     if (workspace.storageKey) await this.storage.remove(workspace.storageKey);
-    return this.prisma.workspace.delete({ where: { id } });
+    const deleted = await this.prisma.workspace.delete({ where: { id } });
+    this.events.emit(WorkspaceEvents.DELETED, {
+      id,
+      ownerId,
+      workspaceId: id,
+    } satisfies OwnedRecordEvent);
+    return deleted;
   }
 
   async uploadLogo(

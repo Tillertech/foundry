@@ -386,4 +386,48 @@ describe('ProjectsService', () => {
       expect(prisma.project.delete).not.toHaveBeenCalled();
     });
   });
+
+  describe('lifecycle events', () => {
+    it('emits project.created with the owner and workspace', async () => {
+      await service.create(ownerId, {
+        name: 'Launch',
+        clientId: clientA.id,
+        startDate: '2026-09-01T00:00:00.000Z',
+      } as never);
+
+      expect(events.emit).toHaveBeenCalledWith('project.created', {
+        id: 'project-new',
+        ownerId,
+        workspaceId: 'ws-1',
+      });
+    });
+
+    it('emits project.deleted after the delete', async () => {
+      await service.remove(ownerId, 'project-1');
+
+      expect(events.emit).toHaveBeenCalledWith('project.deleted', {
+        id: 'project-1',
+        ownerId,
+        workspaceId: 'ws-1',
+      });
+    });
+
+    it('emits nothing when the delete fails', async () => {
+      prisma.project.delete.mockRejectedValue(new Error('db down'));
+
+      await expect(service.remove(ownerId, 'project-1')).rejects.toThrow();
+      expect(events.emit).not.toHaveBeenCalled();
+    });
+
+    it('emits project.moved with both workspaces', async () => {
+      await service.update(ownerId, 'project-1', { clientId: clientB.id });
+
+      expect(events.emit).toHaveBeenCalledWith('project.moved', {
+        id: 'project-1',
+        ownerId,
+        workspaceId: 'ws-2',
+        fromWorkspaceId: 'ws-1',
+      });
+    });
+  });
 });

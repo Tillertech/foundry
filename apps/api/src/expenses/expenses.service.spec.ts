@@ -3,11 +3,6 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
 import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
-/**
- * Minimal in-memory expense store that evaluates the `where` shapes the
- * service builds, so tenant isolation is checked against real filtering
- * rather than just the query's shape.
- */
 interface Row {
   id: string;
   vendor: string;

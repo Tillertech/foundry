@@ -82,7 +82,12 @@ describe('WorkspacesService.findActive', () => {
       ),
     },
   };
-  const service = new WorkspacesService(prisma as never, {} as never, scope);
+  const service = new WorkspacesService(
+    prisma as never,
+    {} as never,
+    scope,
+    { emit: vi.fn() } as never,
+  );
 
   beforeEach(() => {
     prisma.workspace.findFirst.mockClear();

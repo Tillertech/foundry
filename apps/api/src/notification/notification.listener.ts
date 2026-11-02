@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
+  AccountExportEvents,
   AuthEvents,
   DocumentEvents,
   InvoiceEvents,
@@ -9,6 +10,7 @@ import {
   PortalEvents,
   ProjectEvents,
   QuoteEvents,
+  type AccountExportFinishedEvent,
   type DocumentSharedEvent,
   type EmailVerificationRequestedEvent,
   type InvoicePaidEvent,
@@ -117,6 +119,13 @@ export class NotificationListener {
       .catch((err) =>
         this.logger.error('payment.received notification failed', err),
       );
+  }
+
+  @OnEvent(AccountExportEvents.FINISHED, { async: true })
+  handleAccountExportFinished(payload: AccountExportFinishedEvent) {
+    return this.notifications
+      .onAccountExportFinished(payload)
+      .catch((err) => this.logger.error('account export notice failed', err));
   }
 
   @OnEvent(AuthEvents.PASSWORD_RESET_REQUESTED, { async: true })

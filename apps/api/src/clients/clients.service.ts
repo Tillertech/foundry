@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ClientEvents, type OwnedRecordEvent } from '../common/events';
 import {
   PaginationRes,
   PaginationService,
@@ -18,6 +20,7 @@ export class ClientsService {
     private readonly pagination: PaginationService,
     private readonly workspaces: WorkspacesService,
     private readonly workspaceScope: WorkspaceScope,
+    private readonly events: EventEmitter2,
   ) {}
 
   async create(ownerId: string, dto: CreateClientDto): Promise<Client> {
@@ -25,9 +28,15 @@ export class ClientsService {
     const workspace = workspaceId
       ? await this.workspaces.findOne(ownerId, workspaceId)
       : await this.workspaces.findActive(ownerId);
-    return this.prisma.client.create({
+    const client = await this.prisma.client.create({
       data: { ...data, workspaceId: workspace.id },
     });
+    this.events.emit(ClientEvents.CREATED, {
+      id: client.id,
+      ownerId,
+      workspaceId: workspace.id,
+    } satisfies OwnedRecordEvent);
+    return client;
   }
 
   findAll(
@@ -84,7 +93,13 @@ export class ClientsService {
   }
 
   async remove(ownerId: string, id: string): Promise<Client> {
-    await this.findOne(ownerId, id);
-    return this.prisma.client.delete({ where: { id } });
+    const client = await this.findOne(ownerId, id);
+    const deleted = await this.prisma.client.delete({ where: { id } });
+    this.events.emit(ClientEvents.DELETED, {
+      id,
+      ownerId,
+      workspaceId: client.workspaceId,
+    } satisfies OwnedRecordEvent);
+    return deleted;
   }
 }
