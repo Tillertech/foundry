@@ -117,10 +117,7 @@ point and keep every file name, since each email looks up its template by name.
 
 ### Lifecycle events
 
-The API emits an event on its `EventEmitter2` after each of these writes
-commits. Foundry itself never listens to them, so they cost nothing unless
-your module does. Use them to keep usage counters, search indexes or webhooks
-in step without polling.
+The API emits an event after each of these writes commits.
 
 | Event | When |
 | --- | --- |
