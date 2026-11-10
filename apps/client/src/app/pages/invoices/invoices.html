@@ -84,7 +84,7 @@
   } @else {
   <div class="surface-card overflow-hidden">
     <div
-      class="grid grid-cols-[90px_minmax(0,1.5fr)_100px_90px] items-center gap-3 border-b border-border bg-muted/40 px-5 py-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground md:grid-cols-[100px_minmax(0,1.5fr)_100px_100px_110px_110px_100px]"
+      class="grid grid-cols-[76px_minmax(0,1.5fr)_96px_84px_36px] items-center gap-3 border-b border-border bg-muted/40 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:px-5 md:grid-cols-[100px_minmax(0,1.5fr)_100px_100px_110px_110px_100px_96px]"
     >
       <span>Number</span>
       <span>Client</span>
@@ -93,13 +93,19 @@
       <span class="hidden md:inline">Reminder</span>
       <span class="text-right">Total</span>
       <span>Status</span>
+      <span class="sr-only">Actions</span>
     </div>
     <div class="divide-y divide-border">
       @for (inv of filtered(); track inv.id) {
-      <button
-        type="button"
+      <!-- A div, not a button: the row holds its own Send button. -->
+      <div
+        role="button"
+        tabindex="0"
+        [attr.aria-label]="'Open ' + inv.number"
         (click)="openEdit(inv)"
-        class="grid w-full grid-cols-[90px_minmax(0,1.5fr)_100px_90px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40 md:grid-cols-[100px_minmax(0,1.5fr)_100px_100px_110px_110px_100px]"
+        (keydown.enter)="openEdit(inv)"
+        (keydown.space)="$event.preventDefault(); openEdit(inv)"
+        class="grid w-full cursor-pointer grid-cols-[76px_minmax(0,1.5fr)_96px_84px_36px] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none sm:px-5 md:grid-cols-[100px_minmax(0,1.5fr)_100px_100px_110px_110px_100px_96px]"
       >
         <span class="font-mono text-xs text-muted-foreground"
           >{{ inv.number }}</span
@@ -139,7 +145,31 @@
           }
         </span>
         <app-status-badge [status]="inv.status" />
-      </button>
+        <span class="flex justify-end">
+          @if (canSendRow(inv)) {
+          <button
+            hlmBtn
+            type="button"
+            size="sm"
+            [variant]="confirmingSend() === inv.id ? 'default' : inv.status === 'draft' ? 'outline' : 'ghost'"
+            class="h-8 gap-1.5 px-2 md:px-2.5"
+            [disabled]="!!sendingRow()"
+            [attr.aria-label]="rowSendLabel(inv) + ' ' + inv.number + ' by email'"
+            [title]="confirmingSend() === inv.id ? 'Click again to email it to the client' : inv.status === 'draft' ? 'Email this invoice to the client' : 'Email the client a fresh copy'"
+            (click)="sendRow(inv, $event)"
+            (keydown.enter)="$event.stopPropagation()"
+            (keydown.space)="$event.stopPropagation()"
+          >
+            <ng-icon
+              [name]="sendingRow() === inv.id ? 'lucideLoaderCircle' : 'lucideSend'"
+              size="14"
+              [class.animate-spin]="sendingRow() === inv.id"
+            />
+            <span class="hidden md:inline">{{ rowSendLabel(inv) }}</span>
+          </button>
+          }
+        </span>
+      </div>
       }
     </div>
   </div>
@@ -151,9 +181,26 @@
     description="A Notion-meets-Stripe editor with live totals."
     [canSave]="f().valid() && model().items.length > 0"
     [showDelete]="!isNew"
+    [primaryAction]="!(canSend() && sendIsPrimary())"
     (saved)="save()"
     (deleted)="removeCurrent()"
   >
+    @if (canSend()) {
+    <button
+      sheetActions
+      hlmBtn
+      type="button"
+      size="sm"
+      [variant]="sendIsPrimary() ? 'default' : 'outline'"
+      [class]="sendIsPrimary() ? 'gap-1.5 shadow-[var(--shadow-glow)]' : 'gap-1.5'"
+      [disabled]="sending() || saving() || !f().valid() || (model().items.length + model().expenseLines.length) === 0"
+      (click)="save(true)"
+    >
+      <ng-icon name="lucideSend" size="14" />
+      {{ sending() ? 'Sending…' : model().status === 'draft' ? 'Save & send' :
+      'Save & resend' }}
+    </button>
+    }
     <div class="grid gap-4">
       <div class="grid gap-4 sm:grid-cols-2">
         <app-field label="Invoice number" hint="Leave blank to auto-generate.">
@@ -355,19 +402,6 @@
       </div>
 
       @if (!isNew) {
-      <button
-        hlmBtn
-        type="button"
-        variant="outline"
-        size="sm"
-        class="gap-1.5 self-start"
-        [disabled]="sending()"
-        (click)="sendCurrent()"
-      >
-        <ng-icon name="lucideSend" size="14" />
-        {{ sending() ? 'Sending…' : 'Email invoice to client' }}
-      </button>
-
       <div class="min-w-0 rounded-lg border border-border p-4">
         <p
           class="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground"

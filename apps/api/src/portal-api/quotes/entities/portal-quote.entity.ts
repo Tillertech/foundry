@@ -1,7 +1,12 @@
+import { PortalProjectRefEntity } from '../../billing/portal-billing.entities';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { LineItemEntity } from '../../../common/dto/line-item.dto';
 import { QuoteItemKind, QuoteStatus } from '../../../generated/prisma/enums';
 import { CURRENCY_SCHEMA } from '../../../common/currency';
+import {
+  QuoteAttachmentEntity,
+  QuoteDeliverableEntity,
+} from '../../../quotes/entities/quote.entity';
 
 export class PortalQuoteItemEntity extends LineItemEntity {
   @ApiProperty({ enum: Object.values(QuoteItemKind), enumName: 'QuoteItemKind' })
@@ -9,6 +14,16 @@ export class PortalQuoteItemEntity extends LineItemEntity {
 
   @ApiPropertyOptional({ nullable: true, type: String, description: 'Client-facing scope' })
   details: string | null;
+
+  @ApiProperty({ type: [QuoteDeliverableEntity], description: 'Milestone/option lines: what will be handed over' })
+  deliverables: QuoteDeliverableEntity[];
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Milestone/option lines: what you check before signing off',
+  })
+  acceptanceCriteria: string | null;
 
   @ApiProperty({ description: 'Options only: included in the quote' })
   selected: boolean;
@@ -54,8 +69,28 @@ export class PortalQuoteEntity {
   @ApiPropertyOptional({ nullable: true, type: String, description: 'Reason given with a decline' })
   responseNote: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    format: 'uuid',
+    description: 'Project started from this quote - only when shared with you (null otherwise)',
+  })
+  projectId: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PortalProjectRefEntity,
+    description: 'Project started from this quote - only when shared with you',
+  })
+  project: PortalProjectRefEntity | null;
+
   @ApiProperty({ type: [PortalQuoteItemEntity] })
   items: PortalQuoteItemEntity[];
+
+  @ApiProperty({
+    type: [QuoteAttachmentEntity],
+    description: 'Supporting documents; download via /portal/quotes/:id/attachments/:documentId/download',
+  })
+  attachments: QuoteAttachmentEntity[];
 
   @ApiProperty()
   createdAt: Date;

@@ -103,10 +103,13 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
             <button hlmBtn variant="ghost" size="sm" (click)="open.set(false)">
               Cancel
             </button>
+            <!-- Secondary record actions that sit beside Save (e.g. "Save & send"). -->
+            <ng-content select="[sheetActions]" />
             <button
               hlmBtn
               size="sm"
-              class="shadow-[var(--shadow-glow)]"
+              [variant]="primaryAction() ? 'default' : 'outline'"
+              [class]="primaryAction() ? 'shadow-[var(--shadow-glow)]' : ''"
               [disabled]="!canSave()"
               (click)="saved.emit()"
             >
@@ -127,6 +130,11 @@ export class EntitySheet {
   readonly showDelete = input(false);
   /** sm:max-w-2xl instead of xl, for dense editors (quotes). */
   readonly wide = input(false);
+  /**
+   * Save is the footer's primary button. Turn it off when a projected
+   * `sheetActions` button is the main next step (e.g. sending a draft).
+   */
+  readonly primaryAction = input(true);
 
   readonly saved = output<void>();
   readonly deleted = output<void>();

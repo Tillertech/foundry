@@ -1,3 +1,4 @@
+import { PortalPaymentsQueryDto } from './portal-payments-query.dto';
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -13,7 +14,6 @@ import {
   PortalJwtAuthGuard,
   PortalJwtPayload,
 } from '../../portal-auth/portal-jwt-auth.guard';
-import { PortalBillingQueryDto } from '../billing/portal-billing-query.dto';
 import { PortalPaymentEntity } from './entities/portal-payment.entity';
 import { PortalPaymentsService } from './portal-payments.service';
 
@@ -25,12 +25,12 @@ export class PortalPaymentsController {
   constructor(private readonly service: PortalPaymentsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List payments with the invoice and project each one paid for (cursor paginated; ?projectId= for one project)' })
+  @ApiOperation({ summary: 'List payments with the invoice and project each one paid for (cursor paginated; ?projectId= for one project, ?method= for one payment method)' })
   @ApiPaginatedResponse(PortalPaymentEntity)
   @ApiForbiddenResponse({ description: 'Payments are not enabled for this portal' })
   findAll(
     @CurrentPortalUser() user: PortalJwtPayload,
-    @Query() query: PortalBillingQueryDto,
+    @Query() query: PortalPaymentsQueryDto,
     @Req() req: Request,
   ) {
     return this.service.findAll(

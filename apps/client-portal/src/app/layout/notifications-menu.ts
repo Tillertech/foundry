@@ -251,7 +251,7 @@ export class PortalNotificationsMenu {
     const id = n.resourceId;
     switch (n.kind) {
       case 'quote_sent':
-        return { path: [base, 'quotes'], query: id ? { quote: id } : undefined };
+        return { path: id ? [base, 'quotes', id] : [base, 'quotes'] };
       case 'invoice_sent':
         return { path: [base, 'invoices'], query: id ? { invoice: id } : undefined };
       case 'document_shared':

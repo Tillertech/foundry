@@ -16,7 +16,7 @@ export class InvoicesApiService {
 
   /** `projectId` narrows to one shared project. */
   list(
-    query?: PaginationQuery & { projectId?: string },
+    query?: PaginationQuery & { projectId?: string; status?: string },
   ): Observable<PaginatedResponse<Invoice>> {
     return this.http.get<PaginatedResponse<Invoice>>(this.base, {
       params: toParams(query as Record<string, unknown>),

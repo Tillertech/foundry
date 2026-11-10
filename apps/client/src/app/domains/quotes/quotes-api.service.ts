@@ -44,6 +44,16 @@ export class QuotesApiService {
     return this.http.post<QuoteConversion>(`${this.base}/${id}/convert`, body);
   }
 
+  /**
+   * The quote PDF rendered from a draft (nothing is saved) - the same
+   * document the send mail attaches.
+   */
+  previewPdf(body: CreateQuoteRequest): Observable<Blob> {
+    return this.http.post(`${this.base}/preview-pdf`, body, {
+      responseType: 'blob',
+    });
+  }
+
   /** Marks the quote sent and emails it (with PDF) to the client. */
   send(id: string): Observable<Quote> {
     return this.http.post<Quote>(`${this.base}/${id}/send`, {});

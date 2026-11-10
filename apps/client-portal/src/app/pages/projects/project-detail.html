@@ -24,8 +24,7 @@
           @if (p.quote; as q) {
             @if (permission()?.viewQuotes) {
               <a
-                [routerLink]="[base(), 'quotes']"
-                [queryParams]="{ quote: q.id }"
+                [routerLink]="[base(), 'quotes', q.id]"
                 class="inline-flex items-center gap-1 hover:text-foreground hover:underline"
               >
                 <ng-icon name="lucideFileSignature" size="12" /> From quote

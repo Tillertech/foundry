@@ -137,3 +137,31 @@ export function quoteTotal(q: {
     passThrough: sum((it) => it.kind === 'pass_through'),
   };
 }
+
+/**
+ * The quote lines that become project milestones, in billing order: milestone
+ * lines as quoted, with picked options slotted in before the last milestone
+ * line (the hand-over, which releases retention). No milestone lines: the
+ * picked options alone. Mirrors milestoneSchedule() on the API, so M01, M02...
+ * match the PDF and the project.
+ */
+export function milestoneSchedule<
+  T extends { kind?: string | null; selected?: boolean | null },
+>(items: T[]): T[] {
+  const milestones = items.filter((it) => it.kind === 'milestone');
+  const options = items.filter((it) => it.kind === 'option' && !!it.selected);
+  if (!milestones.length) return options;
+  return [...milestones.slice(0, -1), ...options, milestones[milestones.length - 1]];
+}
+
+/** Human file size: 820 B, 1.2 MB, 34 KB. */
+export function fileSize(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let n = Math.max(0, bytes);
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${n < 10 && i ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
+}

@@ -164,7 +164,7 @@ export class NotificationsMenu {
       case 'quote_sent':
       case 'quote_accepted':
       case 'quote_declined':
-        void this.router.navigate(['/quotes'], { queryParams: { quote: id } });
+        void this.router.navigate(['/quotes', id]);
         break;
       case 'invoice_sent':
       case 'invoice_paid':

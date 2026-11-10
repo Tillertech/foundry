@@ -1,3 +1,4 @@
+import { PortalInvoicesQueryDto } from './portal-invoices-query.dto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   PaginationRes,
@@ -11,7 +12,6 @@ import type {
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationService } from '../../notification/notification.service';
 import { PortalContextService } from '../portal-context.service';
-import { PortalBillingQueryDto } from '../billing/portal-billing-query.dto';
 import {
   PortalBillingService,
   PortalProjectRef,
@@ -83,7 +83,7 @@ export class PortalInvoicesService {
   async findAll(
     clientPortalId: string,
     portalUserId: string,
-    query: PortalBillingQueryDto,
+    query: PortalInvoicesQueryDto,
     baseUrl: string,
   ): Promise<PaginationRes<PortalInvoiceWithItems>> {
     const { clientId } = await this.context.require(
@@ -99,7 +99,8 @@ export class PortalInvoicesService {
       {
         where: {
           clientId,
-          status: { not: 'draft' },
+          // A status filter can never ask for drafts (the DTO refuses it).
+          status: query.status ?? { not: 'draft' },
           ...(query.projectId ? { projectId: query.projectId } : {}),
         },
         include: ITEMS_INCLUDE,

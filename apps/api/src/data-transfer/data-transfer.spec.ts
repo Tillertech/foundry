@@ -40,6 +40,7 @@ const RELATIONS: Record<string, Record<string, [model: string, fk: string]>> = {
   ClientPortalUserProject: { clientPortalUser: ['ClientPortalUser', 'clientPortalUserId'] },
   PortalNotification: { clientPortalUser: ['ClientPortalUser', 'clientPortalUserId'] },
   MilestoneReview: { milestone: ['Milestone', 'milestoneId'], clientPortalUser: ['ClientPortalUser', 'clientPortalUserId'] },
+  QuoteAttachment: { quote: ['Quote', 'quoteId'] },
 };
 
 function fakeDb(tables: Record<string, Row[]>, migrations = ['20260101000000_init']) {

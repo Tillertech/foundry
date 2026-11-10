@@ -1,3 +1,4 @@
+import { PortalPaymentsQueryDto } from './portal-payments-query.dto';
 import { Injectable } from '@nestjs/common';
 import {
   PaginationRes,
@@ -5,7 +6,6 @@ import {
 } from '../../common/pagination/pagination.service';
 import type { PaymentModel as Payment } from '../../generated/prisma/models';
 import { PrismaService } from '../../prisma/prisma.service';
-import { PortalBillingQueryDto } from '../billing/portal-billing-query.dto';
 import {
   PortalBillingService,
   PortalProjectRef,
@@ -37,7 +37,7 @@ export class PortalPaymentsService {
   async findAll(
     clientPortalId: string,
     portalUserId: string,
-    query: PortalBillingQueryDto,
+    query: PortalPaymentsQueryDto,
     baseUrl: string,
   ): Promise<PaginationRes<PortalPayment>> {
     const { clientId } = await this.context.require(
@@ -54,6 +54,7 @@ export class PortalPaymentsService {
         where: {
           clientId,
           ...(query.projectId ? { invoice: { projectId: query.projectId } } : {}),
+          ...(query.method ? { method: query.method } : {}),
         },
         include: {
           // Drafts never reach the client, so neither does their number.

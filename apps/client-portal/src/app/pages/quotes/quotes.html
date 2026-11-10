@@ -6,21 +6,34 @@
     </p>
   </div>
 
+  <app-list-filters
+    [options]="statusOptions"
+    [(value)]="status"
+    [(projectId)]="projectId"
+    (changed)="load()"
+  />
+
   @if (loading()) {
     <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
       Loading…
     </div>
   } @else if (quotes().length === 0) {
-    <app-empty-state
-      title="No quotes yet"
-      description="Quotes sent to you will appear here."
-    />
+    @if (filtering()) {
+      <app-empty-state
+        title="No quotes match these filters"
+        description="Try another status or project, or clear the filters."
+      />
+    } @else {
+      <app-empty-state
+        title="No quotes yet"
+        description="Quotes sent to you will appear here."
+      />
+    }
   } @else {
     <div class="grid gap-3 md:grid-cols-2">
       @for (q of quotes(); track q.id) {
-        <button
-          type="button"
-          (click)="open(q)"
+        <a
+          [routerLink]="[quotesLink(), q.id]"
           class="surface-card hover-lift flex flex-col p-5 text-left transition"
           [class.ring-2]="fresh().has(q.id)"
           [class.ring-primary/40]="fresh().has(q.id)"
@@ -41,6 +54,12 @@
               <app-status-badge [status]="q.status" />
             }
           </div>
+          @if (q.project; as project) {
+            <p class="mt-2 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <ng-icon name="lucideFolderKanban" size="12" />
+              {{ project.name }}
+            </p>
+          }
           <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
             <div>
               <p class="text-muted-foreground">Amount</p>
@@ -57,7 +76,7 @@
               <p class="mt-0.5 font-medium">{{ isoDay(q.validUntil) }}</p>
             </div>
           </div>
-        </button>
+        </a>
       }
     </div>
   }

@@ -1,8 +1,11 @@
 import {
   countsTowardsTotal,
+  hasScope,
+  milestonePlan,
   quoteAppendix,
   quoteTotals,
 } from '../quotes/quote-totals';
+import { QuoteItemKind } from '../generated/prisma/enums';
 import {
   Inject,
   Injectable,
@@ -76,6 +79,31 @@ interface BillerWorkspace {
   country: string | null;
   postCode: string | null;
   taxCode: string | null;
+}
+
+/**
+ * What the quote PDF is built from: a stored quote, or an unsaved draft the
+ * owner is previewing (same shape, nothing persisted).
+ */
+export interface QuotePdfSource {
+  number: string;
+  issueDate: Date | string;
+  validUntil: Date | string;
+  currency: string;
+  taxRate: unknown;
+  retentionPercent: unknown;
+  notes: string | null;
+  items: {
+    kind: QuoteItemKind | null;
+    selected: boolean | null;
+    description: string;
+    quantity: unknown;
+    rate: unknown;
+    details?: string | null;
+    deliverables?: unknown;
+    acceptanceCriteria?: string | null;
+  }[];
+  attachments?: { document: { name: string } }[];
 }
 
 @Injectable()
@@ -309,23 +337,7 @@ export class NotificationService {
     });
 
     const context = this.quoteContext(quote, client.name, workspace?.name);
-    const priced = quote.items.filter(countsTowardsTotal);
-    const pdf = await this.pdfService.quotePdf({
-      number: quote.number,
-      biller: this.billerParty(workspace),
-      billedTo: this.clientParty(client),
-      issueDate: context.issueDate,
-      validUntil: context.validUntil,
-      currency: quote.currency,
-      items: priced.map((item) => ({
-        description: item.description,
-        quantity: Number(item.quantity),
-        rate: Number(item.rate),
-      })),
-      taxRate: Number(quote.taxRate),
-      notes: context.notes || undefined,
-      brand: await this.pdfBrand(workspace, 'quote'),
-    });
+    const pdf = await this.quotePdfBuffer(quote, client, workspace);
 
     const delivered = await this.mail.sendQuote(client.email, context, pdf);
     if (workspace) {
@@ -343,6 +355,58 @@ export class NotificationService {
         });
       }
     }
+  }
+
+  /**
+   * The quote PDF exactly as the client receives it: the priced proposal,
+   * then the milestone scope on its own page(s). Used by the send mail and
+   * by the owner's preview (which passes an unsaved draft) - so what the
+   * owner previews is what goes out. Ownership checks are the caller's job.
+   */
+  async quotePdfBuffer(
+    quote: QuotePdfSource,
+    client: Client,
+    workspace?: BillerWorkspace | null,
+  ): Promise<Buffer> {
+    const biller =
+      workspace !== undefined
+        ? workspace
+        : await this.billerWorkspace(client.workspaceId);
+    const line = (it: QuotePdfSource['items'][number]) => ({
+      description: it.description,
+      quantity: Number(it.quantity),
+      rate: Number(it.rate),
+    });
+    const ofKind = (kind: QuoteItemKind) =>
+      quote.items.filter((it) => (it.kind ?? QuoteItemKind.standard) === kind);
+    const day = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
+    return this.pdfService.quotePdf({
+      number: quote.number,
+      biller: this.billerParty(biller),
+      billedTo: this.clientParty(client),
+      issueDate: day(quote.issueDate),
+      validUntil: day(quote.validUntil),
+      currency: quote.currency,
+      milestones: milestonePlan(quote.items),
+      lines: ofKind(QuoteItemKind.standard).map(line),
+      recurring: ofKind(QuoteItemKind.recurring).map(line),
+      passThrough: ofKind(QuoteItemKind.pass_through).map(line),
+      optional: ofKind(QuoteItemKind.option)
+        .filter((it) => !it.selected)
+        .map(line),
+      taxRate: Number(quote.taxRate) || 0,
+      retentionPercent: Number(quote.retentionPercent) || 0,
+      notes: quote.notes?.trim() || undefined,
+      attachments: (quote.attachments ?? []).map((a) => a.document.name),
+      brand: await this.pdfBrand(biller, 'quote'),
+    });
+  }
+
+  private billerWorkspace(workspaceId: string): Promise<BillerWorkspace | null> {
+    return this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: NotificationService.BILLER_SELECT,
+    });
   }
 
   /** Emails the stored file to the client and records the share for the owner. */
@@ -946,6 +1010,7 @@ export class NotificationService {
       quote.items,
       (n) => `${quote.currency} ${money(n)}`,
     );
+    const plan = milestonePlan(quote.items);
     const day = (d: Date) => new Date(d).toISOString().slice(0, 10);
 
     return {
@@ -955,17 +1020,34 @@ export class NotificationService {
       issueDate: day(quote.issueDate),
       validUntil: day(quote.validUntil),
       currency: quote.currency,
-      items: quote.items.filter(countsTowardsTotal).map((item) => ({
-        description: item.description,
-        quantity: String(Number(item.quantity)),
-        rate: money(Number(item.rate)),
-        amount: money(Number(item.quantity) * Number(item.rate)),
-      })),
+      // Same order and numbering as the PDF: milestones as scheduled, then other lines.
+      items: [
+        ...plan.map((m) => ({
+          description: `${m.code}  ${m.description}`,
+          quantity: '1',
+          rate: money(m.amount),
+          amount: money(m.amount),
+        })),
+        ...quote.items
+          .filter(
+            (it) =>
+              countsTowardsTotal(it) &&
+              (it.kind ?? QuoteItemKind.standard) === QuoteItemKind.standard,
+          )
+          .map((item) => ({
+            description: item.description,
+            quantity: String(Number(item.quantity)),
+            rate: money(Number(item.rate)),
+            amount: money(Number(item.quantity) * Number(item.rate)),
+          })),
+      ],
       subtotal: money(subtotal),
       taxRate: String(taxRate),
       tax: money(tax),
       total: money(total),
       notes: [quote.notes ?? '', appendix].filter(Boolean).join('\n\n'),
+      // The scope itself is only in the PDF; the mail points to it.
+      scopeInPdf: plan.some(hasScope),
     };
   }
 }

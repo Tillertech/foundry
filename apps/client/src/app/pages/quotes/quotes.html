@@ -3,16 +3,16 @@
     title="Quotes"
     [description]="filtered().length + ' proposals'"
   >
-    <button
+    <a
       actions
       hlmBtn
       size="sm"
       class="h-9 gap-1.5 shadow-[var(--shadow-glow)]"
-      (click)="openNew()"
+      routerLink="/quotes/new"
     >
       <ng-icon name="lucidePlus" size="16" />
       New quote
-    </button>
+    </a>
   </app-page-header>
 
   <!-- Toolbar -->
@@ -65,10 +65,10 @@
       <span class="font-mono text-lg">∅</span>
     </div>
     <p class="mt-4 text-sm font-semibold">No quotes yet</p>
-    <button hlmBtn size="sm" class="mt-4 gap-1.5" (click)="openNew()">
+    <a hlmBtn size="sm" class="mt-4 gap-1.5" routerLink="/quotes/new">
       <ng-icon name="lucidePlus" size="16" />
       New quote
-    </button>
+    </a>
   </div>
   } @else {
   <div class="surface-card overflow-hidden">
@@ -83,9 +83,8 @@
     </div>
     <div class="divide-y divide-border">
       @for (q of filtered(); track q.id) {
-      <button
-        type="button"
-        (click)="openEdit(q)"
+      <a
+        [routerLink]="['/quotes', q.id]"
         class="grid w-full grid-cols-[90px_minmax(0,2fr)_100px_90px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40 sm:grid-cols-[100px_minmax(0,2fr)_120px_120px_100px]"
       >
         <span class="font-mono text-xs text-muted-foreground"
@@ -125,317 +124,11 @@
           }
         </span>
         <app-status-badge [status]="q.status" />
-      </button>
+      </a>
       }
     </div>
   </div>
   } }
 
-  <app-entity-sheet
-    [(open)]="sheetOpen"
-    [title]="isNew ? 'New quote' : 'Edit ' + model().number"
-    [canSave]="f().valid() && model().items.length > 0"
-    [showDelete]="!isNew"
-    [wide]="true"
-    (saved)="save()"
-    (deleted)="removeCurrent()"
-  >
-    <div class="grid gap-4">
-      @if (model().projectId; as projectId) {
-      <a
-        [routerLink]="['/projects', projectId]"
-        class="group flex items-center gap-3 rounded-lg border border-success/25 bg-success/8 px-3.5 py-3 transition-colors hover:bg-success/12"
-      >
-        <span
-          class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-success/15 text-success"
-        >
-          <ng-icon name="lucideFolderKanban" size="16" />
-        </span>
-        <span class="min-w-0 flex-1">
-          <span class="block text-sm font-medium">
-            {{ projectMap()[projectId]?.name || 'Project created' }}
-          </span>
-          <span class="block text-xs text-muted-foreground">
-            Accepted and running as a project. Milestones are invoiced as the
-            client signs them off.
-          </span>
-        </span>
-        <ng-icon
-          name="lucideArrowUpRight"
-          size="16"
-          class="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-        />
-      </a>
-      } @else if (readyToStart(); as q) {
-      <div
-        class="flex flex-col gap-3 rounded-lg border border-success/25 bg-success/8 px-3.5 py-3 sm:flex-row sm:items-center"
-      >
-        <span
-          class="hidden h-8 w-8 shrink-0 place-items-center rounded-md bg-success/15 text-success sm:grid"
-        >
-          <ng-icon name="lucideBadgeCheck" size="16" />
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-medium">
-            @if (q.respondedAt) { Accepted by {{ responder(q) }} on {{
-            day(q.respondedAt) }} } @else { Accepted }
-          </p>
-          <p class="text-xs text-muted-foreground">
-            @if (hasMilestones()) { Start the project to set up its milestones
-            and billing schedule. } @else { Start the project from this quote. }
-          </p>
-        </div>
-        <button
-          hlmBtn
-          type="button"
-          size="sm"
-          class="shrink-0 gap-1.5"
-          (click)="startProject()"
-        >
-          <ng-icon name="lucideFolderPlus" size="14" />
-          Start project
-        </button>
-      </div>
-      } @else if (declinedByClient(); as q) {
-      <div
-        class="flex items-start gap-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3.5 py-3"
-      >
-        <ng-icon
-          name="lucideCircleX"
-          size="16"
-          class="mt-0.5 shrink-0 text-destructive"
-        />
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-medium">
-            Declined by {{ responder(q) }} on {{ day(q.respondedAt!) }}
-          </p>
-          @if (q.responseNote) {
-          <p
-            class="mt-0.5 whitespace-pre-line break-words text-xs text-muted-foreground"
-          >
-            "{{ q.responseNote }}"
-          </p>
-          }
-          <p class="mt-1 text-xs text-muted-foreground">
-            Revise it and send it again to ask for a new answer.
-          </p>
-        </div>
-      </div>
-      } @else if (canConvert()) {
-      <div
-        class="flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 px-3.5 py-3 sm:flex-row sm:items-center"
-      >
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-medium">Client said yes?</p>
-          <p class="text-xs text-muted-foreground">
-            @if (model().status === 'sent') { They can accept it from their
-            portal, or record their yes here. } @else if (hasMilestones()) {
-            Create the project with its milestones and billing schedule from
-            this quote. } @else { Create the project from this quote. Add
-            milestone lines first to get a billing schedule. }
-          </p>
-        </div>
-        <button
-          hlmBtn
-          type="button"
-          size="sm"
-          class="shrink-0 gap-1.5"
-          [disabled]="saving() || !f().valid() || model().items.length === 0"
-          (click)="acceptAndStart()"
-        >
-          <ng-icon name="lucideFolderPlus" size="14" />
-          Accept and start project
-        </button>
-      </div>
-      }
-
-      <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Quote number" hint="Leave blank to auto-generate.">
-          <input
-            hlmInput
-            class="w-full font-mono"
-            [formField]="f.number"
-            placeholder="Q-…"
-          />
-        </app-field>
-        <app-field label="Status">
-          <hlm-select
-            class="w-full"
-            [formField]="f.status"
-            [itemToString]="statusLabel"
-          >
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              <hlm-select-item value="draft">Draft</hlm-select-item>
-              <hlm-select-item value="sent">Sent</hlm-select-item>
-              <hlm-select-item value="accepted">Accepted</hlm-select-item>
-              <hlm-select-item value="declined">Declined</hlm-select-item>
-              <hlm-select-item value="expired">Expired</hlm-select-item>
-            </hlm-select-content>
-          </hlm-select>
-        </app-field>
-      </div>
-      <app-field label="Client" [error]="fieldError(f.clientId())">
-        <app-option-autocomplete
-          placeholder="Select a client"
-          emptyText="No client found"
-          [options]="clientOptions()"
-          [value]="model().clientId"
-          (valueChange)="onClientChange($event)"
-        />
-      </app-field>
-      <div class="grid gap-4 sm:grid-cols-3">
-        <app-field label="Issue date">
-          <app-date-field
-            [value]="f.issueDate().value()"
-            (valueChange)="f.issueDate().value.set($event ?? '')"
-          />
-        </app-field>
-        <app-field label="Valid until">
-          <app-date-field
-            [value]="f.validUntil().value()"
-            (valueChange)="f.validUntil().value.set($event ?? '')"
-          />
-        </app-field>
-        <app-field label="Currency">
-          @if (lockNote()) {
-          <input
-            hlmInput
-            class="w-full font-mono"
-            [value]="model().currency"
-            readonly
-          />
-          } @else {
-          <app-currency-autocomplete [formField]="f.currency" />
-          }
-        </app-field>
-      </div>
-
-      <div>
-        <div
-          class="mb-1.5 hidden grid-cols-[34px_1fr_60px_96px_104px_28px] gap-1.5 px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:grid"
-        >
-          <span></span>
-          <span>Scope</span>
-          <span class="text-right">Qty</span>
-          <span class="text-right">Rate</span>
-          <span class="pr-1 text-right">Amount</span>
-          <span></span>
-        </div>
-        <app-quote-lines-editor
-          [items]="model().items"
-          [currency]="model().currency"
-          [locked]="!!lockNote()"
-          [lockNote]="lockNote() ?? ''"
-          (itemsChange)="onItemsChange($event)"
-        />
-      </div>
-
-      <div class="grid gap-4 sm:grid-cols-2">
-        <app-field label="Tax / VAT rate (%)">
-          <input
-            hlmInput
-            type="number"
-            step="0.01"
-            class="w-full"
-            [formField]="f.taxRate"
-          />
-        </app-field>
-        <app-field
-          label="Retention (%)"
-          hint="Held from each milestone invoice, released with the last."
-          [error]="fieldError(f.retentionPercent())"
-        >
-          <input
-            hlmInput
-            type="number"
-            step="0.5"
-            class="w-full"
-            [formField]="f.retentionPercent"
-          />
-        </app-field>
-      </div>
-
-      <div class="rounded-lg border border-border bg-muted/30 p-4">
-        <div class="flex justify-between text-sm">
-          <span class="text-muted-foreground">Subtotal</span>
-          <span class="tabular-nums"
-            >{{ money(totals().subtotal, model().currency) }}</span
-          >
-        </div>
-        <div class="mt-1 flex justify-between text-sm">
-          <span class="text-muted-foreground"
-            >Tax ({{ model().taxRate }}%)</span
-          >
-          <span class="tabular-nums"
-            >{{ money(totals().tax, model().currency) }}</span
-          >
-        </div>
-        <div
-          class="mt-3 flex items-center justify-between border-t border-border pt-3"
-        >
-          <span class="text-sm font-semibold">Total</span>
-          <span class="text-lg font-bold tabular-nums"
-            >{{ money(totals().total, model().currency) }}</span
-          >
-        </div>
-        @if (totals().recurring || totals().passThrough || (retentionHeld() >
-        0)) {
-        <div
-          class="mt-3 space-y-1 border-t border-dashed border-border pt-3 text-xs text-muted-foreground"
-        >
-          @if (totals().recurring) {
-          <div class="flex justify-between">
-            <span>Recurring, after launch</span>
-            <span class="tabular-nums text-foreground"
-              >{{ money(totals().recurring, model().currency) }} / month</span
-            >
-          </div>
-          } @if (totals().passThrough) {
-          <div class="flex justify-between">
-            <span>Pass-through, billed at cost (est.)</span>
-            <span class="tabular-nums text-foreground"
-              >{{ money(totals().passThrough, model().currency) }}</span
-            >
-          </div>
-          } @if (retentionHeld() > 0) {
-          <div class="flex justify-between">
-            <span>Retention held until the final milestone</span>
-            <span class="tabular-nums text-foreground"
-              >{{ money(retentionHeld(), model().currency) }}</span
-            >
-          </div>
-          }
-        </div>
-        }
-      </div>
-
-      @if (!isNew) {
-      <button
-        hlmBtn
-        type="button"
-        variant="outline"
-        size="sm"
-        class="gap-1.5 self-start"
-        [disabled]="sending()"
-        (click)="sendCurrent()"
-      >
-        <ng-icon name="lucideSend" size="14" />
-        {{ sending() ? 'Sending…' : 'Email quote to client' }}
-      </button>
-      }
-
-      <app-field label="Notes">
-        <textarea
-          hlmTextarea
-          rows="3"
-          class="w-full"
-          [formField]="f.notes"
-        ></textarea>
-      </app-field>
-    </div>
-  </app-entity-sheet>
 
 </div>

@@ -119,6 +119,11 @@ export const ACCOUNT_TABLES: Record<Prisma.ModelName, TableRule> = {
     order: 20,
     owned: (id) => ({ milestone: { project: project(id) } }),
   },
+  // After Quote and Document, the two rows it joins.
+  QuoteAttachment: {
+    order: 21,
+    owned: (id) => ({ quote: { client: client(id) } }),
+  },
 };
 
 export const isExported = (rule: TableRule): rule is ExportedTable =>

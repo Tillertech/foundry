@@ -1,0 +1,458 @@
+@if (loading()) {
+<div class="mx-auto max-w-[1200px] space-y-4 px-4 py-8 md:px-8">
+  <div class="h-4 w-32 animate-pulse rounded bg-muted"></div>
+  <div class="h-9 w-56 animate-pulse rounded bg-muted"></div>
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div class="h-80 animate-pulse rounded-xl bg-muted"></div>
+    <div class="h-56 animate-pulse rounded-xl bg-muted"></div>
+  </div>
+</div>
+} @else if (notFound() || !quote()) {
+<div class="mx-auto max-w-xl px-6 py-20 text-center">
+  <app-empty-state
+    title="Quote not found"
+    description="It may have been withdrawn, or it isn't shared with you."
+  />
+  <a hlmBtn variant="outline" size="sm" class="mt-6" [routerLink]="quotesLink()"
+    >Back to quotes</a
+  >
+</div>
+} @else {
+@let q = quote()!;
+<div class="mx-auto max-w-[1200px] px-4 pb-24 pt-8 md:px-8 lg:pb-12">
+  <nav aria-label="Breadcrumb" class="mb-4">
+    <ol class="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <li>
+        <a [routerLink]="quotesLink()" class="hover:text-foreground hover:underline">Quotes</a>
+      </li>
+      <li aria-hidden="true"><ng-icon name="lucideChevronRight" size="12" /></li>
+      <li class="font-mono font-medium text-foreground" aria-current="page">{{ q.number }}</li>
+    </ol>
+  </nav>
+
+  <!-- The deal at a glance -->
+  <header class="mb-8 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-center gap-3">
+        <h1 class="font-mono text-2xl font-semibold tracking-tight sm:text-[28px]">
+          {{ q.number }}
+        </h1>
+        @if (canAnswer()) {
+        <span class="rounded-full bg-primary/12 px-2.5 py-0.5 text-xs font-medium text-primary">
+          Awaiting your answer
+        </span>
+        } @else {
+        <app-status-badge [status]="q.status" />
+        }
+      </div>
+      <p class="mt-2 text-sm text-muted-foreground">
+        Issued {{ isoDay(q.issueDate) }} · Valid until {{ isoDay(q.validUntil) }}
+        @if (canAnswer() && daysLeft() !== null) {
+        <span
+          class="ml-1 font-medium"
+          [class.text-warning]="daysLeft()! <= 7"
+          >({{ daysLeft() === 0 ? 'last day' : daysLeft() + (daysLeft() === 1 ? ' day' : ' days') + ' left' }})</span
+        >
+        }
+      </p>
+    </div>
+    <button
+      hlmBtn
+      variant="outline"
+      size="sm"
+      type="button"
+      class="gap-1.5"
+      [disabled]="downloading() === 'pdf'"
+      (click)="downloadPdf()"
+    >
+      <ng-icon name="lucideDownload" size="14" />
+      {{ downloading() === 'pdf' ? 'Preparing…' : 'Download PDF' }}
+    </button>
+  </header>
+
+  <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
+    <div class="min-w-0 space-y-10">
+      <!-- Summary -->
+      <section class="surface-card p-5 sm:p-6">
+        <p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Total{{ num(q.taxRate) > 0 ? ' incl. ' + num(q.taxRate) + '% VAT' : '' }}
+        </p>
+        <p class="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
+          {{ money(totals().total) }}
+        </p>
+        @if (totals().recurring) {
+        <p class="mt-1 text-sm text-muted-foreground">
+          + {{ money(totals().recurring) }} / month after launch
+        </p>
+        }
+        @if (dealLine()) {
+        <p class="mt-4 border-t border-border pt-4 text-sm text-muted-foreground">
+          {{ dealLine() }}
+        </p>
+        }
+      </section>
+
+      @if (expired() && !answered()) {
+      <div class="flex items-start gap-2.5 rounded-lg bg-warning/10 px-4 py-3 text-sm text-warning">
+        <ng-icon name="lucideClock" size="16" class="mt-0.5 shrink-0" />
+        This quote expired on {{ isoDay(q.validUntil) }}. Ask the team for an updated one.
+      </div>
+      }
+
+      <!-- Milestone plan -->
+      @if (plan().length) {
+      <section>
+        <div class="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold">Milestones</h2>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              What you'll receive at each stage, and what signing it off means.
+            </p>
+          </div>
+          @if (plan().length > 1) {
+          <button
+            type="button"
+            class="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground"
+            (click)="toggleAll()"
+          >
+            {{ allOpen() ? 'Collapse all' : 'Expand all' }}
+          </button>
+          }
+        </div>
+        <ol class="surface-card divide-y divide-border overflow-hidden">
+          @for (row of plan(); track row.item.id) {
+          <li>
+            <button
+              type="button"
+              class="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/40 sm:px-5"
+              [attr.aria-expanded]="isOpen(row.item.id)"
+              [disabled]="!hasScope(row.item)"
+              (click)="toggle(row.item.id)"
+            >
+              <span class="w-9 shrink-0 pt-0.5 font-mono text-xs font-semibold text-primary">
+                {{ row.code }}
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-medium">
+                  {{ row.item.description }}
+                  @if (row.option) {
+                  <span class="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 align-middle text-[10px] font-medium text-primary">Add-on</span>
+                  }
+                </span>
+                <span class="mt-1 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                  @if (scopeChip(row.item)) { <span>{{ scopeChip(row.item) }}</span> }
+                  @if (row.final) {
+                  <span>Final milestone{{ retention() > 0 ? ', releases the ' + retention() + '% retention' : '' }}</span>
+                  }
+                </span>
+              </span>
+              <span class="shrink-0 pt-px text-sm font-semibold tabular-nums">{{ money(row.amount) }}</span>
+              @if (hasScope(row.item)) {
+              <ng-icon
+                name="lucideChevronDown"
+                size="16"
+                class="mt-0.5 shrink-0 text-muted-foreground transition-transform"
+                [class.rotate-180]="isOpen(row.item.id)"
+              />
+              } @else {
+              <span class="w-4 shrink-0"></span>
+              }
+            </button>
+            @if (isOpen(row.item.id)) {
+            <div class="space-y-5 border-t border-dashed border-border bg-muted/20 px-4 py-5 sm:px-5">
+              @if (row.item.details) {
+              <p class="max-w-3xl whitespace-pre-line text-sm leading-relaxed">{{ row.item.details }}</p>
+              }
+              @if (row.item.deliverables?.length) {
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">You'll receive</p>
+                <ul class="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2 xl:grid-cols-3">
+                  @for (d of row.item.deliverables; track d.id) {
+                  <li class="flex items-start gap-2 text-sm">
+                    <ng-icon name="lucideCheck" size="14" class="mt-0.5 shrink-0 text-success" />
+                    <span>{{ d.label }}</span>
+                  </li>
+                  }
+                </ul>
+              </div>
+              }
+              @if (row.item.acceptanceCriteria) {
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Signed off when</p>
+                <p class="mt-2 whitespace-pre-line rounded-md border-l-2 border-primary bg-background px-3 py-2.5 text-sm leading-relaxed">
+                  {{ row.item.acceptanceCriteria }}
+                </p>
+              </div>
+              }
+              <div class="flex items-baseline justify-between gap-3 border-t border-border pt-3">
+                <span class="text-xs text-muted-foreground">
+                  {{ row.code }} is invoiced once you sign it off.
+                </span>
+                <span class="shrink-0 text-sm font-semibold tabular-nums">{{ money(row.amount) }}</span>
+              </div>
+            </div>
+            }
+          </li>
+          }
+        </ol>
+      </section>
+      }
+
+      <!-- Options -->
+      @if (options().length) {
+      <section>
+        <h2 class="text-base font-semibold">Options</h2>
+        <p class="mt-0.5 text-xs text-muted-foreground">
+          @if (canAnswer()) { Choose the add-ons you want. The total updates as you go. }
+          @else { Add-ons offered with this quote. }
+        </p>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          @for (opt of options(); track opt.id) {
+          <div
+            class="surface-card flex items-start gap-3 p-4 transition-colors"
+            [class.ring-2]="isPicked(opt)"
+            [class.ring-primary/50]="isPicked(opt)"
+          >
+            @if (canAnswer() && mode() === 'view') {
+            <hlm-checkbox
+              class="mt-0.5"
+              [checked]="isPicked(opt)"
+              (checkedChange)="toggleOption(opt.id, $event)"
+              [attr.aria-label]="'Include ' + opt.description"
+            />
+            }
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline justify-between gap-2">
+                <span class="text-sm font-medium">{{ opt.description }}</span>
+                <span class="shrink-0 text-sm tabular-nums">{{ money(num(opt.quantity) * num(opt.rate)) }}</span>
+              </span>
+              @if (opt.details) {
+              <span class="mt-1 block text-xs text-muted-foreground">{{ opt.details }}</span>
+              }
+              <span class="mt-2 block text-[11px] text-muted-foreground">
+                @if (isPicked(opt)) {
+                <span class="font-medium text-success">Included</span>
+                @if (planCode(opt); as code) { · delivered as {{ code }} }
+                } @else {
+                Not included
+                }
+                @if (scopeChip(opt)) { · {{ scopeChip(opt) }} }
+              </span>
+            </span>
+          </div>
+          }
+        </div>
+      </section>
+      }
+
+      <!-- Other lines -->
+      @if (standard().length) {
+      <section>
+        <h2 class="text-base font-semibold">{{ plan().length ? 'Also included' : 'Services' }}</h2>
+        <div class="surface-card mt-3 divide-y divide-border">
+          @for (it of standard(); track it.id) {
+          <div class="flex items-baseline gap-3 px-4 py-3 text-sm sm:px-5">
+            <span class="min-w-0 flex-1">{{ it.description }}</span>
+            <span class="hidden text-xs tabular-nums text-muted-foreground sm:inline">
+              {{ num(it.quantity) }} × {{ money(it.rate) }}
+            </span>
+            <span class="w-28 text-right font-medium tabular-nums">
+              {{ money(num(it.quantity) * num(it.rate)) }}
+            </span>
+          </div>
+          }
+        </div>
+      </section>
+      }
+
+      @if (separately().length) {
+      <section>
+        <h2 class="text-base font-semibold">Quoted separately</h2>
+        <p class="mt-0.5 text-xs text-muted-foreground">Not part of the total above.</p>
+        <div class="surface-card mt-3 divide-y divide-border">
+          @for (s of separately(); track s.item.id) {
+          <div class="flex items-baseline gap-3 px-4 py-3 sm:px-5">
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm">{{ s.item.description }}</span>
+              <span class="block text-xs text-muted-foreground">{{ s.note }}</span>
+            </span>
+            <span class="text-right text-sm font-medium tabular-nums">
+              {{ money(num(s.item.quantity) * num(s.item.rate)) }}{{ s.suffix }}
+            </span>
+          </div>
+          }
+        </div>
+      </section>
+      }
+
+      @if (q.notes) {
+      <section>
+        <h2 class="text-base font-semibold">Notes</h2>
+        <p class="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{{ q.notes }}</p>
+      </section>
+      }
+
+      @if (q.attachments?.length) {
+      <section>
+        <h2 class="text-base font-semibold">Supporting documents</h2>
+        <ul class="surface-card mt-3 divide-y divide-border">
+          @for (a of q.attachments; track a.document.id) {
+          <li class="flex items-center gap-3 px-4 py-3 sm:px-5">
+            <ng-icon name="lucideFileText" size="16" class="shrink-0 text-muted-foreground" />
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm">{{ a.document.name }}</span>
+              <span class="block text-[11px] text-muted-foreground">{{ size(a.document.size) }}</span>
+            </span>
+            <button
+              hlmBtn
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="h-8 shrink-0 gap-1.5"
+              [disabled]="downloading() === a.document.id"
+              (click)="download(a)"
+              [attr.aria-label]="'Download ' + a.document.name"
+            >
+              <ng-icon name="lucideDownload" size="14" />
+              <span class="hidden sm:inline">Download</span>
+            </button>
+          </li>
+          }
+        </ul>
+      </section>
+      }
+    </div>
+
+    <!-- Decision panel -->
+    <aside class="lg:sticky lg:top-20 lg:self-start">
+      <div #decision class="surface-card p-5">
+        @if (answered(); as a) {
+        <div class="flex items-start gap-3">
+          <span
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+            [class]="a.accepted ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'"
+          >
+            <ng-icon [name]="a.accepted ? 'lucideCircleCheck' : 'lucideCircleX'" size="18" />
+          </span>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold">{{ a.accepted ? 'Accepted' : 'Declined' }}</p>
+            <p class="mt-0.5 text-xs text-muted-foreground">By {{ a.who }} on {{ a.date }}</p>
+            @if (a.note) {
+            <p class="mt-2 whitespace-pre-line text-xs italic text-muted-foreground">"{{ a.note }}"</p>
+            }
+            <p class="mt-3 text-xs leading-relaxed text-muted-foreground">
+              @if (a.accepted) {
+              The team has been told and will set up the project. You'll see it under Projects once it starts.
+              } @else {
+              The team has been told. They may follow up with a revised quote.
+              }
+            </p>
+          </div>
+        </div>
+        } @else {
+        <p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Your total</p>
+        <p class="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{{ money(totals().total) }}</p>
+        <dl class="mt-3 grid grid-cols-[1fr_auto] gap-y-1 text-xs text-muted-foreground">
+          <dt>Subtotal</dt>
+          <dd class="text-right tabular-nums">{{ money(totals().subtotal) }}</dd>
+          @if (num(q.taxRate) > 0) {
+          <dt>VAT ({{ num(q.taxRate) }}%)</dt>
+          <dd class="text-right tabular-nums">{{ money(totals().tax) }}</dd>
+          }
+          @if (totals().recurring) {
+          <dt>Then monthly</dt>
+          <dd class="text-right tabular-nums">{{ money(totals().recurring) }}</dd>
+          }
+        </dl>
+        @if (options().length) {
+        <p class="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+          @if (pickedNames().length) { Includes {{ pickedNames().join(', ') }} }
+          @else { No options included }
+        </p>
+        }
+
+        @if (canAnswer()) {
+          @switch (mode()) {
+            @case ('accept') {
+            <div class="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-3.5">
+              <p class="text-sm font-semibold">Accept {{ q.number }}?</p>
+              <p class="mt-1 text-xs leading-5 text-muted-foreground">
+                You're agreeing to {{ money(totals().total) }}{{ optionsPhrase() }}, on the terms in this quote.
+                The team is notified and will start the project.
+              </p>
+              @if (error()) { <p class="mt-2 break-words text-xs text-destructive">{{ error() }}</p> }
+              <div class="mt-3 flex flex-wrap justify-end gap-2">
+                <button hlmBtn variant="ghost" size="sm" type="button" [disabled]="busy()" (click)="mode.set('view')">Back</button>
+                <button hlmBtn size="sm" type="button" class="gap-1.5" [disabled]="busy()" (click)="accept()">
+                  <ng-icon name="lucideBadgeCheck" size="14" />
+                  {{ busy() ? 'Accepting…' : 'Confirm and accept' }}
+                </button>
+              </div>
+            </div>
+            }
+            @case ('decline') {
+            <div class="mt-4 rounded-lg border border-border p-3.5">
+              <p class="text-sm font-semibold">Decline {{ q.number }}?</p>
+              <label for="decline-reason" class="mt-1 block text-xs text-muted-foreground">
+                Optional: let the team know why, so they can come back with something that fits.
+              </label>
+              <textarea
+                #reason
+                id="decline-reason"
+                hlmTextarea
+                rows="3"
+                maxlength="2000"
+                class="mt-2 w-full text-sm"
+                placeholder="e.g. Over budget for this quarter"
+                [value]="declineReason()"
+                (input)="declineReason.set(reason.value)"
+              ></textarea>
+              @if (error()) { <p class="mt-2 break-words text-xs text-destructive">{{ error() }}</p> }
+              <div class="mt-3 flex flex-wrap justify-end gap-2">
+                <button hlmBtn variant="ghost" size="sm" type="button" [disabled]="busy()" (click)="mode.set('view')">Back</button>
+                <button hlmBtn variant="destructive" size="sm" type="button" [disabled]="busy()" (click)="decline()">
+                  {{ busy() ? 'Declining…' : 'Confirm decline' }}
+                </button>
+              </div>
+            </div>
+            }
+            @default {
+            <div class="mt-5 grid gap-2">
+              <button hlmBtn type="button" class="w-full gap-1.5" (click)="startAccept()">
+                <ng-icon name="lucideBadgeCheck" size="15" />
+                Accept quote
+              </button>
+              <button hlmBtn variant="ghost" type="button" class="w-full" (click)="startDecline()">
+                Decline
+              </button>
+            </div>
+            }
+          }
+        } @else if (expired()) {
+        <p class="mt-4 text-xs text-muted-foreground">This quote can no longer be answered.</p>
+        }
+        }
+        @if (error() && mode() === 'view') {
+        <p class="mt-3 break-words text-xs text-destructive">{{ error() }}</p>
+        }
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Mobile: the total and the way to answer, always in reach -->
+@if (canAnswer() && mode() === 'view') {
+<div
+  class="sticky bottom-[3.25rem] z-10 flex items-center gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:bottom-0 lg:hidden"
+>
+  <div class="min-w-0 flex-1">
+    <p class="text-[11px] text-muted-foreground">Your total</p>
+    <p class="text-base font-semibold tabular-nums">{{ money(totals().total) }}</p>
+  </div>
+  <button hlmBtn size="sm" type="button" class="gap-1.5" (click)="review()">
+    <ng-icon name="lucideBadgeCheck" size="14" />
+    Review &amp; accept
+  </button>
+</div>
+}
+}

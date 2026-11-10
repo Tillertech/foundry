@@ -12,6 +12,9 @@ describe('PortalQuotesService', () => {
   let tx: any;
   let events: { emit: Mock };
   let context: { require: Mock };
+  let storage: { read: Mock };
+  let billing: { visibleProjects: Mock; assertVisible: Mock };
+  let pagination: { paginate: Mock };
 
   const now = new Date('2026-11-10T12:00:00Z');
   const quote = (overrides: Record<string, unknown> = {}) => ({
@@ -48,13 +51,90 @@ describe('PortalQuotesService', () => {
     };
     events = { emit: vi.fn() };
     context = { require: vi.fn().mockResolvedValue({ clientId: 'c-1' }) };
-    service = new PortalQuotesService(prisma, {} as any, context as any, events as any);
+    storage = { read: vi.fn().mockResolvedValue(Buffer.from('pdf')) };
+    billing = {
+      visibleProjects: vi
+        .fn()
+        .mockResolvedValue(new Map([['p-shared', { id: 'p-shared', name: 'Griid Android' }]])),
+      assertVisible: vi.fn().mockResolvedValue(undefined),
+    };
+    pagination = {
+      paginate: vi.fn(async () => ({
+        count: 2,
+        next: null,
+        previous: null,
+        results: [quote({ projectId: 'p-shared' }), quote({ id: 'q-2', projectId: 'p-hidden' })],
+      })),
+    };
+    service = new PortalQuotesService(prisma, pagination as never, context as any, events as any, storage as any, {} as any, billing as never);
   });
 
   afterEach(() => vi.useRealTimers());
 
+  describe('downloadAttachment', () => {
+    it('only serves files attached to a quote this client can see', async () => {
+      prisma.quoteAttachment = {
+        findFirst: vi.fn().mockResolvedValue({
+          document: { id: 'doc-1', name: 'MSA.pdf', storageKey: 'k/1' },
+        }),
+      };
+      const res = await service.downloadAttachment('portal-1', 'q-1', 'doc-1');
+
+      expect(context.require).toHaveBeenCalledWith('portal-1', 'viewQuotes');
+      expect(prisma.quoteAttachment.findFirst.mock.calls[0][0].where).toEqual({
+        quoteId: 'q-1',
+        documentId: 'doc-1',
+        quote: { clientId: 'c-1', status: { not: 'draft' } },
+      });
+      expect(storage.read).toHaveBeenCalledWith('k/1');
+      expect(res.content.toString()).toBe('pdf');
+    });
+
+    it('404s for a file not attached to that quote', async () => {
+      prisma.quoteAttachment = { findFirst: vi.fn().mockResolvedValue(null) };
+      await expect(
+        service.downloadAttachment('portal-1', 'q-1', 'doc-9'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(storage.read).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findAll', () => {
+    it('filters by status and a shared project', async () => {
+      await service.findAll('portal-1', 'pu-1', { status: 'accepted', projectId: 'p-shared' }, '/x');
+
+      expect(billing.assertVisible).toHaveBeenCalledWith('portal-1', 'pu-1', 'p-shared');
+      expect(pagination.paginate.mock.calls[0][1].where).toEqual({
+        clientId: 'c-1',
+        status: 'accepted',
+        projectId: 'p-shared',
+      });
+    });
+
+    it('names only projects the user can open', async () => {
+      const page = await service.findAll('portal-1', 'pu-1', {}, '/x');
+
+      expect(pagination.paginate.mock.calls[0][1].where).toEqual({
+        clientId: 'c-1',
+        status: { not: 'draft' },
+      });
+      expect(page.results.map((q) => [q.projectId, q.project?.name ?? null])).toEqual([
+        ['p-shared', 'Griid Android'],
+        [null, null],
+      ]);
+    });
+
+    it('rejects a project filter that is not shared', async () => {
+      billing.assertVisible.mockRejectedValue(new NotFoundException());
+      await expect(
+        service.findAll('portal-1', 'pu-1', { projectId: 'p-hidden' }, '/x'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(pagination.paginate).not.toHaveBeenCalled();
+    });
+  });
+
   it('never shows drafts', async () => {
-    await service.findOne('portal-1', 'q-1');
+    await service.findOne('portal-1', 'pu-1', 'q-1');
     expect(prisma.quote.findFirst.mock.calls[0][0].where).toEqual({
       id: 'q-1',
       clientId: 'c-1',

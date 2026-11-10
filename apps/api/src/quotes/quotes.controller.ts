@@ -9,6 +9,8 @@ import {
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -19,9 +21,10 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { requestBaseUrl } from '../common/http/request-base-url';
 import { ApiPaginatedResponse } from '../common/swagger/api-paginated-response.decorator';
 import { CurrentUser } from '../identity/auth/decorators/current-user.decorator';
@@ -47,6 +50,29 @@ export class QuotesController {
   @ApiNotFoundResponse({ description: 'Client not found' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateQuoteDto) {
     return this.quotesService.create(user.sub, dto);
+  }
+
+  @Post('preview-pdf')
+  @ApiOperation({
+    summary:
+      'Render the quote PDF from a draft (nothing is saved) - the same document the send mail attaches',
+  })
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  @ApiNotFoundResponse({ description: 'Client not found' })
+  @ApiBadRequestResponse({ description: "Attachments aren't the client's documents" })
+  async previewPdf(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateQuoteDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { filename, buffer } = await this.quotesService.previewPdf(user.sub, dto);
+    res.status(200).set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`,
+      'Cache-Control': 'no-store',
+    });
+    return new StreamableFile(buffer);
   }
 
   @Get()

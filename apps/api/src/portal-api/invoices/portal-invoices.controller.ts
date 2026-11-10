@@ -1,3 +1,4 @@
+import { PortalInvoicesQueryDto } from './portal-invoices-query.dto';
 import {
   Controller,
   Get,
@@ -26,7 +27,6 @@ import {
   PortalJwtAuthGuard,
   PortalJwtPayload,
 } from '../../portal-auth/portal-jwt-auth.guard';
-import { PortalBillingQueryDto } from '../billing/portal-billing-query.dto';
 import { PortalInvoiceEntity } from './entities/portal-invoice.entity';
 import { PortalInvoicesService } from './portal-invoices.service';
 
@@ -38,13 +38,13 @@ export class PortalInvoicesController {
   constructor(private readonly service: PortalInvoicesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List invoices with project, paid and balance (cursor paginated; ?projectId= for one project)' })
+  @ApiOperation({ summary: 'List invoices with project, paid and balance (cursor paginated; ?projectId= for one project, ?status= for one status)' })
   @ApiPaginatedResponse(PortalInvoiceEntity)
   @ApiForbiddenResponse({ description: 'Invoices are not enabled for this portal' })
   @ApiNotFoundResponse({ description: 'projectId is not shared with you' })
   findAll(
     @CurrentPortalUser() user: PortalJwtPayload,
-    @Query() query: PortalBillingQueryDto,
+    @Query() query: PortalInvoicesQueryDto,
     @Req() req: Request,
   ) {
     return this.service.findAll(

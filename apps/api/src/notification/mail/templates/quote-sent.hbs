@@ -49,11 +49,24 @@
                     <td style="text-align:right;padding:8px 0;font-weight:bold;">{{currency}} {{total}}</td>
                   </tr>
                 </table>
+                {{#if scopeInPdf}}
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-collapse:collapse;">
+                  <tr>
+                    <td style="width:3px;background:#f97316;"></td>
+                    <td style="padding:12px 16px;background:#fdf0e6;font-size:13px;line-height:1.5;">
+                      <strong>Milestone scope</strong><br />
+                      What each milestone delivers, and what counts as signing it off, is set out
+                      in the attached PDF ({{number}}.pdf) after the pricing. Each milestone is
+                      invoiced once you sign it off against that scope.
+                    </td>
+                  </tr>
+                </table>
+                {{/if}}
                 <p style="margin:24px 0 0;font-size:14px;">
                   Reply to this email to accept the quote or ask for changes.
                 </p>
                 {{#if notes}}
-                <p style="margin:24px 0 0;font-size:13px;color:#71717a;">{{notes}}</p>
+                <p style="margin:24px 0 0;font-size:13px;color:#71717a;white-space:pre-line;">{{notes}}</p>
                 {{/if}}
               </td>
             </tr>

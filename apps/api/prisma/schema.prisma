@@ -462,10 +462,27 @@ model Quote {
   projectId String?  @unique @db.Uuid
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  items QuoteItem[]
+  items       QuoteItem[]
+  /// Supporting files sent with the quote (MSA, spec, wireframes); locked with the lines.
+  attachments QuoteAttachment[]
 
   @@index([clientId])
   @@map("quotes")
+}
+
+/// A client (or client-project) document attached to a quote as supporting material - the scope itself lives on the lines.
+model QuoteAttachment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quoteId    String   @db.Uuid
+  quote      Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  documentId String   @db.Uuid
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  /// Order as attached (replaced wholesale on update, like the lines).
+  position   Int      @default(0)
+
+  @@unique([quoteId, documentId])
+  @@index([documentId])
+  @@map("quote_attachments")
 }
 
 model QuoteItem {
@@ -477,6 +494,10 @@ model QuoteItem {
   /// Longer client-facing text (milestone scope); description stays the one-line label.
   details        String?
   estimatedHours Int?
+  /// Milestone/option lines: what will be handed over, as [{id,label}]; copied to the milestone's deliverables on conversion.
+  deliverables       Json    @default("[]")
+  /// Milestone/option lines: what the client checks before signing off; copied to the milestone on conversion.
+  acceptanceCriteria String?
   /// Options only: whether the client picked it.
   selected       Boolean       @default(false)
   /// Line order as entered (items are replaced wholesale on update).
@@ -581,6 +602,8 @@ model Document {
   project     Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
   workspaceId String?    @db.Uuid
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  quoteAttachments QuoteAttachment[]
 
   @@index([clientId])
   @@index([projectId])

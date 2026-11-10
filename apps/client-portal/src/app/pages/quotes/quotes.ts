@@ -2,18 +2,27 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  computed,
   effect,
   inject,
   input,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { HlmDialogService } from '@spartan-ng/helm/dialog';
-import { Quote, QuotesApiService } from '../../domains/quotes';
+import { Router, RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideFolderKanban } from '@ng-icons/lucide';
+import {
+  ListQuotesQuery,
+  PortalQuoteStatus,
+  Quote,
+  QuotesApiService,
+} from '../../domains/quotes';
 import { PortalRealtimeService } from '../../domains/realtime';
 import { isoDay, money, quoteTotal } from '@foundry/shared-util';
 import { EmptyState, StatusBadge } from '@foundry/shared-ui';
-import { QuoteDetailDialog } from './quote-detail-dialog';
+import { ANY, FilterOption, ListFilters } from '../../shared/list-filters';
+import { PortalAuthService } from '../../domains/auth';
 import { refreshOne } from '../../core/live-list';
 
 /** Same order as the API list: newest first. */
@@ -23,15 +32,23 @@ const newestFirst = (a: Quote, b: Quote) =>
 @Component({
   selector: 'app-portal-quotes',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EmptyState, StatusBadge],
+  imports: [
+    EmptyState,
+    StatusBadge,
+    RouterLink,
+    NgIcon,
+    ListFilters,
+  ],
+  providers: [provideIcons({ lucideFolderKanban })],
   templateUrl: './quotes.html',
 })
 export class Quotes {
   private readonly quotesApi = inject(QuotesApiService);
-  private readonly dialogService = inject(HlmDialogService);
+  private readonly router = inject(Router);
+  private readonly auth = inject(PortalAuthService);
   private readonly realtime = inject(PortalRealtimeService);
 
-  /** `?quote=<id>` (from a notification) opens that quote once loaded. */
+  /** Legacy `?quote=<id>` links land on the quote's own page. */
   readonly quote = input<string>();
 
   protected readonly isoDay = isoDay;
@@ -42,7 +59,20 @@ export class Quotes {
   protected readonly quotes = signal<Quote[]>([]);
   /** Last ids flashed by a live update, for a brief highlight. */
   protected readonly fresh = signal<ReadonlySet<string>>(new Set());
-  private openedFromLink: string | null = null;
+  protected readonly quotesLink = computed(() => `/${this.auth.slug() ?? ''}/quotes`);
+
+  /** Filters, applied server-side (ANY / '' = unfiltered). */
+  protected readonly status = signal<string>(ANY);
+  protected readonly projectId = signal('');
+  protected readonly filtering = computed(
+    () => this.status() !== ANY || !!this.projectId(),
+  );
+  protected readonly statusOptions: FilterOption[] = [
+    { value: 'sent', label: 'Awaiting your answer' },
+    { value: 'accepted', label: 'Accepted' },
+    { value: 'declined', label: 'Declined' },
+    { value: 'expired', label: 'Expired' },
+  ];
 
   constructor() {
     this.load();
@@ -52,6 +82,11 @@ export class Quotes {
     this.realtime.quotes$
       .pipe(takeUntilDestroyed(inject(DestroyRef)))
       .subscribe((change) => {
+        // A filtered list can't tell locally whether the change still matches.
+        if (this.filtering()) {
+          this.load();
+          return;
+        }
         refreshOne(
           change.quoteId,
           change.removed,
@@ -68,21 +103,31 @@ export class Quotes {
 
     effect(() => {
       const id = this.quote();
-      const match = this.quotes().find((q) => q.id === id);
-      if (match && this.openedFromLink !== match.id) {
-        this.openedFromLink = match.id;
-        this.open(match);
+      if (id) {
+        void this.router.navigate([this.quotesLink(), id], { replaceUrl: true });
       }
     });
   }
 
-  private load(): void {
-    this.quotesApi.list({ take: 100 }).subscribe({
+  private loadSeq = 0;
+
+  protected load(): void {
+    const query: ListQuotesQuery = {
+      take: 100,
+      ...(this.status() !== ANY ? { status: this.status() as PortalQuoteStatus } : {}),
+      ...(this.projectId() ? { projectId: this.projectId() } : {}),
+    };
+    // Only the latest filter's answer counts.
+    const seq = ++this.loadSeq;
+    this.quotesApi.list(query).subscribe({
       next: (res) => {
+        if (seq !== this.loadSeq) return;
         this.quotes.set(res.results);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => {
+        if (seq === this.loadSeq) this.loading.set(false);
+      },
     });
   }
 
@@ -97,21 +142,5 @@ export class Quotes {
         }),
       2500,
     );
-  }
-
-  protected open(quote: Quote): void {
-    const ref = this.dialogService.open(QuoteDetailDialog, {
-      contentClass: 'sm:max-w-xl',
-      context: { quote },
-    });
-    // Answered: show it right away (the live push refreshes the rest).
-    ref.closed$.subscribe((result) => {
-      const updated = result as Quote | undefined;
-      if (updated) {
-        this.quotes.update((list) =>
-          list.map((q) => (q.id === updated.id ? updated : q)),
-        );
-      }
-    });
   }
 }

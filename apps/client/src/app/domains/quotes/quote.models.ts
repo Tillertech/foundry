@@ -16,6 +16,23 @@ export type QuoteItemKind =
   | 'pass_through'
   | 'option';
 
+/** A promised deliverable; becomes a checklist item on the milestone. */
+export interface QuoteDeliverable {
+  id: string;
+  label: string;
+}
+
+/** A supporting document sent with the quote. */
+export interface QuoteAttachment {
+  position: number;
+  document: {
+    id: string;
+    name: string;
+    mimeType: string | null;
+    size: number;
+  };
+}
+
 export interface QuoteItem {
   id: string;
   description: string;
@@ -24,6 +41,10 @@ export interface QuoteItem {
   kind: QuoteItemKind;
   details: string | null;
   estimatedHours: number | null;
+  /** Milestone/option lines: what will be handed over. */
+  deliverables: QuoteDeliverable[];
+  /** Milestone/option lines: what the client checks before signing off. */
+  acceptanceCriteria: string | null;
   selected: boolean;
   position: number;
   /** Milestone generated from this line on conversion. */
@@ -51,6 +72,8 @@ export interface Quote {
   /** Project created from this quote; lines are locked once set. */
   projectId: string | null;
   items: QuoteItem[];
+  /** Supporting documents, locked with the lines. */
+  attachments: QuoteAttachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +85,8 @@ export interface QuoteLineRequest {
   kind?: QuoteItemKind;
   details?: string;
   estimatedHours?: number;
+  deliverables?: QuoteDeliverable[];
+  acceptanceCriteria?: string;
   selected?: boolean;
 }
 
@@ -77,6 +102,8 @@ export interface CreateQuoteRequest {
   notes?: string;
   /** In display order. */
   items: QuoteLineRequest[];
+  /** Client (or client-project) documents, in order; replaces the list. */
+  attachmentIds?: string[];
 }
 
 export type UpdateQuoteRequest = Partial<Omit<CreateQuoteRequest, 'clientId'>>;

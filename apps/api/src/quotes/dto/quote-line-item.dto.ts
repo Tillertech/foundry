@@ -1,5 +1,8 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -7,9 +10,26 @@ import {
   IsString,
   MaxLength,
   Min,
+  MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { LineItemDto } from '../../common/dto/line-item.dto';
 import { QuoteItemKind } from '../../generated/prisma/enums';
+
+/** A promised deliverable: just the label at quote time - evidence is added on the milestone. */
+export class QuoteDeliverableDto {
+  @ApiProperty({ description: 'Client-generated id, kept on the milestone after conversion' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  id: string;
+
+  @ApiProperty({ example: 'Signed-off MVP feature list' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  label: string;
+}
 
 export class QuoteLineItemDto extends LineItemDto {
   @ApiPropertyOptional({
@@ -30,6 +50,25 @@ export class QuoteLineItemDto extends LineItemDto {
   @IsString()
   @MaxLength(5000)
   details?: string;
+
+  @ApiPropertyOptional({
+    type: [QuoteDeliverableDto],
+    description: 'Milestone/option lines: what will be handed over (becomes the milestone checklist)',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => QuoteDeliverableDto)
+  deliverables?: QuoteDeliverableDto[];
+
+  @ApiPropertyOptional({
+    description: 'Milestone/option lines: what the client checks before signing off',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  acceptanceCriteria?: string;
 
   @ApiPropertyOptional({ example: 40, description: 'Hours estimate (milestone lines)' })
   @IsOptional()

@@ -1,10 +1,10 @@
+import { IsApiDate } from '../../common/api-date';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
-  IsDateString,
   IsNumber,
   IsUrl,
   MaxLength,
@@ -106,7 +106,7 @@ export class CreateMilestoneDto {
 
   @ApiPropertyOptional({ example: '2026-09-30' })
   @IsOptional()
-  @IsDateString()
+  @IsApiDate()
   dueDate?: string;
 
   @ApiPropertyOptional({ example: 12, description: 'Optional hours estimate' })

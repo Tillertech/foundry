@@ -1,7 +1,7 @@
+import { IsApiDate } from '../../common/api-date';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
-  IsDateString,
   IsNumber,
   IsOptional,
   IsString,
@@ -18,12 +18,12 @@ export class ConvertQuoteDto {
   name: string;
 
   @ApiProperty({ example: '2026-11-17' })
-  @IsDateString()
+  @IsApiDate()
   startDate: string;
 
   @ApiPropertyOptional({ example: '2027-02-28' })
   @IsOptional()
-  @IsDateString()
+  @IsApiDate()
   endDate?: string;
 
   @ApiPropertyOptional({ example: 2500, description: 'Rate for out-of-scope work' })

@@ -9,18 +9,31 @@ import {
   PaginationRes,
   PaginationService,
 } from '../../common/pagination/pagination.service';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { QuoteEvents, type QuoteRespondedEvent } from '../../common/events';
 import { QuoteItemKind, QuoteStatus } from '../../generated/prisma/enums';
 import type {
+  DocumentModel as Document,
   QuoteModel as Quote,
   QuoteItemModel as QuoteItem,
 } from '../../generated/prisma/models';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageService } from '../../storage/storage.service';
+import { NotificationService } from '../../notification/notification.service';
+import { QuoteAttachmentRow } from '../../quotes/quotes.service';
 import { PortalContextService } from '../portal-context.service';
+import { PortalBillingService, PortalProjectRef } from '../billing/portal-billing.service';
+import { PortalQuotesQueryDto } from './dto/portal-quotes-query.dto';
 import { AcceptPortalQuoteDto, DeclinePortalQuoteDto } from './dto/respond-portal-quote.dto';
 
-export type PortalQuoteWithItems = Quote & { items: QuoteItem[] };
+export type PortalQuoteWithItems = Quote & {
+  items: QuoteItem[];
+  attachments: QuoteAttachmentRow[];
+};
+
+/** A quote as the portal shows it: its project named only when shared with the user. */
+export type PortalQuoteView = PortalQuoteWithItems & {
+  project: PortalProjectRef | null;
+};
 
 /**
  * Lines in entry order, minus internal detail: hours estimates are
@@ -31,6 +44,14 @@ const PORTAL_QUOTE_INCLUDE = {
   items: {
     orderBy: { position: 'asc' as const },
     omit: { estimatedHours: true, milestoneId: true },
+  },
+  // Display fields only - the storage key never leaves the API.
+  attachments: {
+    orderBy: { position: 'asc' as const },
+    select: {
+      position: true,
+      document: { select: { id: true, name: true, mimeType: true, size: true } },
+    },
   },
 };
 
@@ -44,20 +65,60 @@ export class PortalQuotesService {
     private readonly pagination: PaginationService,
     private readonly context: PortalContextService,
     private readonly events: EventEmitter2,
+    private readonly storage: StorageService,
+    private readonly notifications: NotificationService,
+    private readonly billing: PortalBillingService,
   ) {}
+
+  /** Never hands out the id of a project this user can't open. */
+  private withProject(
+    quote: PortalQuoteWithItems,
+    projects: Map<string, PortalProjectRef>,
+  ): PortalQuoteView {
+    const project = quote.projectId ? (projects.get(quote.projectId) ?? null) : null;
+    return { ...quote, projectId: project ? quote.projectId : null, project };
+  }
+
+  /** The quote PDF - the same document the quote mail attached. */
+  async downloadPdf(
+    clientPortalId: string,
+    id: string,
+  ): Promise<{ filename: string; buffer: Buffer }> {
+    const { clientId } = await this.context.require(clientPortalId, 'viewQuotes');
+    const quote = await this.prisma.quote.findFirst({
+      where: { id, clientId, ...VISIBLE },
+      include: { ...PORTAL_QUOTE_INCLUDE, client: true },
+    });
+    if (!quote) throw new NotFoundException('Quote not found');
+    const buffer = await this.notifications.quotePdfBuffer(quote, quote.client);
+    return { filename: `${quote.number}.pdf`, buffer };
+  }
 
   async findAll(
     clientPortalId: string,
-    query: PaginationQueryDto,
+    portalUserId: string,
+    query: PortalQuotesQueryDto,
     baseUrl: string,
-  ): Promise<PaginationRes<PortalQuoteWithItems>> {
+  ): Promise<PaginationRes<PortalQuoteView>> {
     const { clientId } = await this.context.require(
       clientPortalId,
       'viewQuotes',
     );
-    return this.pagination.paginate<PortalQuoteWithItems>(
+    if (query.projectId) {
+      await this.billing.assertVisible(clientPortalId, portalUserId, query.projectId);
+    }
+    const projects = await this.billing.visibleProjects(clientPortalId, portalUserId);
+    const page = await this.pagination.paginate<PortalQuoteWithItems>(
       this.prisma.quote,
-      { where: { clientId, ...VISIBLE }, include: PORTAL_QUOTE_INCLUDE },
+      {
+        where: {
+          clientId,
+          ...VISIBLE,
+          ...(query.status ? { status: query.status } : {}),
+          ...(query.projectId ? { projectId: query.projectId } : {}),
+        },
+        include: PORTAL_QUOTE_INCLUDE,
+      },
       {
         cursor: query.cursor,
         take: query.take,
@@ -66,17 +127,46 @@ export class PortalQuotesService {
         includeCount: true,
       },
     );
+    return {
+      ...page,
+      results: page.results.map((q) => this.withProject(q, projects)),
+    };
   }
 
   async findOne(
     clientPortalId: string,
+    portalUserId: string,
     id: string,
-  ): Promise<PortalQuoteWithItems> {
+  ): Promise<PortalQuoteView> {
     const { clientId } = await this.context.require(
       clientPortalId,
       'viewQuotes',
     );
-    return this.visibleQuote(clientId, id);
+    const [quote, projects] = await Promise.all([
+      this.visibleQuote(clientId, id),
+      this.billing.visibleProjects(clientPortalId, portalUserId),
+    ]);
+    return this.withProject(quote, projects);
+  }
+
+  /**
+   * A file attached to a quote the client can see. Gated by viewQuotes, not
+   * viewDocuments: attaching it to the quote is what shares it. Returns the
+   * full row for the controller's headers only - never serialized.
+   */
+  async downloadAttachment(
+    clientPortalId: string,
+    quoteId: string,
+    documentId: string,
+  ): Promise<{ document: Document; content: Buffer }> {
+    const { clientId } = await this.context.require(clientPortalId, 'viewQuotes');
+    const attachment = await this.prisma.quoteAttachment.findFirst({
+      where: { quoteId, documentId, quote: { clientId, ...VISIBLE } },
+      include: { document: true },
+    });
+    if (!attachment) throw new NotFoundException('Attachment not found');
+    const content = await this.storage.read(attachment.document.storageKey);
+    return { document: attachment.document, content };
   }
 
   /**

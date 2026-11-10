@@ -1,6 +1,6 @@
+import { IsApiDate } from '../../common/api-date';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -56,12 +56,12 @@ export class CreateProjectDto {
   retentionPercent?: number;
 
   @ApiProperty({ example: '2026-05-01' })
-  @IsDateString()
+  @IsApiDate()
   startDate: string;
 
   @ApiPropertyOptional({ example: '2026-09-30' })
   @IsOptional()
-  @IsDateString()
+  @IsApiDate()
   endDate?: string;
 
   @ApiPropertyOptional()

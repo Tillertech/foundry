@@ -8,15 +8,31 @@
     </p>
   </div>
 
+  <app-list-filters
+    [options]="methodOptions"
+    allLabel="All payment methods"
+    ariaLabel="Filter by payment method"
+    [(value)]="method"
+    [(projectId)]="projectId"
+    (changed)="load()"
+  />
+
   @if (loading()) {
     <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
       Loading…
     </div>
   } @else if (payments().length === 0) {
-    <app-empty-state
-      title="No payments yet"
-      description="Payments will appear here once recorded."
-    />
+    @if (filtering()) {
+      <app-empty-state
+        title="No payments match these filters"
+        description="Try another method or project, or clear the filters."
+      />
+    } @else {
+      <app-empty-state
+        title="No payments yet"
+        description="Payments will appear here once recorded."
+      />
+    }
   } @else {
     <div
       class="mb-4 flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3"
@@ -27,7 +43,9 @@
         <ng-icon name="lucideWallet" size="18" />
       </div>
       <div>
-        <p class="text-xs text-muted-foreground">Total paid to date</p>
+        <p class="text-xs text-muted-foreground">
+          {{ filtering() ? 'Total of these payments' : 'Total paid to date' }}
+        </p>
         <p class="text-lg font-semibold tabular-nums">
           {{ money(totalPaid(), currency()) }}
         </p>

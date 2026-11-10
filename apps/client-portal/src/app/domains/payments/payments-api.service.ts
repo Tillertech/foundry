@@ -16,7 +16,7 @@ export class PaymentsApiService {
 
   /** `projectId` narrows to one shared project. */
   list(
-    query?: PaginationQuery & { projectId?: string },
+    query?: PaginationQuery & { projectId?: string; method?: string },
   ): Observable<PaginatedResponse<Payment>> {
     return this.http.get<PaginatedResponse<Payment>>(this.base, {
       params: toParams(query as Record<string, unknown>),

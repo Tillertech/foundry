@@ -17,6 +17,8 @@ describe('QuotesService', () => {
     description: 'Line',
     details: null,
     estimatedHours: null,
+    deliverables: [],
+    acceptanceCriteria: null,
     quantity: new Decimal(1),
     rate: new Decimal(0),
     kind: 'standard',
@@ -34,7 +36,16 @@ describe('QuotesService', () => {
     clientId: 'c-1',
     projectId: null,
     items: [
-      line({ id: 'a', kind: 'milestone', description: 'M01', rate: new Decimal(50000), estimatedHours: 20, details: 'Scope' }),
+      line({
+        id: 'a',
+        kind: 'milestone',
+        description: 'M01',
+        rate: new Decimal(50000),
+        estimatedHours: 20,
+        details: 'Scope',
+        deliverables: [{ id: 'd1', label: 'Feature list' }],
+        acceptanceCriteria: 'Client signs off the feature list',
+      }),
       line({ id: 'b', kind: 'milestone', description: 'M02', quantity: new Decimal(2), rate: new Decimal(10000) }),
       line({ id: 'c', kind: 'recurring', description: 'Support', rate: new Decimal(25000) }),
       line({ id: 'd', kind: 'option', description: 'iOS', rate: new Decimal(100000), selected: true }),
@@ -125,6 +136,9 @@ describe('QuotesService', () => {
         description: 'Scope',
         estimatedHours: 20,
         billingTrigger: 'on_acceptance',
+        // What the client accepted is the checklist they later sign off.
+        deliverables: [{ id: 'd1', label: 'Feature list', done: false }],
+        acceptanceCriteria: 'Client signs off the feature list',
       });
       expect(tx.quoteItem.update).toHaveBeenCalledWith({ where: { id: 'a' }, data: { milestoneId: 'm-0' } });
       expect(tx.quote.update.mock.calls[0][0].data).toEqual({ status: 'accepted', projectId: 'p-1' });
@@ -199,6 +213,52 @@ describe('QuotesService', () => {
         respondedBy: null,
         responseNote: null,
       });
+    });
+
+    it('locks the attachments of a converted quote', async () => {
+      prisma.quote.findFirst.mockResolvedValue(quote({ projectId: 'p-1' }));
+      await expect(
+        service.update(ownerId, 'q-1', { attachmentIds: [] }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("refuses attachments that aren't the client's documents", async () => {
+      prisma.document = { count: vi.fn().mockResolvedValue(1) };
+      prisma.quote.update = vi.fn();
+      await expect(
+        service.update(ownerId, 'q-1', {
+          attachmentIds: ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.document.count.mock.calls[0][0].where.OR).toEqual([
+        { clientId: 'c-1' },
+        { project: { clientId: 'c-1' } },
+      ]);
+      expect(prisma.quote.update).not.toHaveBeenCalled();
+    });
+
+    it('keeps scope only on lines that become milestones', async () => {
+      prisma.quote.update = vi.fn(async ({ data }) => ({ ...quote(), ...data }));
+      const scope = {
+        deliverables: [
+          { id: 'x', label: '  Build  ' },
+          { id: 'x', label: 'Duplicate' },
+          { id: 'y', label: '   ' },
+        ],
+        acceptanceCriteria: ' Works ',
+      };
+      await service.update(ownerId, 'q-1', {
+        items: [
+          { description: 'M', quantity: 1, rate: 1, kind: 'milestone', ...scope },
+          { description: 'S', quantity: 1, rate: 1, kind: 'standard', ...scope },
+        ],
+      });
+      const rows = prisma.quote.update.mock.calls[0][0].data.items.create;
+      expect(rows[0]).toMatchObject({
+        deliverables: [{ id: 'x', label: 'Build' }],
+        acceptanceCriteria: 'Works',
+      });
+      expect(rows[1]).toMatchObject({ deliverables: [], acceptanceCriteria: null });
     });
 
     it('locks the lines of a converted quote', async () => {

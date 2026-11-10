@@ -3,6 +3,37 @@ import { LineItemEntity } from '../../common/dto/line-item.dto';
 import { QuoteItemKind, QuoteStatus } from '../../generated/prisma/enums';
 import { CURRENCY_SCHEMA } from '../../common/currency';
 
+export class QuoteDeliverableEntity {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ example: 'Signed-off MVP feature list' })
+  label: string;
+}
+
+/** The document fields a quote shows for an attachment - never its storage key. */
+export class QuoteAttachmentDocumentEntity {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ example: 'Master services agreement.pdf' })
+  name: string;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  mimeType: string | null;
+
+  @ApiProperty({ description: 'Bytes' })
+  size: number;
+}
+
+export class QuoteAttachmentEntity {
+  @ApiProperty({ description: 'Display order' })
+  position: number;
+
+  @ApiProperty({ type: QuoteAttachmentDocumentEntity })
+  document: QuoteAttachmentDocumentEntity;
+}
+
 export class QuoteItemEntity extends LineItemEntity {
   @ApiProperty({ format: 'uuid' })
   quoteId: string;
@@ -15,6 +46,19 @@ export class QuoteItemEntity extends LineItemEntity {
 
   @ApiPropertyOptional({ nullable: true, type: Number })
   estimatedHours: number | null;
+
+  @ApiProperty({
+    type: [QuoteDeliverableEntity],
+    description: 'Milestone/option lines: promised deliverables',
+  })
+  deliverables: QuoteDeliverableEntity[];
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Milestone/option lines: what the client checks before signing off',
+  })
+  acceptanceCriteria: string | null;
 
   @ApiProperty({ description: 'Options only: picked by the client' })
   selected: boolean;
@@ -81,6 +125,9 @@ export class QuoteEntity {
 
   @ApiProperty({ type: [QuoteItemEntity] })
   items: QuoteItemEntity[];
+
+  @ApiProperty({ type: [QuoteAttachmentEntity], description: 'Supporting documents, in order' })
+  attachments: QuoteAttachmentEntity[];
 
   @ApiProperty()
   createdAt: Date;

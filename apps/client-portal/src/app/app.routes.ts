@@ -78,6 +78,12 @@ export const appRoutes: Route[] = [
               import('./pages/quotes/quotes').then((m) => m.Quotes),
           },
           {
+            path: 'quotes/:id',
+            title: 'Quote - Client Portal',
+            loadComponent: () =>
+              import('./pages/quotes/quote-detail').then((m) => m.QuoteDetail),
+          },
+          {
             path: 'payments',
             title: 'Payments - Client Portal',
             loadComponent: () =>
