@@ -137,6 +137,7 @@ export class PortalAuthService {
       name: user.name,
       email: user.email,
       status: user.status,
+      canApproveMilestones: user.canApproveMilestones,
       clientPortal: {
         id: clientPortal.id,
         slug: clientPortal.slug,

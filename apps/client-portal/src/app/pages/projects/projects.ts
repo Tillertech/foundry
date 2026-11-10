@@ -6,11 +6,18 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { PortalRealtimeService } from '../../domains/realtime';
+import { refreshOne } from '../../core/live-list';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideCalendarDays } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { Project, ProjectsApiService, projectProgress } from '../../domains/projects';
+import {
+  Project,
+  ProjectsApiService,
+  projectProgress,
+} from '../../domains/projects';
 import { isoDay, money } from '@foundry/shared-util';
 import { EmptyState, StatusBadge } from '@foundry/shared-ui';
 import { PortalAuthService } from '../../domains/auth';
@@ -52,6 +59,25 @@ export class Projects {
     projectProgress(project.milestones);
 
   constructor() {
+    this.load();
+    // Milestone progress on the cards stays live: refetch only the project
+    // whose milestone changed (it carries its milestones) and swap that card.
+    const realtime = inject(PortalRealtimeService);
+    realtime.milestones$.pipe(takeUntilDestroyed()).subscribe((change) => {
+      if (!this.projects().some((p) => p.id === change.projectId)) return;
+      refreshOne(
+        change.projectId,
+        false,
+        (id) => this.projectsApi.get(id),
+        (update) => this.projects.update(update),
+      );
+    });
+    realtime.reconnected$
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.load());
+  }
+
+  private load(): void {
     this.projectsApi.list({ take: 100 }).subscribe({
       next: (res) => {
         this.projects.set(res.results);

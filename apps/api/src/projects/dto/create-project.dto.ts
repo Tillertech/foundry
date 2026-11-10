@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -41,6 +42,18 @@ export class CreateProjectDto {
   @IsNumber()
   @Min(0)
   hourlyRate?: number;
+
+  @ApiPropertyOptional({
+    example: 10,
+    default: 0,
+    description:
+      'Percent of each priced milestone held back until the retention-releasing milestone is invoiced',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  retentionPercent?: number;
 
   @ApiProperty({ example: '2026-05-01' })
   @IsDateString()

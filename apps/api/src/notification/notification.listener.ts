@@ -19,6 +19,9 @@ import {
   type InvoiceSentEvent,
   type LoginOtpRequestedEvent,
   type MilestoneCompletedEvent,
+  type MilestoneInvoicedEvent,
+  type MilestoneReviewedEvent,
+  type QuoteRespondedEvent,
   type PasswordResetRequestedEvent,
   type PaymentReceivedEvent,
   type PortalPasswordResetRequestedEvent,
@@ -109,6 +112,33 @@ export class NotificationListener {
       .onMilestoneCompleted(payload)
       .catch((err) =>
         this.logger.error('milestone.completed notification failed', err),
+      );
+  }
+
+  @OnEvent(QuoteEvents.RESPONDED, { async: true })
+  handleQuoteResponded(payload: QuoteRespondedEvent) {
+    return this.notifications
+      .onQuoteResponded(payload)
+      .catch((err) =>
+        this.logger.error('quote.responded notification failed', err),
+      );
+  }
+
+  @OnEvent(MilestoneEvents.REVIEWED, { async: true })
+  handleMilestoneReviewed(payload: MilestoneReviewedEvent) {
+    return this.notifications
+      .onMilestoneReviewed(payload)
+      .catch((err) =>
+        this.logger.error('milestone.reviewed notification failed', err),
+      );
+  }
+
+  @OnEvent(MilestoneEvents.INVOICED, { async: true })
+  handleMilestoneInvoiced(payload: MilestoneInvoicedEvent) {
+    return this.notifications
+      .onMilestoneInvoiced(payload)
+      .catch((err) =>
+        this.logger.error('milestone.invoiced notification failed', err),
       );
   }
 

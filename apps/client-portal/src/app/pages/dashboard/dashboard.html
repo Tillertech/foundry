@@ -133,7 +133,7 @@
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-semibold">{{ item.title }}</p>
                   <p class="mt-1 text-xs leading-5 text-muted-foreground">{{ item.detail }}</p>
-                  <a [routerLink]="item.to" class="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <a [routerLink]="item.to" [queryParams]="item.query" class="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     View <ng-icon name="lucideArrowRight" size="12" />
                   </a>
                 </div>

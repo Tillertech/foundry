@@ -10,6 +10,7 @@ import {
   type OwnedRecordEvent,
   type ProjectMovedEvent,
 } from '../common/events';
+import type { Prisma } from '../generated/prisma/client';
 import type { ProjectModel as Project } from '../generated/prisma/models';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -29,14 +30,29 @@ export class ProjectsService {
 
   async create(ownerId: string, dto: CreateProjectDto): Promise<Project> {
     const client = await this.clients.findOne(ownerId, dto.clientId);
+    const project = await this.insert(this.prisma, dto);
+    this.announceCreated(ownerId, client.workspaceId, project.id);
+    return project;
+  }
+
+  /**
+   * Writes the project row through `db` (the client or an open transaction),
+   * for callers composing a larger atomic write such as quote conversion.
+   * The caller must already have checked the client belongs to the owner,
+   * and calls announceCreated() once the transaction has committed.
+   */
+  async insert(
+    db: Prisma.TransactionClient,
+    dto: CreateProjectDto,
+  ): Promise<Project> {
     // If this client already has a portal, share the new project into it by
     // default - otherwise it silently never shows up until someone manually
     // toggles it on, which defeats the "portal reflects reality" point.
-    const portal = await this.prisma.clientPortal.findUnique({
+    const portal = await db.clientPortal.findUnique({
       where: { clientId: dto.clientId },
       select: { id: true },
     });
-    const project = await this.prisma.project.create({
+    return db.project.create({
       data: {
         ...dto,
         ...(portal
@@ -44,12 +60,14 @@ export class ProjectsService {
           : {}),
       },
     });
+  }
+
+  announceCreated(ownerId: string, workspaceId: string, id: string): void {
     this.events.emit(ProjectEvents.CREATED, {
-      id: project.id,
+      id,
       ownerId,
-      workspaceId: client.workspaceId,
+      workspaceId,
     } satisfies OwnedRecordEvent);
-    return project;
   }
 
   findAll(

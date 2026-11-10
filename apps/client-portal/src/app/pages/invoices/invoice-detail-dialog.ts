@@ -5,7 +5,10 @@ import {
   inject,
 } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideDownload, lucideReceipt } from '@ng-icons/lucide';
+import { lucideDownload, lucideFolderKanban, lucideReceipt } from '@ng-icons/lucide';
+import { Router } from '@angular/router';
+import { BrnDialogRef } from '@spartan-ng/brain/dialog';
+import { PortalAuthService } from '../../domains/auth';
 import { injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmDialogImports } from '@spartan-ng/helm/dialog';
@@ -33,7 +36,7 @@ export interface InvoiceDetailDialogContext {
   selector: 'app-invoice-detail-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgIcon, HlmDialogImports, HlmButton, HlmSeparator, StatusBadge],
-  providers: [provideIcons({ lucideDownload, lucideReceipt })],
+  providers: [provideIcons({ lucideDownload, lucideFolderKanban, lucideReceipt })],
   template: `
     <div hlmDialogHeader>
       <div class="flex items-center gap-3 pr-6">
@@ -44,6 +47,16 @@ export interface InvoiceDetailDialogContext {
         Issued {{ isoDay(invoice.issueDate) }} · Due
         {{ isoDay(invoice.dueDate) }}
       </p>
+      @if (invoice.project; as p) {
+        <button
+          type="button"
+          (click)="openProject(p.id)"
+          class="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium hover:bg-muted/70 hover:text-primary"
+        >
+          <ng-icon name="lucideFolderKanban" size="12" />
+          For {{ p.name }}
+        </button>
+      }
     </div>
 
     @if (services().length > 0) {
@@ -177,6 +190,21 @@ export interface InvoiceDetailDialogContext {
           money(totals().total, invoice.currency)
         }}</span>
       </div>
+      @if (invoice.status !== 'cancelled') {
+        @if (invoice.amountPaid > 0) {
+          <div class="flex justify-between text-muted-foreground">
+            <span>Paid</span
+            ><span class="tabular-nums">-{{ money(invoice.amountPaid, invoice.currency) }}</span>
+          </div>
+        }
+        <div
+          class="flex justify-between rounded-md px-2 py-1.5 font-semibold"
+          [class]="invoice.balanceDue > 0 ? (invoice.status === 'overdue' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary') : 'bg-success/10 text-success'"
+        >
+          <span>{{ invoice.balanceDue > 0 ? 'Still to pay' : 'Paid in full' }}</span
+          ><span class="tabular-nums">{{ money(invoice.balanceDue, invoice.currency) }}</span>
+        </div>
+      }
     </div>
 
     <hr hlmSeparator />
@@ -197,6 +225,14 @@ export interface InvoiceDetailDialogContext {
 export class InvoiceDetailDialog {
   protected readonly ctx = injectBrnDialogContext<InvoiceDetailDialogContext>();
   private readonly invoicesApi = inject(InvoicesApiService);
+  private readonly router = inject(Router);
+  private readonly auth = inject(PortalAuthService);
+  private readonly dialogRef = inject(BrnDialogRef);
+
+  protected openProject(projectId: string): void {
+    this.dialogRef.close();
+    void this.router.navigate([`/${this.auth.slug() ?? ''}`, 'projects', projectId]);
+  }
 
   protected readonly isoDay = isoDay;
   protected readonly money = money;

@@ -12,7 +12,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -24,9 +26,11 @@ import { requestBaseUrl } from '../common/http/request-base-url';
 import { ApiPaginatedResponse } from '../common/swagger/api-paginated-response.decorator';
 import { CurrentUser } from '../identity/auth/decorators/current-user.decorator';
 import { JwtAuthGuard, JwtPayload } from '../identity/auth/jwt-auth.guard';
+import { ConvertQuoteDto } from './dto/convert-quote.dto';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { ListQuotesQueryDto } from './dto/list-quotes-query.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
+import { QuoteConversionEntity } from './entities/quote-conversion.entity';
 import { QuoteEntity } from './entities/quote.entity';
 import { QuotesService } from './quotes.service';
 
@@ -65,9 +69,10 @@ export class QuotesController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a quote (items replace existing ones)' })
+  @ApiOperation({ summary: 'Update a quote (items replace existing ones; locked once converted)' })
   @ApiOkResponse({ type: QuoteEntity })
   @ApiNotFoundResponse()
+  @ApiConflictResponse({ description: 'Lines or currency changed on a converted quote' })
   update(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -82,6 +87,23 @@ export class QuotesController {
   @ApiNotFoundResponse()
   remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.quotesService.remove(user.sub, id);
+  }
+
+  @Post(':id/convert')
+  @ApiOperation({
+    summary:
+      'Accept the quote and create its project, with one priced milestone per milestone line or selected option',
+  })
+  @ApiCreatedResponse({ type: QuoteConversionEntity })
+  @ApiNotFoundResponse()
+  @ApiBadRequestResponse({ description: 'Declined/expired quote, or quote and client currencies differ' })
+  @ApiConflictResponse({ description: 'Quote already converted' })
+  convert(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConvertQuoteDto,
+  ) {
+    return this.quotesService.convert(user.sub, id, dto);
   }
 
   @Post(':id/send')

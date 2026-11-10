@@ -38,6 +38,8 @@ const RELATIONS: Record<string, Record<string, [model: string, fk: string]>> = {
   ClientPortalUser: { clientPortal: ['ClientPortal', 'clientPortalId'] },
   ClientPortalProject: { clientPortal: ['ClientPortal', 'clientPortalId'] },
   ClientPortalUserProject: { clientPortalUser: ['ClientPortalUser', 'clientPortalUserId'] },
+  PortalNotification: { clientPortalUser: ['ClientPortalUser', 'clientPortalUserId'] },
+  MilestoneReview: { milestone: ['Milestone', 'milestoneId'], clientPortalUser: ['ClientPortalUser', 'clientPortalUserId'] },
 };
 
 function fakeDb(tables: Record<string, Row[]>, migrations = ['20260101000000_init']) {
@@ -106,6 +108,8 @@ function account(p: string): Record<string, Row[]> {
     ClientPortalUser: [{ id: id('puser'), clientPortalId: id('portal') }],
     ClientPortalProject: [{ id: id('pproject'), clientPortalId: id('portal'), projectId: id('project') }],
     ClientPortalUserProject: [{ id: id('puproject'), clientPortalUserId: id('puser'), projectId: id('project') }],
+    PortalNotification: [{ id: id('pnote'), clientPortalUserId: id('puser') }],
+    MilestoneReview: [{ id: id('mreview'), milestoneId: id('milestone'), clientPortalUserId: id('puser'), round: 1 }],
   };
 }
 

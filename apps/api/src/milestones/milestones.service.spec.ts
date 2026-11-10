@@ -1,7 +1,7 @@
 import type { Mock } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { MilestoneEvents } from '../common/events';
-import { MilestonesService } from './milestones.service';
+import { MILESTONE_INCLUDE, MilestonesService } from './milestones.service';
 
 describe('MilestonesService', () => {
   let service: MilestonesService;
@@ -18,6 +18,7 @@ describe('MilestonesService', () => {
   };
   let projects: { findOne: Mock };
   let events: { emit: Mock };
+  let billing: { invoice: Mock };
 
   const ownerId = 'owner-1';
   const now = new Date('2026-09-23T12:00:00Z');
@@ -33,6 +34,12 @@ describe('MilestonesService', () => {
     estimatedHours: null,
     notes: null,
     order: 0,
+    amount: null,
+    billingTrigger: 'on_acceptance',
+    deliveredAt: null,
+    acceptedAt: null,
+    acceptedBy: null,
+    invoice: null,
     projectId: 'project-1',
     ...overrides,
   });
@@ -60,15 +67,25 @@ describe('MilestonesService', () => {
     };
     projects = { findOne: vi.fn().mockResolvedValue(project) };
     events = { emit: vi.fn() };
+    billing = {
+      invoice: vi
+        .fn()
+        .mockResolvedValue({ id: 'inv-1', number: 'INV-1001', status: 'draft' }),
+    };
 
     service = new MilestonesService(
       prisma as any,
       projects as any,
       events as any,
+      billing as any,
     );
   });
 
   afterEach(() => vi.useRealTimers());
+
+  /** milestone.completed emits only - every write also emits milestone.changed. */
+  const completedEmits = () =>
+    events.emit.mock.calls.filter(([name]) => name === MilestoneEvents.COMPLETED);
 
   describe('create', () => {
     const dto = { projectId: 'project-1', name: 'Launch' };
@@ -95,6 +112,7 @@ describe('MilestonesService', () => {
       });
       expect(prisma.milestone.create).toHaveBeenCalledWith({
         data: { ...dto, order: 5 },
+        include: MILESTONE_INCLUDE,
       });
     });
 
@@ -143,7 +161,7 @@ describe('MilestonesService', () => {
 
       await service.create(ownerId, { ...dto, status: 'completed' });
 
-      expect(events.emit).not.toHaveBeenCalled();
+      expect(completedEmits()).toHaveLength(0);
     });
   });
 
@@ -158,6 +176,7 @@ describe('MilestonesService', () => {
       expect(prisma.milestone.findMany).toHaveBeenCalledWith({
         where: { projectId: 'project-1' },
         orderBy: { order: 'asc' },
+        include: MILESTONE_INCLUDE,
       });
     });
 
@@ -179,6 +198,7 @@ describe('MilestonesService', () => {
 
       expect(prisma.milestone.findFirst).toHaveBeenCalledWith({
         where: { id: 'm-1', ...ownerScope },
+        include: MILESTONE_INCLUDE,
       });
     });
 
@@ -269,7 +289,7 @@ describe('MilestonesService', () => {
           where: { id: 'project-1' },
           include: { client: true },
         });
-        expect(events.emit).toHaveBeenCalledTimes(1);
+        expect(completedEmits()).toHaveLength(1);
         expect(events.emit).toHaveBeenCalledWith(MilestoneEvents.COMPLETED, {
           milestone: result,
           project,
@@ -284,7 +304,7 @@ describe('MilestonesService', () => {
 
         await service.update(ownerId, 'm-1', { status: 'completed' });
 
-        expect(events.emit).not.toHaveBeenCalled();
+        expect(completedEmits()).toHaveLength(0);
         expect(prisma.project.findUnique).not.toHaveBeenCalled();
       });
 
@@ -297,7 +317,7 @@ describe('MilestonesService', () => {
 
           await service.update(ownerId, 'm-1', { status: status as any });
 
-          expect(events.emit).not.toHaveBeenCalled();
+          expect(completedEmits()).toHaveLength(0);
         },
       );
 
@@ -306,7 +326,7 @@ describe('MilestonesService', () => {
 
         await service.update(ownerId, 'm-1', { name: 'Renamed' });
 
-        expect(events.emit).not.toHaveBeenCalled();
+        expect(completedEmits()).toHaveLength(0);
       });
 
       it('skips the event if the project vanished mid-update', async () => {
@@ -316,7 +336,7 @@ describe('MilestonesService', () => {
         await expect(
           service.update(ownerId, 'm-1', { status: 'completed' }),
         ).resolves.toBeDefined();
-        expect(events.emit).not.toHaveBeenCalled();
+        expect(completedEmits()).toHaveLength(0);
       });
 
       it('emits only after the write succeeded', async () => {
@@ -331,6 +351,153 @@ describe('MilestonesService', () => {
     });
   });
 
+  describe('live change events', () => {
+    it('emits milestone.changed with the status move on update', async () => {
+      prisma.milestone.findFirst.mockResolvedValue(milestone({ status: 'in_progress' }));
+
+      await service.update(ownerId, 'm-1', { status: 'delivered' });
+
+      expect(events.emit).toHaveBeenCalledWith(MilestoneEvents.CHANGED, {
+        projectId: 'project-1',
+        milestoneId: 'm-1',
+        name: 'Design approval',
+        status: 'delivered',
+        previousStatus: 'in_progress',
+      });
+    });
+
+    it('emits milestone.changed without a status for plain edits', async () => {
+      prisma.milestone.findFirst.mockResolvedValue(milestone());
+
+      await service.update(ownerId, 'm-1', { name: 'Design approval' });
+
+      expect(events.emit).toHaveBeenCalledWith(MilestoneEvents.CHANGED, {
+        projectId: 'project-1',
+        milestoneId: 'm-1',
+        name: 'Design approval',
+      });
+    });
+
+    it('flags removals', async () => {
+      prisma.milestone.findFirst.mockResolvedValue(milestone());
+
+      await service.remove(ownerId, 'm-1');
+
+      expect(events.emit).toHaveBeenCalledWith(
+        MilestoneEvents.CHANGED,
+        expect.objectContaining({ milestoneId: 'm-1', removed: true }),
+      );
+    });
+  });
+
+  describe('sign-off and billing', () => {
+    it('stamps delivered, accepted and completed dates when a milestone is accepted', async () => {
+      prisma.milestone.findFirst.mockResolvedValue(milestone({ status: 'in_progress' }));
+
+      await service.update(ownerId, 'm-1', { status: 'accepted', acceptedBy: 'Jane' });
+
+      expect(prisma.milestone.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'accepted',
+            acceptedBy: 'Jane',
+            acceptedAt: now,
+            deliveredAt: now,
+            completedAt: now,
+          }),
+        }),
+      );
+    });
+
+    it('keeps the delivery date from hand-over when accepted later', async () => {
+      const delivered = new Date('2026-09-01T00:00:00Z');
+      prisma.milestone.findFirst.mockResolvedValue(
+        milestone({ status: 'delivered', deliveredAt: delivered }),
+      );
+
+      await service.update(ownerId, 'm-1', { status: 'accepted' });
+
+      expect(prisma.milestone.update.mock.calls[0][0].data.deliveredAt).toEqual(delivered);
+    });
+
+    it('clears sign-off when an accepted milestone is reopened', async () => {
+      prisma.milestone.findFirst.mockResolvedValue(
+        milestone({ status: 'accepted', acceptedAt: now, acceptedBy: 'Jane', completedAt: now }),
+      );
+
+      await service.update(ownerId, 'm-1', { status: 'in_progress' });
+
+      expect(prisma.milestone.update.mock.calls[0][0].data).toMatchObject({
+        acceptedAt: null,
+        acceptedBy: null,
+        completedAt: null,
+        deliveredAt: null,
+      });
+    });
+
+    it('raises the draft invoice when a priced milestone is accepted, returning the re-read row', async () => {
+      const invoiced = milestone({
+        status: 'accepted',
+        amount: '5000',
+        retainedAmount: '500',
+        invoice: { id: 'inv-1', number: 'INV-1001', status: 'draft' },
+      });
+      prisma.milestone.findFirst
+        .mockResolvedValueOnce(milestone({ status: 'delivered' }))
+        .mockResolvedValueOnce(invoiced);
+      prisma.milestone.update.mockImplementation(async ({ data }) => ({
+        ...milestone({ amount: '5000' }),
+        ...data,
+      }));
+
+      const result = await service.update(ownerId, 'm-1', { status: 'accepted' });
+
+      expect(billing.invoice).toHaveBeenCalledWith(ownerId, 'm-1');
+      expect(result).toBe(invoiced);
+    });
+
+    it.each([
+      ['unpriced', { amount: null }],
+      ['manual billing', { amount: '5000', billingTrigger: 'manual' }],
+      ['already invoiced', { amount: '5000', invoice: { id: 'x', number: 'INV-9', status: 'sent' } }],
+    ])('does not invoice a %s milestone on acceptance', async (_label, overrides) => {
+      prisma.milestone.findFirst.mockResolvedValue(milestone({ status: 'delivered' }));
+      prisma.milestone.update.mockImplementation(async ({ data }) => ({
+        ...milestone(overrides),
+        ...data,
+      }));
+
+      await service.update(ownerId, 'm-1', { status: 'accepted' });
+
+      expect(billing.invoice).not.toHaveBeenCalled();
+    });
+
+    it('keeps the sign-off when the invoice cannot be raised', async () => {
+      prisma.milestone.findFirst.mockResolvedValue(milestone({ status: 'delivered' }));
+      prisma.milestone.update.mockImplementation(async ({ data }) => ({
+        ...milestone({ amount: '5000' }),
+        ...data,
+      }));
+      billing.invoice.mockRejectedValue(new Error('numbering exhausted'));
+
+      const result = await service.update(ownerId, 'm-1', { status: 'accepted' });
+
+      expect(result.status).toBe('accepted');
+      expect(result.invoice).toBeNull();
+    });
+
+    it('counts accepted milestones as done in the summary', async () => {
+      prisma.milestone.findMany.mockResolvedValue([
+        { projectId: 'p', status: 'accepted', name: 'A' },
+        { projectId: 'p', status: 'delivered', name: 'B' },
+      ]);
+
+      const [summary] = await service.summaryForProjects(ownerId, ['p']);
+
+      expect(summary).toMatchObject({ total: 2, completed: 1, progress: 50 });
+    });
+  });
+
   describe('remove', () => {
     it('deletes an owned milestone', async () => {
       prisma.milestone.findFirst.mockResolvedValue(milestone());
@@ -339,6 +506,7 @@ describe('MilestonesService', () => {
 
       expect(prisma.milestone.delete).toHaveBeenCalledWith({
         where: { id: 'm-1' },
+        include: MILESTONE_INCLUDE,
       });
     });
 
@@ -397,6 +565,7 @@ describe('MilestonesService', () => {
       expect(prisma.milestone.findMany).toHaveBeenLastCalledWith({
         where: { projectId: 'project-1' },
         orderBy: { order: 'asc' },
+        include: MILESTONE_INCLUDE,
       });
     });
 

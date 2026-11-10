@@ -22,6 +22,8 @@
           type="button"
           (click)="open(q)"
           class="surface-card hover-lift flex flex-col p-5 text-left transition"
+          [class.ring-2]="fresh().has(q.id)"
+          [class.ring-primary/40]="fresh().has(q.id)"
         >
           <div class="flex items-start justify-between gap-2">
             <div>
@@ -31,7 +33,13 @@
                 +' + (q.items.length - 1) + ' more' : '' }}
               </p>
             </div>
-            <app-status-badge [status]="q.status" />
+            @if (q.status === 'sent') {
+              <span class="shrink-0 rounded-full bg-primary/12 px-2 py-0.5 text-[11px] font-medium text-primary">
+                Awaiting your answer
+              </span>
+            } @else {
+              <app-status-badge [status]="q.status" />
+            }
           </div>
           <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
             <div>

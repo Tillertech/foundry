@@ -23,4 +23,13 @@ export class QuotesApiService {
   get(id: string): Observable<Quote> {
     return this.http.get<Quote>(`${this.base}/${id}`);
   }
+
+  /** Accepts a sent quote; `optionIds` = the options to include (others are left out). */
+  accept(id: string, optionIds?: string[]): Observable<Quote> {
+    return this.http.post<Quote>(`${this.base}/${id}/accept`, { optionIds });
+  }
+
+  decline(id: string, reason?: string): Observable<Quote> {
+    return this.http.post<Quote>(`${this.base}/${id}/decline`, { reason });
+  }
 }

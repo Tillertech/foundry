@@ -10,6 +10,8 @@ export interface PortalUser {
   allProjects: boolean;
   /** Projects the user is limited to; empty while `allProjects` is true. */
   projectIds: string[];
+  /** May approve / request changes on delivered milestones. */
+  canApproveMilestones: boolean;
   clientPortalId: string;
   createdAt: string;
   updatedAt: string;
@@ -21,6 +23,8 @@ export interface PortalUserAccess {
   allProjects?: boolean;
   /** Required (non-empty) when `allProjects` is false. */
   projectIds?: string[];
+  /** Defaults to true on invite. */
+  canApproveMilestones?: boolean;
 }
 
 export interface CreatePortalUserRequest extends PortalUserAccess {

@@ -43,7 +43,11 @@ import {
 } from '../../domains/documents';
 import { Expense, ExpensesApiService } from '../../domains/expenses';
 import { Invoice, InvoicesApiService } from '../../domains/invoices';
-import { Milestone, MilestonesApiService } from '../../domains/milestones';
+import {
+  isMilestoneDone,
+  Milestone,
+  MilestonesApiService,
+} from '../../domains/milestones';
 import { Project, ProjectsApiService } from '../../domains/projects';
 import { WorkspaceCurrencyService } from '../../domains/workspaces';
 import { EmptyState, StatusBadge, ToastService } from '@foundry/shared-ui';
@@ -152,8 +156,27 @@ export class ProjectDetail {
     this.milestones().filter((m) => m.status !== 'cancelled'),
   );
   protected readonly completedCount = computed(
-    () => this.deliveryMilestones().filter((m) => m.status === 'completed').length,
+    () => this.deliveryMilestones().filter(isMilestoneDone).length,
   );
+  protected readonly isDone = isMilestoneDone;
+  protected readonly retentionPercent = computed(() =>
+    num(this.project()?.retentionPercent),
+  );
+
+  /** Priced-milestone billing: value invoiced so far and retention still held. */
+  protected readonly milestoneBilling = computed(() => {
+    const priced = this.deliveryMilestones().filter((m) => m.amount !== null);
+    const billed = priced.filter(
+      (m) => m.invoice && m.invoice.status !== 'cancelled',
+    );
+    const released = billed.some((m) => m.releasesRetention);
+    return {
+      count: priced.length,
+      invoicedCount: billed.length,
+      invoiced: billed.reduce((s, m) => s + num(m.amount), 0),
+      held: released ? 0 : billed.reduce((s, m) => s + num(m.retainedAmount), 0),
+    };
+  });
   protected readonly progress = computed(() => {
     const total = this.deliveryMilestones().length;
     return total ? Math.round((this.completedCount() / total) * 100) : null;
@@ -209,7 +232,12 @@ export class ProjectDetail {
     for (const m of this.milestones()) {
       rows.push({
         icon: 'lucideCheck',
-        text: m.status === 'completed' ? `${m.name} completed` : `${m.name} added`,
+        text:
+          m.status === 'accepted'
+            ? `${m.name} signed off`
+            : m.status === 'completed'
+              ? `${m.name} completed`
+              : `${m.name} added`,
         detail: milestoneStatusLabels[m.status],
         date: m.completedAt || m.createdAt,
       });
@@ -270,10 +298,7 @@ export class ProjectDetail {
     });
 
     this.loadMilestones(id);
-    this.invoicesApi.list({ projectId: id, take: 100 }).subscribe({
-      next: (res) => this.invoices.set(res.results),
-      error: () => undefined,
-    });
+    this.reloadInvoices(id);
     this.expensesApi.list({ projectId: id, take: 100 }).subscribe({
       next: (res) => this.expenses.set(res.results),
       error: () => undefined,
@@ -284,6 +309,14 @@ export class ProjectDetail {
     });
     this.projectsApi.timeline(id, { take: 20 }).subscribe({
       next: (res) => this.timeline.set(res.results),
+      error: () => undefined,
+    });
+  }
+
+  /** Also called after a milestone raised its invoice. */
+  protected reloadInvoices(id = this.id()): void {
+    this.invoicesApi.list({ projectId: id, take: 100 }).subscribe({
+      next: (res) => this.invoices.set(res.results),
       error: () => undefined,
     });
   }
@@ -344,6 +377,8 @@ export class ProjectDetail {
   }
 
   protected onMilestoneSaved(saved: Milestone): void {
+    const before = this.milestones().find((m) => m.id === saved.id);
+    if (saved.invoice && !before?.invoice) this.reloadInvoices();
     this.milestones.update((list) => {
       const exists = list.some((m) => m.id === saved.id);
       return exists

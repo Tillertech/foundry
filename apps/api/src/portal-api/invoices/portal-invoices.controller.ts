@@ -21,12 +21,12 @@ import {
 import type { Request, Response } from 'express';
 import { requestBaseUrl } from '../../common/http/request-base-url';
 import { ApiPaginatedResponse } from '../../common/swagger/api-paginated-response.decorator';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { CurrentPortalUser } from '../../portal-auth/decorators/current-portal-user.decorator';
 import {
   PortalJwtAuthGuard,
   PortalJwtPayload,
 } from '../../portal-auth/portal-jwt-auth.guard';
+import { PortalBillingQueryDto } from '../billing/portal-billing-query.dto';
 import { PortalInvoiceEntity } from './entities/portal-invoice.entity';
 import { PortalInvoicesService } from './portal-invoices.service';
 
@@ -38,16 +38,18 @@ export class PortalInvoicesController {
   constructor(private readonly service: PortalInvoicesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List invoices (cursor paginated)' })
+  @ApiOperation({ summary: 'List invoices with project, paid and balance (cursor paginated; ?projectId= for one project)' })
   @ApiPaginatedResponse(PortalInvoiceEntity)
   @ApiForbiddenResponse({ description: 'Invoices are not enabled for this portal' })
+  @ApiNotFoundResponse({ description: 'projectId is not shared with you' })
   findAll(
     @CurrentPortalUser() user: PortalJwtPayload,
-    @Query() query: PaginationQueryDto,
+    @Query() query: PortalBillingQueryDto,
     @Req() req: Request,
   ) {
     return this.service.findAll(
       user.clientPortalId,
+      user.sub,
       query,
       requestBaseUrl(req),
     );
@@ -62,7 +64,7 @@ export class PortalInvoicesController {
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.service.findOne(user.clientPortalId, id);
+    return this.service.findOne(user.clientPortalId, user.sub, id);
   }
 
   @Get(':id/download')

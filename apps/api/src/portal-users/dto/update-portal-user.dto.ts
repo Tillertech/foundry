@@ -50,6 +50,15 @@ export class UpdatePortalUserDto {
   allProjects?: boolean;
 
   @ApiPropertyOptional({
+    default: true,
+    description: 'May approve or request changes on delivered milestones (viewing never needs it)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  canApproveMilestones?: boolean;
+
+
+  @ApiPropertyOptional({
     type: [String],
     format: 'uuid',
     description:

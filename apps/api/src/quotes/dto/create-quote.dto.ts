@@ -9,10 +9,11 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
-import { LineItemDto } from '../../common/dto/line-item.dto';
+import { QuoteLineItemDto } from './quote-line-item.dto';
 import { QuoteStatus } from '../../generated/prisma/enums';
 import { CURRENCY_SCHEMA, IsCurrencyCode } from '../../common/currency';
 
@@ -50,15 +51,27 @@ export class CreateQuoteDto {
   @Min(0)
   taxRate?: number;
 
+  @ApiPropertyOptional({
+    example: 10,
+    default: 0,
+    description:
+      'Percent held back from each milestone invoice until the final milestone',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  retentionPercent?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   notes?: string;
 
-  @ApiProperty({ type: [LineItemDto] })
+  @ApiProperty({ type: [QuoteLineItemDto], description: 'In display order' })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => LineItemDto)
-  items: LineItemDto[];
+  @Type(() => QuoteLineItemDto)
+  items: QuoteLineItemDto[];
 }

@@ -1,8 +1,19 @@
 <div class="space-y-3">
-  <div class="flex items-center justify-between gap-3">
+  <div class="flex flex-wrap items-center justify-between gap-3">
     <p class="text-xs text-muted-foreground">
-      @if (milestones().length) { {{ completedCount() }} of {{
-      milestones().length }} completed } @else { No milestones yet }
+      @if (milestones().length) {
+        {{ completedCount() }} of {{ milestones().length }} done
+        @if (billing().count) {
+          · Billed
+          <span class="font-medium text-foreground tabular-nums">{{ fmt(billing().invoiced) }}</span>
+          of {{ fmt(billing().value) }}
+          @if (billing().held > 0) {
+            · {{ fmt(billing().held) }} retention held
+          }
+        }
+      } @else {
+        No milestones yet
+      }
     </p>
     <button
       hlmBtn
@@ -17,137 +28,282 @@
     </button>
   </div>
 
-  @if (milestones().length === 0) {
-  <p class="text-xs text-muted-foreground">
-    Add the first milestone to structure this project's delivery.
-  </p>
-  } @else {
-  <div
-    cdkDropList
-    (cdkDropListDropped)="drop($event)"
-    class="divide-y divide-border rounded-lg border border-border"
-  >
-    @for (m of milestones(); track m.id) {
-    <div
-      cdkDrag
-      [cdkDragData]="m"
-      class="flex items-start gap-3 bg-card px-3 py-2.5"
-      [class.opacity-60]="m.status === 'completed'"
-    >
-      <button
-        cdkDragHandle
-        type="button"
-        class="mt-1 shrink-0 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-        [attr.aria-label]="'Reorder ' + m.name"
-      >
-        <ng-icon name="lucideGripVertical" size="15" />
-      </button>
-      <span
-        class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-        [class]="
-              m.status === 'completed'
-                ? 'bg-success'
-                : m.status === 'in_progress'
-                  ? 'bg-primary'
-                  : 'bg-muted-foreground/40'
-            "
-      ></span>
-      <div class="min-w-0 flex-1">
-        <p
-          class="truncate text-sm font-medium"
-          [class.line-through]="m.status === 'completed'"
-        >
-          {{ m.name }}
-        </p>
-        <p class="mt-0.5 text-xs text-muted-foreground">
-          {{ statusLabel(m.status) }} @if (m.dueDate) { · Due {{
-          isoDay(m.dueDate) }} } @if (m.estimatedHours) { · {{ m.estimatedHours
-          }}h }
-        </p>
-      </div>
-      <div class="flex shrink-0 items-center gap-0.5">
-        @if (m.status !== 'completed') {
-        <hlm-alert-dialog>
-          <button
-            hlmAlertDialogTrigger
-            hlmBtn
-            variant="ghost"
-            size="icon"
-            type="button"
-            class="h-7 w-7"
-            [attr.aria-label]="'Mark ' + m.name + ' complete'"
-          >
-            <ng-icon name="lucideCheck" size="13" />
-          </button>
-          <hlm-alert-dialog-content *hlmAlertDialogPortal="let dialogCtx">
-            <div hlmAlertDialogHeader>
-              <h3 hlmAlertDialogTitle>Mark "{{ m.name }}" complete?</h3>
-              <p hlmAlertDialogDescription>
-                This updates its status to completed. You can still edit it
-                afterwards if you need to reopen it.
-              </p>
-            </div>
-            <div hlmAlertDialogFooter>
-              <button hlmAlertDialogCancel (click)="dialogCtx.close()">
-                Cancel
-              </button>
-              <button
-                hlmAlertDialogAction
-                (click)="confirmComplete(m, dialogCtx)"
-              >
-                Mark complete
-              </button>
-            </div>
-          </hlm-alert-dialog-content>
-        </hlm-alert-dialog>
-        }
-        <button
-          hlmBtn
-          variant="ghost"
-          size="icon"
-          type="button"
-          class="h-7 w-7"
-          (click)="requestEdit.emit(m)"
-          [attr.aria-label]="'Edit ' + m.name"
-        >
-          <ng-icon name="lucidePencil" size="13" />
-        </button>
-        <hlm-alert-dialog>
-          <button
-            hlmAlertDialogTrigger
-            hlmBtn
-            variant="ghost"
-            size="icon"
-            type="button"
-            class="h-7 w-7 text-destructive"
-            [attr.aria-label]="'Delete ' + m.name"
-          >
-            <ng-icon name="lucideTrash2" size="13" />
-          </button>
-          <hlm-alert-dialog-content *hlmAlertDialogPortal="let dialogCtx">
-            <div hlmAlertDialogHeader>
-              <h3 hlmAlertDialogTitle>Delete "{{ m.name }}"?</h3>
-              <p hlmAlertDialogDescription>
-                This can't be undone. The milestone will be permanently removed.
-              </p>
-            </div>
-            <div hlmAlertDialogFooter>
-              <button hlmAlertDialogCancel (click)="dialogCtx.close()">
-                Cancel
-              </button>
-              <button
-                hlmAlertDialogAction
-                class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                (click)="confirmDelete(m, dialogCtx)"
-              >
-                Delete
-              </button>
-            </div>
-          </hlm-alert-dialog-content>
-        </hlm-alert-dialog>
-      </div>
+  @if (billing().count) {
+    <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
+      <div
+        class="h-full rounded-full bg-success transition-all"
+        [style.width.%]="billing().value ? (billing().invoiced / billing().value) * 100 : 0"
+      ></div>
     </div>
-    }
-  </div>
+  }
+
+  @if (milestones().length === 0) {
+    <p class="text-xs text-muted-foreground">
+      Add the first milestone to structure this project's delivery, or create
+      the project from a quote to bring its milestones in priced.
+    </p>
+  } @else {
+    <div
+      cdkDropList
+      (cdkDropListDropped)="drop($event)"
+      class="divide-y divide-border rounded-lg border border-border"
+    >
+      @for (m of milestones(); track m.id; let i = $index) {
+        <div
+          cdkDrag
+          [cdkDragData]="m"
+          class="flex items-start gap-3 bg-card px-3 py-2.5"
+          [class.opacity-60]="m.status === 'cancelled'"
+        >
+          <button
+            cdkDragHandle
+            type="button"
+            class="mt-1 shrink-0 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+            [attr.aria-label]="'Reorder ' + m.name"
+          >
+            <ng-icon name="lucideGripVertical" size="15" />
+          </button>
+          <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" [class]="dotClass(m)"></span>
+
+          <button
+            type="button"
+            class="min-w-0 flex-1 text-left"
+            (click)="requestEdit.emit(m)"
+          >
+            <p class="truncate text-sm font-medium" [class.text-muted-foreground]="isDone(m)">
+              {{ m.name }}
+            </p>
+            <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+              <span>{{ statusLabel(m.status) }}</span>
+              @if (m.status === 'accepted' && m.acceptedAt) {
+                <span>· {{ isoDay(m.acceptedAt) }}{{ m.acceptedBy ? ' by ' + m.acceptedBy : '' }}</span>
+              } @else if (m.dueDate) {
+                <span>· Due {{ isoDay(m.dueDate) }}</span>
+              }
+              @if (m.estimatedHours) {
+                <span>· {{ m.estimatedHours }}h</span>
+              }
+              @if (m.deliverables.length) {
+                <span class="inline-flex items-center gap-1">
+                  · <ng-icon name="lucideListChecks" size="11" />
+                  {{ doneDeliverables(m) }}/{{ m.deliverables.length }}
+                </span>
+              }
+            </p>
+            @if (latestReview(m); as r) {
+              <span
+                class="mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                [class]="r.decision === 'approved' ? 'bg-success/12 text-success' : 'bg-warning/12 text-warning'"
+              >
+                <ng-icon [name]="r.decision === 'approved' ? 'lucideBadgeCheck' : 'lucideMessageSquareWarning'" size="11" />
+                Round {{ r.round }} ·
+                {{ r.decision === 'approved' ? 'approved' : 'changes requested' }} by {{ r.reviewerName }}
+              </span>
+              @if (r.decision === 'changes_requested' && m.status !== 'delivered' && !isDone(m)) {
+                <span class="mt-1.5 block space-y-1 rounded-md border border-warning/25 bg-warning/5 px-2.5 py-2">
+                  @for (c of r.comments; track $index) {
+                    <span class="block text-xs leading-5">
+                      <span class="font-medium">{{ deliverableLabel(m, c.deliverableId) }}:</span>
+                      {{ c.body }}
+                    </span>
+                  }
+                </span>
+              }
+            }
+          </button>
+
+          @if (isPriced(m)) {
+            <div class="hidden shrink-0 text-right sm:block">
+              <p class="text-sm font-semibold tabular-nums">{{ fmt(m.amount) }}</p>
+              @if (m.invoice; as inv) {
+                <button
+                  type="button"
+                  class="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-success hover:underline"
+                  (click)="openInvoice.emit(inv.id)"
+                >
+                  <ng-icon name="lucideReceipt" size="11" />
+                  {{ inv.number }} · {{ inv.status }}
+                </button>
+              } @else if (m.releasesRetention && retentionPercent() > 0) {
+                <p class="mt-0.5 text-[11px] text-muted-foreground">Releases retention</p>
+              } @else if (m.billingTrigger === 'upfront') {
+                <p class="mt-0.5 text-[11px] text-muted-foreground">Billed upfront</p>
+              } @else if (m.billingTrigger === 'manual') {
+                <p class="mt-0.5 text-[11px] text-muted-foreground">Billed manually</p>
+              } @else {
+                <p class="mt-0.5 text-[11px] text-muted-foreground">Billed on sign-off</p>
+              }
+            </div>
+          }
+
+          <div class="flex shrink-0 items-center gap-0.5">
+            @if (canDeliver(m)) {
+              <hlm-alert-dialog>
+                <button
+                  hlmAlertDialogTrigger
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  class="h-7 gap-1 px-2 text-xs"
+                  [disabled]="busyId() === m.id"
+                  [attr.aria-label]="'Mark ' + m.name + ' delivered'"
+                >
+                  <ng-icon name="lucidePackageCheck" size="13" />
+                  <span class="hidden md:inline">Delivered</span>
+                </button>
+                <hlm-alert-dialog-content *hlmAlertDialogPortal="let dialogCtx">
+                  <div hlmAlertDialogHeader>
+                    <h3 hlmAlertDialogTitle>Hand over "{{ m.name }}"?</h3>
+                    <p hlmAlertDialogDescription>
+                      It moves to Delivered and the client's portal users are
+                      told it's ready for their review.
+                      @if (m.deliverables.length && doneDeliverables(m) < m.deliverables.length) {
+                        {{ m.deliverables.length - doneDeliverables(m) }} of its
+                        {{ m.deliverables.length }} deliverables aren't ticked off yet.
+                      }
+                    </p>
+                  </div>
+                  <div hlmAlertDialogFooter>
+                    <button hlmAlertDialogCancel (click)="dialogCtx.close()">Cancel</button>
+                    <button hlmAlertDialogAction (click)="confirmDeliver(m, dialogCtx)">
+                      Mark delivered
+                    </button>
+                  </div>
+                </hlm-alert-dialog-content>
+              </hlm-alert-dialog>
+            } @else if (canSignOff(m)) {
+              <button
+                hlmBtn
+                size="sm"
+                type="button"
+                class="h-7 gap-1 px-2 text-xs"
+                [disabled]="busyId() === m.id"
+                (click)="signOff(m)"
+              >
+                <ng-icon name="lucideBadgeCheck" size="13" />
+                <span class="hidden md:inline">Sign off</span>
+              </button>
+            } @else if (canRaiseInvoice(m)) {
+              <hlm-alert-dialog>
+                <button
+                  hlmAlertDialogTrigger
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  class="h-7 gap-1 px-2 text-xs"
+                  [disabled]="busyId() === m.id"
+                  [attr.aria-label]="'Raise invoice for ' + m.name"
+                >
+                  <ng-icon name="lucideReceipt" size="13" />
+                  <span class="hidden md:inline">Raise invoice</span>
+                </button>
+                <hlm-alert-dialog-content *hlmAlertDialogPortal="let dialogCtx">
+                  <div hlmAlertDialogHeader>
+                    <h3 hlmAlertDialogTitle>Raise the invoice for "{{ m.name }}"?</h3>
+                    <p hlmAlertDialogDescription>
+                      A draft invoice for {{ fmt(m.amount) }}
+                      @if (!m.releasesRetention && retentionPercent() > 0) {
+                        less {{ retentionPercent() }}% retention
+                      }
+                      @if (m.releasesRetention && retentionPercent() > 0) {
+                        plus the retention held on earlier milestones
+                      }
+                      is created. Nothing is sent until you send it.
+                    </p>
+                  </div>
+                  <div hlmAlertDialogFooter>
+                    <button hlmAlertDialogCancel (click)="dialogCtx.close()">Cancel</button>
+                    <button hlmAlertDialogAction (click)="confirmRaiseInvoice(m, dialogCtx)">
+                      Raise draft invoice
+                    </button>
+                  </div>
+                </hlm-alert-dialog-content>
+              </hlm-alert-dialog>
+            } @else if (!isPriced(m) && !isDone(m) && m.status !== 'cancelled') {
+              <hlm-alert-dialog>
+                <button
+                  hlmAlertDialogTrigger
+                  hlmBtn
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  class="h-7 w-7"
+                  [attr.aria-label]="'Mark ' + m.name + ' complete'"
+                >
+                  <ng-icon name="lucideCheck" size="13" />
+                </button>
+                <hlm-alert-dialog-content *hlmAlertDialogPortal="let dialogCtx">
+                  <div hlmAlertDialogHeader>
+                    <h3 hlmAlertDialogTitle>Mark "{{ m.name }}" complete?</h3>
+                    <p hlmAlertDialogDescription>
+                      This updates its status to completed. You can still edit
+                      it afterwards if you need to reopen it.
+                    </p>
+                  </div>
+                  <div hlmAlertDialogFooter>
+                    <button hlmAlertDialogCancel (click)="dialogCtx.close()">
+                      Cancel
+                    </button>
+                    <button hlmAlertDialogAction (click)="confirmComplete(m, dialogCtx)">
+                      Mark complete
+                    </button>
+                  </div>
+                </hlm-alert-dialog-content>
+              </hlm-alert-dialog>
+            }
+            <button
+              hlmBtn
+              variant="ghost"
+              size="icon"
+              type="button"
+              class="h-7 w-7"
+              (click)="requestEdit.emit(m)"
+              [attr.aria-label]="'Edit ' + m.name"
+            >
+              <ng-icon name="lucidePencil" size="13" />
+            </button>
+            <hlm-alert-dialog>
+              <button
+                hlmAlertDialogTrigger
+                hlmBtn
+                variant="ghost"
+                size="icon"
+                type="button"
+                class="h-7 w-7 text-destructive"
+                [attr.aria-label]="'Delete ' + m.name"
+              >
+                <ng-icon name="lucideTrash2" size="13" />
+              </button>
+              <hlm-alert-dialog-content *hlmAlertDialogPortal="let dialogCtx">
+                <div hlmAlertDialogHeader>
+                  <h3 hlmAlertDialogTitle>Delete "{{ m.name }}"?</h3>
+                  <p hlmAlertDialogDescription>
+                    This can't be undone. The milestone will be permanently
+                    removed.
+                    @if (m.invoice) {
+                      Its invoice {{ m.invoice.number }} is kept.
+                    }
+                  </p>
+                </div>
+                <div hlmAlertDialogFooter>
+                  <button hlmAlertDialogCancel (click)="dialogCtx.close()">
+                    Cancel
+                  </button>
+                  <button
+                    hlmAlertDialogAction
+                    class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    (click)="confirmDelete(m, dialogCtx)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </hlm-alert-dialog-content>
+            </hlm-alert-dialog>
+          </div>
+        </div>
+      }
+    </div>
   }
 </div>

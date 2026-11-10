@@ -71,15 +71,21 @@ export class InvoicesService {
     private readonly workspaceScope: WorkspaceScope,
   ) {}
 
+  /**
+   * `milestoneId` is internal (milestone billing), not part of the public
+   * DTO: the unique index on it is what stops a milestone being invoiced twice.
+   */
   async create(
     ownerId: string,
     dto: CreateInvoiceDto,
+    links: { milestoneId?: string } = {},
   ): Promise<InvoiceWithItems> {
     const client = await this.clients.findOne(ownerId, dto.clientId);
     if (dto.projectId) {
       await this.assertProjectForClient(ownerId, dto.projectId, client.id);
     }
-    const { items: requested, number, ...data } = dto;
+    const { items: requested, number, ...fields } = dto;
+    const data = { ...fields, ...links };
     const items = await this.resolveItems(ownerId, {
       clientId: client.id,
       currency: dto.currency ?? DEFAULT_CURRENCY,
@@ -151,16 +157,18 @@ export class InvoicesService {
    * or an expense already billed on another invoice (a concurrent attach that
    * slipped past resolveItems' check). null for anything else.
    */
-  private conflictOn(err: unknown): 'number' | 'expense' | null {
+  private conflictOn(
+    err: unknown,
+  ): 'number' | 'expense' | 'milestone' | null {
     if (
       !(err instanceof Prisma.PrismaClientKnownRequestError) ||
       err.code !== 'P2002'
     ) {
       return null;
     }
-    return JSON.stringify(err.meta ?? {}).includes('expenseId')
-      ? 'expense'
-      : 'number';
+    const meta = JSON.stringify(err.meta ?? {});
+    if (meta.includes('milestoneId')) return 'milestone';
+    return meta.includes('expenseId') ? 'expense' : 'number';
   }
 
   private rethrowConflict(err: unknown): never {
@@ -171,6 +179,8 @@ export class InvoicesService {
         throw new ConflictException(
           'One of the expenses was just billed on another invoice',
         );
+      case 'milestone':
+        throw new ConflictException('This milestone is already invoiced');
       default:
         throw err;
     }

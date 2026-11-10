@@ -1,4 +1,9 @@
 import {
+  countsTowardsTotal,
+  quoteAppendix,
+  quoteTotals,
+} from '../quotes/quote-totals';
+import {
   Inject,
   Injectable,
   Logger,
@@ -13,6 +18,9 @@ import type {
   InvoiceReminderDueEvent,
   InvoiceSentEvent,
   MilestoneCompletedEvent,
+  MilestoneInvoicedEvent,
+  MilestoneReviewedEvent,
+  QuoteRespondedEvent,
   ProjectStatusChangedEvent,
   QuoteSentEvent,
 } from '../common/events';
@@ -301,6 +309,7 @@ export class NotificationService {
     });
 
     const context = this.quoteContext(quote, client.name, workspace?.name);
+    const priced = quote.items.filter(countsTowardsTotal);
     const pdf = await this.pdfService.quotePdf({
       number: quote.number,
       biller: this.billerParty(workspace),
@@ -308,13 +317,13 @@ export class NotificationService {
       issueDate: context.issueDate,
       validUntil: context.validUntil,
       currency: quote.currency,
-      items: quote.items.map((item) => ({
+      items: priced.map((item) => ({
         description: item.description,
         quantity: Number(item.quantity),
         rate: Number(item.rate),
       })),
       taxRate: Number(quote.taxRate),
-      notes: quote.notes ?? undefined,
+      notes: context.notes || undefined,
       brand: await this.pdfBrand(workspace, 'quote'),
     });
 
@@ -478,9 +487,13 @@ export class NotificationService {
         ? ` - ${progress.completedMilestones} of ${progress.totalMilestones} milestones done (${progress.progress}%)`
         : '';
       const clientNote = recipients ? ` ${client.name} was notified.` : '';
+      // A client sign-off reads as one ("Signed off by Ada"), not a bare completion.
+      const signer = milestone.acceptedBy?.replace(/\s*<[^>]*>$/, '');
       await this.notify(workspace.ownerId, {
         kind: NotificationKind.milestone_completed,
-        title: `Milestone completed: ${milestone.name}`,
+        title: signer
+          ? `Signed off by ${signer}: ${milestone.name}`
+          : `Milestone completed: ${milestone.name}`,
         body: `"${milestone.name}" on ${project.name}${progressNote}.${clientNote}`,
         resourceId: project.id,
       });
@@ -488,6 +501,65 @@ export class NotificationService {
     this.logger.log(
       `Milestone ${milestone.name} completed on project ${project.name}`,
     );
+  }
+
+  /** Tells the owner the client answered a quote in the portal; live-refreshes their quotes. */
+  async onQuoteResponded({
+    quote,
+    client,
+    accepted,
+    respondedBy,
+    note,
+  }: QuoteRespondedEvent): Promise<void> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: client.workspaceId },
+      select: { ownerId: true },
+    });
+    if (!workspace) return;
+    const company = client.company || client.name;
+    const name = respondedBy.replace(/\s*<[^>]*>$/, '');
+    // "Ada (Griid)", or just "Griid" when the portal user is named after the client.
+    const who = !name || name === company ? company : `${name} (${company})`;
+    this.gateway.emitToUser(workspace.ownerId, 'quote.changed', {
+      quoteId: quote.id,
+      status: quote.status,
+    });
+    await this.notify(workspace.ownerId, accepted
+      ? {
+          kind: NotificationKind.quote_accepted,
+          title: `${quote.number} accepted`,
+          body: `${who} accepted the quote. Start the project when you're ready.`,
+          resourceId: quote.id,
+        }
+      : {
+          kind: NotificationKind.quote_declined,
+          title: `${quote.number} declined`,
+          body: `${who} declined the quote${note ? `: "${note}"` : '.'}`,
+          resourceId: quote.id,
+        });
+  }
+
+  /** A client asked for changes on a delivered milestone - the owner needs to act. */
+  async onMilestoneReviewed(event: MilestoneReviewedEvent): Promise<void> {
+    this.gateway.emitToUser(event.ownerId, 'milestone.reviewed', event);
+    if (event.approved) return; // the completion notification covers sign-off
+    await this.notify(event.ownerId, {
+      kind: NotificationKind.milestone_changes_requested,
+      title: `Changes requested: ${event.milestoneName}`,
+      body: `${event.reviewerName} sent ${event.commentCount} ${event.commentCount === 1 ? 'note' : 'notes'} on ${event.projectName} (round ${event.round}). It's back in progress.`,
+      resourceId: event.projectId,
+    });
+  }
+
+  /** Tells the owner a signed-off milestone raised its draft invoice. */
+  async onMilestoneInvoiced(event: MilestoneInvoicedEvent): Promise<void> {
+    this.gateway.emitToUser(event.ownerId, 'milestone.invoiced', event);
+    await this.notify(event.ownerId, {
+      kind: NotificationKind.milestone_invoiced,
+      title: `Draft ${event.invoiceNumber} ready to send`,
+      body: `Raised for "${event.milestoneName}" on ${event.projectName}. Review it and send it to the client.`,
+      resourceId: event.invoiceId,
+    });
   }
 
   /** Pushes a realtime payment event to the owning user. */
@@ -761,8 +833,11 @@ export class NotificationService {
       orderBy: { order: 'asc' },
       select: { name: true, status: true },
     });
+    // Signed-off milestones count as done, like completed ones.
     const completed = milestones.filter(
-      (m) => m.status === MilestoneStatus.completed,
+      (m) =>
+        m.status === MilestoneStatus.completed ||
+        m.status === MilestoneStatus.accepted,
     ).length;
     const progress = milestones.length
       ? Math.round((completed / milestones.length) * 100)
@@ -862,13 +937,15 @@ export class NotificationService {
     clientName: string,
     workspaceName = 'Foundry',
   ): QuoteMailContext {
-    const subtotal = quote.items.reduce(
-      (sum, item) => sum + Number(item.quantity) * Number(item.rate),
-      0,
-    );
+    // Only one-off lines sit in the totals table; monthly, at-cost and
+    // unselected option lines are listed after the notes.
+    const { subtotal, tax, total } = quoteTotals(quote);
     const taxRate = Number(quote.taxRate) || 0;
-    const tax = subtotal * (taxRate / 100);
     const money = (n: number) => n.toFixed(2);
+    const appendix = quoteAppendix(
+      quote.items,
+      (n) => `${quote.currency} ${money(n)}`,
+    );
     const day = (d: Date) => new Date(d).toISOString().slice(0, 10);
 
     return {
@@ -878,7 +955,7 @@ export class NotificationService {
       issueDate: day(quote.issueDate),
       validUntil: day(quote.validUntil),
       currency: quote.currency,
-      items: quote.items.map((item) => ({
+      items: quote.items.filter(countsTowardsTotal).map((item) => ({
         description: item.description,
         quantity: String(Number(item.quantity)),
         rate: money(Number(item.rate)),
@@ -887,8 +964,8 @@ export class NotificationService {
       subtotal: money(subtotal),
       taxRate: String(taxRate),
       tax: money(tax),
-      total: money(subtotal + tax),
-      notes: quote.notes ?? '',
+      total: money(total),
+      notes: [quote.notes ?? '', appendix].filter(Boolean).join('\n\n'),
     };
   }
 }

@@ -47,6 +47,8 @@ export interface PortalMe {
   name: string;
   email: string;
   status: 'invited' | 'active' | 'suspended';
+  /** May approve or request changes on delivered milestones. */
+  canApproveMilestones: boolean;
   clientPortal: {
     id: string;
     slug: string;

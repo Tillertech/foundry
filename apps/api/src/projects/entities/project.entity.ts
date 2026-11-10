@@ -24,6 +24,13 @@ export class ProjectEntity {
   @ApiPropertyOptional({ nullable: true, type: String, example: '150' })
   hourlyRate: string | null;
 
+  @ApiProperty({
+    type: String,
+    description: 'Percent held back from milestone invoices until the final one',
+    example: '10',
+  })
+  retentionPercent: string;
+
   @ApiProperty()
   startDate: Date;
 

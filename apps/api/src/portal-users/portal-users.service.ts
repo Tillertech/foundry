@@ -118,6 +118,7 @@ export class PortalUsersService {
         otpSecret,
         status: ClientPortalUserStatus.invited,
         allProjects,
+        canApproveMilestones: dto.canApproveMilestones ?? true,
         clientPortalId: portal.id,
         projects: { create: projectIds.map((projectId) => ({ projectId })) },
       },

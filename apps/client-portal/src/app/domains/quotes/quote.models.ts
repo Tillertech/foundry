@@ -1,8 +1,27 @@
 import { Currency } from '@foundry/shared-util';
-import { InvoiceItem } from '../invoices';
 
 export type QuoteStatus =
   'draft' | 'sent' | 'accepted' | 'declined' | 'expired';
+
+export type QuoteItemKind =
+  | 'standard'
+  | 'milestone'
+  | 'recurring'
+  | 'pass_through'
+  | 'option';
+
+export interface QuoteItem {
+  id: string;
+  description: string;
+  quantity: string;
+  rate: string;
+  kind: QuoteItemKind;
+  /** Client-facing scope (milestones). */
+  details: string | null;
+  /** Options only: included in the quote. */
+  selected: boolean;
+  position: number;
+}
 
 export interface Quote {
   id: string;
@@ -13,7 +32,14 @@ export interface Quote {
   currency: Currency;
   taxRate: string;
   notes: string | null;
-  items: InvoiceItem[];
+  retentionPercent: string;
+  /** When someone at the client accepted/declined it here. */
+  respondedAt: string | null;
+  /** Who answered, "Name <email>". */
+  respondedBy: string | null;
+  /** Reason given with a decline. */
+  responseNote: string | null;
+  items: QuoteItem[];
   createdAt: string;
   updatedAt: string;
 }

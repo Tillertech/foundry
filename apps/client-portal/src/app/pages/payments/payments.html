@@ -4,7 +4,7 @@
       Payments
     </h1>
     <p class="mt-1 text-sm text-muted-foreground">
-      Your payment history.
+      Your payment history - each payment shows the invoice and project it paid for.
     </p>
   </div>
 
@@ -34,50 +34,6 @@
       </div>
     </div>
 
-    <div class="surface-card overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr
-            class="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground"
-          >
-            <th class="px-4 py-2.5 font-medium">Date</th>
-            <th class="px-4 py-2.5 font-medium">Method</th>
-            <th class="px-4 py-2.5 font-medium">Reference</th>
-            <th class="px-4 py-2.5 text-right font-medium">Amount</th>
-            <th class="px-4 py-2.5"></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (p of payments(); track p.id) {
-            <tr class="border-b border-border/50 last:border-0">
-              <td class="px-4 py-3 text-muted-foreground">{{ isoDay(p.date) }}</td>
-              <td class="px-4 py-3 text-muted-foreground">
-                {{ methodLabel[p.method] ?? p.method }}
-              </td>
-              <td class="px-4 py-3 font-mono text-xs text-muted-foreground">
-                {{ p.reference ?? '—' }}
-              </td>
-              <td class="px-4 py-3 text-right font-medium tabular-nums">
-                {{ money(p.amount, p.currency) }}
-              </td>
-              <td class="px-4 py-3 text-right">
-                @if (p.invoiceId) {
-                  <button
-                    hlmBtn
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                    class="h-7 gap-1.5 text-xs"
-                    (click)="downloadReceipt(p)"
-                  >
-                    <ng-icon name="lucideDownload" size="12" /> Receipt
-                  </button>
-                }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+    <app-payment-table [payments]="payments()" />
   }
 </div>

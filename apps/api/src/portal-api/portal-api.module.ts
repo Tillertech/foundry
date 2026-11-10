@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { NotificationModule } from '../notification/notification.module';
 import { PortalAuthModule } from '../portal-auth/portal-auth.module';
 import { PortalContextService } from './portal-context.service';
+import { MilestonesModule } from '../milestones/milestones.module';
+import { PortalMilestoneReviewService } from './projects/portal-milestone-review.service';
+import { PortalBillingService } from './billing/portal-billing.service';
 import { PortalProjectsController } from './projects/portal-projects.controller';
 import { PortalProjectsService } from './projects/portal-projects.service';
 import { PortalInvoicesController } from './invoices/portal-invoices.controller';
@@ -14,7 +17,7 @@ import { PortalDocumentsController } from './documents/portal-documents.controll
 import { PortalDocumentsService } from './documents/portal-documents.service';
 
 @Module({
-  imports: [PortalAuthModule, NotificationModule],
+  imports: [PortalAuthModule, NotificationModule, MilestonesModule],
   controllers: [
     PortalProjectsController,
     PortalInvoicesController,
@@ -24,6 +27,8 @@ import { PortalDocumentsService } from './documents/portal-documents.service';
   ],
   providers: [
     PortalContextService,
+    PortalBillingService,
+    PortalMilestoneReviewService,
     PortalProjectsService,
     PortalInvoicesService,
     PortalQuotesService,

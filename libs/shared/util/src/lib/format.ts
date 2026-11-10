@@ -97,14 +97,43 @@ export function invoiceTotal(inv: InvoiceTotalsInput) {
   return { subtotal, discount, tax, total: afterDiscount + tax };
 }
 
+interface QuoteLineLike extends LineItemLike {
+  /** standard | milestone | recurring | pass_through | option; absent = standard. */
+  kind?: string;
+  selected?: boolean;
+}
+
+/**
+ * Whether a quote line counts towards the one-off total: plain lines,
+ * milestones and options the client picked. Recurring (per month) and
+ * pass-through (at cost) lines are quoted alongside, not inside, the total.
+ */
+export function countsTowardsQuoteTotal(it: QuoteLineLike): boolean {
+  const kind = it.kind ?? 'standard';
+  return (
+    kind === 'standard' ||
+    kind === 'milestone' ||
+    (kind === 'option' && !!it.selected)
+  );
+}
+
 export function quoteTotal(q: {
-  items: LineItemLike[];
+  items: QuoteLineLike[];
   taxRate: string | number;
 }) {
-  const subtotal = q.items.reduce(
-    (s, it) => s + num(it.quantity) * num(it.rate),
-    0,
-  );
+  const sum = (pred: (it: QuoteLineLike) => boolean) =>
+    q.items
+      .filter(pred)
+      .reduce((s, it) => s + num(it.quantity) * num(it.rate), 0);
+  const subtotal = sum(countsTowardsQuoteTotal);
   const tax = subtotal * (num(q.taxRate) / 100);
-  return { subtotal, tax, total: subtotal + tax };
+  return {
+    subtotal,
+    tax,
+    total: subtotal + tax,
+    /** Per month, excluded from total. */
+    recurring: sum((it) => it.kind === 'recurring'),
+    /** Estimate billed at cost, excluded from total. */
+    passThrough: sum((it) => it.kind === 'pass_through'),
+  };
 }

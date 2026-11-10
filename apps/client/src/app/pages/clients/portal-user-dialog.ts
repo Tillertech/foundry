@@ -18,6 +18,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCheckboxImports } from '@spartan-ng/helm/checkbox';
 import { HlmDialogImports } from '@spartan-ng/helm/dialog';
 import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { Field } from '@foundry/shared-ui';
 import { apiErrorMessage } from '@foundry/shared-util';
 import {
@@ -66,6 +67,7 @@ type AccessMode = 'all' | 'selected';
     HlmButton,
     HlmInput,
     HlmCheckboxImports,
+    HlmSwitchImports,
     Field,
   ],
   providers: [
@@ -321,6 +323,21 @@ type AccessMode = 'all' | 'selected';
           </p>
         }
 
+        <div class="flex items-start justify-between gap-4 rounded-lg border border-border px-3 py-2.5">
+          <div>
+            <p class="text-sm font-medium">Can approve milestones</p>
+            <p class="text-xs text-muted-foreground">
+              Signs off delivered work (which can raise an invoice) or asks for
+              changes. Turn off for people who should only follow along.
+            </p>
+          </div>
+          <hlm-switch
+            [checked]="canApprove()"
+            (checkedChange)="canApprove.set($event)"
+            aria-label="Can approve milestones"
+          />
+        </div>
+
         <div hlmDialogFooter>
           <button
             hlmBtn
@@ -362,6 +379,7 @@ export class PortalUserDialog {
 
   protected readonly name = signal(this.ctx.user?.name ?? '');
   protected readonly email = signal(this.ctx.user?.email ?? '');
+  protected readonly canApprove = signal(this.ctx.user?.canApproveMilestones ?? true);
   protected readonly mode = signal<AccessMode>(
     this.ctx.user && !this.ctx.user.allProjects ? 'selected' : 'all',
   );
@@ -438,10 +456,12 @@ export class PortalUserDialog {
       return;
     }
 
-    const access: PortalUserAccess =
-      this.mode() === 'all'
+    const access: PortalUserAccess = {
+      ...(this.mode() === 'all'
         ? { allProjects: true }
-        : { allProjects: false, projectIds: [...this.selected()] };
+        : { allProjects: false, projectIds: [...this.selected()] }),
+      canApproveMilestones: this.canApprove(),
+    };
     const profile = { name: this.name().trim(), email: this.email().trim() };
 
     this.saving.set(true);

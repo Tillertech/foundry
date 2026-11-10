@@ -21,6 +21,12 @@ export interface InvoiceItem {
   expense: { vendor: string; category: string; date: string } | null;
 }
 
+/** A project a record belongs to, as far as this portal user can see. */
+export interface ProjectRef {
+  id: string;
+  name: string;
+}
+
 export interface Invoice {
   id: string;
   number: string;
@@ -31,7 +37,14 @@ export interface Invoice {
   taxRate: string;
   discount: string;
   notes: string | null;
+  /** Null when the invoice has no project, or it isn't shared with you. */
   projectId: string | null;
+  /** The project this invoice bills (only projects shared with you). */
+  project: ProjectRef | null;
+  /** Total incl. tax, after discount. */
+  total: number;
+  amountPaid: number;
+  balanceDue: number;
   items: InvoiceItem[];
   createdAt: string;
   updatedAt: string;

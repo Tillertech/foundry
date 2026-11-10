@@ -3,7 +3,9 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE, toParams, PaginatedResponse } from '@foundry/shared-util';
 import {
+  ConvertQuoteRequest,
   CreateQuoteRequest,
+  QuoteConversion,
   ListQuotesQuery,
   Quote,
   UpdateQuoteRequest,
@@ -35,6 +37,11 @@ export class QuotesApiService {
 
   delete(id: string): Observable<Quote> {
     return this.http.delete<Quote>(`${this.base}/${id}`);
+  }
+
+  /** Accepts the quote and creates its project + priced milestones in one go. */
+  convert(id: string, body: ConvertQuoteRequest): Observable<QuoteConversion> {
+    return this.http.post<QuoteConversion>(`${this.base}/${id}/convert`, body);
   }
 
   /** Marks the quote sent and emails it (with PDF) to the client. */
