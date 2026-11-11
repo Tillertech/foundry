@@ -1,3 +1,4 @@
+import { PortalInvoicesQueryDto } from './portal-invoices-query.dto';
 import {
   Controller,
   Get,
@@ -21,7 +22,6 @@ import {
 import type { Request, Response } from 'express';
 import { requestBaseUrl } from '../../common/http/request-base-url';
 import { ApiPaginatedResponse } from '../../common/swagger/api-paginated-response.decorator';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { CurrentPortalUser } from '../../portal-auth/decorators/current-portal-user.decorator';
 import {
   PortalJwtAuthGuard,
@@ -38,16 +38,23 @@ export class PortalInvoicesController {
   constructor(private readonly service: PortalInvoicesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List invoices (cursor paginated)' })
+  @ApiOperation({
+    summary:
+      'List invoices with project, paid and balance (cursor paginated; ?projectId= for one project, ?status= for one status)',
+  })
   @ApiPaginatedResponse(PortalInvoiceEntity)
-  @ApiForbiddenResponse({ description: 'Invoices are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Invoices are not enabled for this portal',
+  })
+  @ApiNotFoundResponse({ description: 'projectId is not shared with you' })
   findAll(
     @CurrentPortalUser() user: PortalJwtPayload,
-    @Query() query: PaginationQueryDto,
+    @Query() query: PortalInvoicesQueryDto,
     @Req() req: Request,
   ) {
     return this.service.findAll(
       user.clientPortalId,
+      user.sub,
       query,
       requestBaseUrl(req),
     );
@@ -57,12 +64,14 @@ export class PortalInvoicesController {
   @ApiOperation({ summary: 'Get an invoice' })
   @ApiOkResponse({ type: PortalInvoiceEntity })
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse({ description: 'Invoices are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Invoices are not enabled for this portal',
+  })
   findOne(
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.service.findOne(user.clientPortalId, id);
+    return this.service.findOne(user.clientPortalId, user.sub, id);
   }
 
   @Get(':id/download')
@@ -70,7 +79,9 @@ export class PortalInvoicesController {
   @ApiProduces('application/pdf')
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse({ description: 'Invoices are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Invoices are not enabled for this portal',
+  })
   async download(
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -78,6 +89,7 @@ export class PortalInvoicesController {
   ): Promise<StreamableFile> {
     const { filename, buffer } = await this.service.downloadPdf(
       user.clientPortalId,
+      user.sub,
       id,
     );
     res.set({

@@ -11,7 +11,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -96,6 +98,19 @@ export class MilestonesController {
     @Body() dto: UpdateMilestoneDto,
   ) {
     return this.milestones.update(user.sub, id, dto);
+  }
+
+  @Post(':id/invoice')
+  @ApiOperation({
+    summary:
+      'Raise the draft invoice for a priced milestone (net of project retention; the retention-releasing milestone adds everything held)',
+  })
+  @ApiCreatedResponse({ type: MilestoneEntity })
+  @ApiNotFoundResponse()
+  @ApiBadRequestResponse({ description: 'Milestone has no price or is cancelled' })
+  @ApiConflictResponse({ description: 'Milestone already invoiced' })
+  invoice(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.milestones.raiseInvoice(user.sub, id);
   }
 
   @Delete(':id')

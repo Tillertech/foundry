@@ -9,24 +9,31 @@ import {
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { requestBaseUrl } from '../common/http/request-base-url';
 import { ApiPaginatedResponse } from '../common/swagger/api-paginated-response.decorator';
 import { CurrentUser } from '../identity/auth/decorators/current-user.decorator';
 import { JwtAuthGuard, JwtPayload } from '../identity/auth/jwt-auth.guard';
+import { ConvertQuoteDto } from './dto/convert-quote.dto';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { ListQuotesQueryDto } from './dto/list-quotes-query.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
+import { QuoteConversionEntity } from './entities/quote-conversion.entity';
 import { QuoteEntity } from './entities/quote.entity';
 import { QuotesService } from './quotes.service';
 
@@ -43,6 +50,29 @@ export class QuotesController {
   @ApiNotFoundResponse({ description: 'Client not found' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateQuoteDto) {
     return this.quotesService.create(user.sub, dto);
+  }
+
+  @Post('preview-pdf')
+  @ApiOperation({
+    summary:
+      'Render the quote PDF from a draft (nothing is saved) - the same document the send mail attaches',
+  })
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  @ApiNotFoundResponse({ description: 'Client not found' })
+  @ApiBadRequestResponse({ description: "Attachments aren't the client's documents" })
+  async previewPdf(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateQuoteDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { filename, buffer } = await this.quotesService.previewPdf(user.sub, dto);
+    res.status(200).set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`,
+      'Cache-Control': 'no-store',
+    });
+    return new StreamableFile(buffer);
   }
 
   @Get()
@@ -65,9 +95,10 @@ export class QuotesController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a quote (items replace existing ones)' })
+  @ApiOperation({ summary: 'Update a quote (items replace existing ones; locked once converted)' })
   @ApiOkResponse({ type: QuoteEntity })
   @ApiNotFoundResponse()
+  @ApiConflictResponse({ description: 'Lines or currency changed on a converted quote' })
   update(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -82,6 +113,23 @@ export class QuotesController {
   @ApiNotFoundResponse()
   remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.quotesService.remove(user.sub, id);
+  }
+
+  @Post(':id/convert')
+  @ApiOperation({
+    summary:
+      'Accept the quote and create its project, with one priced milestone per milestone line or selected option',
+  })
+  @ApiCreatedResponse({ type: QuoteConversionEntity })
+  @ApiNotFoundResponse()
+  @ApiBadRequestResponse({ description: 'Declined/expired quote, or quote and client currencies differ' })
+  @ApiConflictResponse({ description: 'Quote already converted' })
+  convert(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConvertQuoteDto,
+  ) {
+    return this.quotesService.convert(user.sub, id, dto);
   }
 
   @Post(':id/send')

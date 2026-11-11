@@ -1,7 +1,7 @@
+import { IsApiDate } from '../../common/api-date';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -43,7 +43,7 @@ export class CreatePaymentDto {
   reference?: string;
 
   @ApiProperty({ example: '2026-07-02' })
-  @IsDateString()
+  @IsApiDate()
   date: string;
 
   @ApiPropertyOptional()

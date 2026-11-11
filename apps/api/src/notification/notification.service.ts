@@ -1,4 +1,12 @@
 import {
+  countsTowardsTotal,
+  hasScope,
+  milestonePlan,
+  quoteAppendix,
+  quoteTotals,
+} from '../quotes/quote-totals';
+import { QuoteItemKind } from '../generated/prisma/enums';
+import {
   Inject,
   Injectable,
   Logger,
@@ -13,6 +21,9 @@ import type {
   InvoiceReminderDueEvent,
   InvoiceSentEvent,
   MilestoneCompletedEvent,
+  MilestoneInvoicedEvent,
+  MilestoneReviewedEvent,
+  QuoteRespondedEvent,
   ProjectStatusChangedEvent,
   QuoteSentEvent,
 } from '../common/events';
@@ -68,6 +79,31 @@ interface BillerWorkspace {
   country: string | null;
   postCode: string | null;
   taxCode: string | null;
+}
+
+/**
+ * What the quote PDF is built from: a stored quote, or an unsaved draft the
+ * owner is previewing (same shape, nothing persisted).
+ */
+export interface QuotePdfSource {
+  number: string;
+  issueDate: Date | string;
+  validUntil: Date | string;
+  currency: string;
+  taxRate: unknown;
+  retentionPercent: unknown;
+  notes: string | null;
+  items: {
+    kind: QuoteItemKind | null;
+    selected: boolean | null;
+    description: string;
+    quantity: unknown;
+    rate: unknown;
+    details?: string | null;
+    deliverables?: unknown;
+    acceptanceCriteria?: string | null;
+  }[];
+  attachments?: { document: { name: string } }[];
 }
 
 @Injectable()
@@ -301,22 +337,7 @@ export class NotificationService {
     });
 
     const context = this.quoteContext(quote, client.name, workspace?.name);
-    const pdf = await this.pdfService.quotePdf({
-      number: quote.number,
-      biller: this.billerParty(workspace),
-      billedTo: this.clientParty(client),
-      issueDate: context.issueDate,
-      validUntil: context.validUntil,
-      currency: quote.currency,
-      items: quote.items.map((item) => ({
-        description: item.description,
-        quantity: Number(item.quantity),
-        rate: Number(item.rate),
-      })),
-      taxRate: Number(quote.taxRate),
-      notes: quote.notes ?? undefined,
-      brand: await this.pdfBrand(workspace, 'quote'),
-    });
+    const pdf = await this.quotePdfBuffer(quote, client, workspace);
 
     const delivered = await this.mail.sendQuote(client.email, context, pdf);
     if (workspace) {
@@ -334,6 +355,58 @@ export class NotificationService {
         });
       }
     }
+  }
+
+  /**
+   * The quote PDF exactly as the client receives it: the priced proposal,
+   * then the milestone scope on its own page(s). Used by the send mail and
+   * by the owner's preview (which passes an unsaved draft) - so what the
+   * owner previews is what goes out. Ownership checks are the caller's job.
+   */
+  async quotePdfBuffer(
+    quote: QuotePdfSource,
+    client: Client,
+    workspace?: BillerWorkspace | null,
+  ): Promise<Buffer> {
+    const biller =
+      workspace !== undefined
+        ? workspace
+        : await this.billerWorkspace(client.workspaceId);
+    const line = (it: QuotePdfSource['items'][number]) => ({
+      description: it.description,
+      quantity: Number(it.quantity),
+      rate: Number(it.rate),
+    });
+    const ofKind = (kind: QuoteItemKind) =>
+      quote.items.filter((it) => (it.kind ?? QuoteItemKind.standard) === kind);
+    const day = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
+    return this.pdfService.quotePdf({
+      number: quote.number,
+      biller: this.billerParty(biller),
+      billedTo: this.clientParty(client),
+      issueDate: day(quote.issueDate),
+      validUntil: day(quote.validUntil),
+      currency: quote.currency,
+      milestones: milestonePlan(quote.items),
+      lines: ofKind(QuoteItemKind.standard).map(line),
+      recurring: ofKind(QuoteItemKind.recurring).map(line),
+      passThrough: ofKind(QuoteItemKind.pass_through).map(line),
+      optional: ofKind(QuoteItemKind.option)
+        .filter((it) => !it.selected)
+        .map(line),
+      taxRate: Number(quote.taxRate) || 0,
+      retentionPercent: Number(quote.retentionPercent) || 0,
+      notes: quote.notes?.trim() || undefined,
+      attachments: (quote.attachments ?? []).map((a) => a.document.name),
+      brand: await this.pdfBrand(biller, 'quote'),
+    });
+  }
+
+  private billerWorkspace(workspaceId: string): Promise<BillerWorkspace | null> {
+    return this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: NotificationService.BILLER_SELECT,
+    });
   }
 
   /** Emails the stored file to the client and records the share for the owner. */
@@ -478,9 +551,13 @@ export class NotificationService {
         ? ` - ${progress.completedMilestones} of ${progress.totalMilestones} milestones done (${progress.progress}%)`
         : '';
       const clientNote = recipients ? ` ${client.name} was notified.` : '';
+      // A client sign-off reads as one ("Signed off by Ada"), not a bare completion.
+      const signer = milestone.acceptedBy?.replace(/\s*<[^>]*>$/, '');
       await this.notify(workspace.ownerId, {
         kind: NotificationKind.milestone_completed,
-        title: `Milestone completed: ${milestone.name}`,
+        title: signer
+          ? `Signed off by ${signer}: ${milestone.name}`
+          : `Milestone completed: ${milestone.name}`,
         body: `"${milestone.name}" on ${project.name}${progressNote}.${clientNote}`,
         resourceId: project.id,
       });
@@ -488,6 +565,65 @@ export class NotificationService {
     this.logger.log(
       `Milestone ${milestone.name} completed on project ${project.name}`,
     );
+  }
+
+  /** Tells the owner the client answered a quote in the portal; live-refreshes their quotes. */
+  async onQuoteResponded({
+    quote,
+    client,
+    accepted,
+    respondedBy,
+    note,
+  }: QuoteRespondedEvent): Promise<void> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: client.workspaceId },
+      select: { ownerId: true },
+    });
+    if (!workspace) return;
+    const company = client.company || client.name;
+    const name = respondedBy.replace(/\s*<[^>]*>$/, '');
+    // "Ada (Griid)", or just "Griid" when the portal user is named after the client.
+    const who = !name || name === company ? company : `${name} (${company})`;
+    this.gateway.emitToUser(workspace.ownerId, 'quote.changed', {
+      quoteId: quote.id,
+      status: quote.status,
+    });
+    await this.notify(workspace.ownerId, accepted
+      ? {
+          kind: NotificationKind.quote_accepted,
+          title: `${quote.number} accepted`,
+          body: `${who} accepted the quote. Start the project when you're ready.`,
+          resourceId: quote.id,
+        }
+      : {
+          kind: NotificationKind.quote_declined,
+          title: `${quote.number} declined`,
+          body: `${who} declined the quote${note ? `: "${note}"` : '.'}`,
+          resourceId: quote.id,
+        });
+  }
+
+  /** A client asked for changes on a delivered milestone - the owner needs to act. */
+  async onMilestoneReviewed(event: MilestoneReviewedEvent): Promise<void> {
+    this.gateway.emitToUser(event.ownerId, 'milestone.reviewed', event);
+    if (event.approved) return; // the completion notification covers sign-off
+    await this.notify(event.ownerId, {
+      kind: NotificationKind.milestone_changes_requested,
+      title: `Changes requested: ${event.milestoneName}`,
+      body: `${event.reviewerName} sent ${event.commentCount} ${event.commentCount === 1 ? 'note' : 'notes'} on ${event.projectName} (round ${event.round}). It's back in progress.`,
+      resourceId: event.projectId,
+    });
+  }
+
+  /** Tells the owner a signed-off milestone raised its draft invoice. */
+  async onMilestoneInvoiced(event: MilestoneInvoicedEvent): Promise<void> {
+    this.gateway.emitToUser(event.ownerId, 'milestone.invoiced', event);
+    await this.notify(event.ownerId, {
+      kind: NotificationKind.milestone_invoiced,
+      title: `Draft ${event.invoiceNumber} ready to send`,
+      body: `Raised for "${event.milestoneName}" on ${event.projectName}. Review it and send it to the client.`,
+      resourceId: event.invoiceId,
+    });
   }
 
   /** Pushes a realtime payment event to the owning user. */
@@ -761,8 +897,11 @@ export class NotificationService {
       orderBy: { order: 'asc' },
       select: { name: true, status: true },
     });
+    // Signed-off milestones count as done, like completed ones.
     const completed = milestones.filter(
-      (m) => m.status === MilestoneStatus.completed,
+      (m) =>
+        m.status === MilestoneStatus.completed ||
+        m.status === MilestoneStatus.accepted,
     ).length;
     const progress = milestones.length
       ? Math.round((completed / milestones.length) * 100)
@@ -862,13 +1001,16 @@ export class NotificationService {
     clientName: string,
     workspaceName = 'Foundry',
   ): QuoteMailContext {
-    const subtotal = quote.items.reduce(
-      (sum, item) => sum + Number(item.quantity) * Number(item.rate),
-      0,
-    );
+    // Only one-off lines sit in the totals table; monthly, at-cost and
+    // unselected option lines are listed after the notes.
+    const { subtotal, tax, total } = quoteTotals(quote);
     const taxRate = Number(quote.taxRate) || 0;
-    const tax = subtotal * (taxRate / 100);
     const money = (n: number) => n.toFixed(2);
+    const appendix = quoteAppendix(
+      quote.items,
+      (n) => `${quote.currency} ${money(n)}`,
+    );
+    const plan = milestonePlan(quote.items);
     const day = (d: Date) => new Date(d).toISOString().slice(0, 10);
 
     return {
@@ -878,17 +1020,34 @@ export class NotificationService {
       issueDate: day(quote.issueDate),
       validUntil: day(quote.validUntil),
       currency: quote.currency,
-      items: quote.items.map((item) => ({
-        description: item.description,
-        quantity: String(Number(item.quantity)),
-        rate: money(Number(item.rate)),
-        amount: money(Number(item.quantity) * Number(item.rate)),
-      })),
+      // Same order and numbering as the PDF: milestones as scheduled, then other lines.
+      items: [
+        ...plan.map((m) => ({
+          description: `${m.code}  ${m.description}`,
+          quantity: '1',
+          rate: money(m.amount),
+          amount: money(m.amount),
+        })),
+        ...quote.items
+          .filter(
+            (it) =>
+              countsTowardsTotal(it) &&
+              (it.kind ?? QuoteItemKind.standard) === QuoteItemKind.standard,
+          )
+          .map((item) => ({
+            description: item.description,
+            quantity: String(Number(item.quantity)),
+            rate: money(Number(item.rate)),
+            amount: money(Number(item.quantity) * Number(item.rate)),
+          })),
+      ],
       subtotal: money(subtotal),
       taxRate: String(taxRate),
       tax: money(tax),
-      total: money(subtotal + tax),
-      notes: quote.notes ?? '',
+      total: money(total),
+      notes: [quote.notes ?? '', appendix].filter(Boolean).join('\n\n'),
+      // The scope itself is only in the PDF; the mail points to it.
+      scopeInPdf: plan.some(hasScope),
     };
   }
 }

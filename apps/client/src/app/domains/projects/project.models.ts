@@ -13,6 +13,8 @@ export interface Project {
   description: string | null;
   /** Internal to the workspace - the client portal never receives it. */
   notes: string | null;
+  /** Percent held back from milestone invoices until the final milestone. */
+  retentionPercent: string;
   clientId: string;
 }
 
@@ -22,6 +24,7 @@ export interface CreateProjectRequest {
   status?: ProjectStatus;
   budget?: number;
   hourlyRate?: number;
+  retentionPercent?: number;
   startDate: string;
   endDate?: string;
   description?: string;

@@ -97,14 +97,71 @@ export function invoiceTotal(inv: InvoiceTotalsInput) {
   return { subtotal, discount, tax, total: afterDiscount + tax };
 }
 
+interface QuoteLineLike extends LineItemLike {
+  /** standard | milestone | recurring | pass_through | option; absent = standard. */
+  kind?: string;
+  selected?: boolean;
+}
+
+/**
+ * Whether a quote line counts towards the one-off total: plain lines,
+ * milestones and options the client picked. Recurring (per month) and
+ * pass-through (at cost) lines are quoted alongside, not inside, the total.
+ */
+export function countsTowardsQuoteTotal(it: QuoteLineLike): boolean {
+  const kind = it.kind ?? 'standard';
+  return (
+    kind === 'standard' ||
+    kind === 'milestone' ||
+    (kind === 'option' && !!it.selected)
+  );
+}
+
 export function quoteTotal(q: {
-  items: LineItemLike[];
+  items: QuoteLineLike[];
   taxRate: string | number;
 }) {
-  const subtotal = q.items.reduce(
-    (s, it) => s + num(it.quantity) * num(it.rate),
-    0,
-  );
+  const sum = (pred: (it: QuoteLineLike) => boolean) =>
+    q.items
+      .filter(pred)
+      .reduce((s, it) => s + num(it.quantity) * num(it.rate), 0);
+  const subtotal = sum(countsTowardsQuoteTotal);
   const tax = subtotal * (num(q.taxRate) / 100);
-  return { subtotal, tax, total: subtotal + tax };
+  return {
+    subtotal,
+    tax,
+    total: subtotal + tax,
+    /** Per month, excluded from total. */
+    recurring: sum((it) => it.kind === 'recurring'),
+    /** Estimate billed at cost, excluded from total. */
+    passThrough: sum((it) => it.kind === 'pass_through'),
+  };
+}
+
+/**
+ * The quote lines that become project milestones, in billing order: milestone
+ * lines as quoted, with picked options slotted in before the last milestone
+ * line (the hand-over, which releases retention). No milestone lines: the
+ * picked options alone. Mirrors milestoneSchedule() on the API, so M01, M02...
+ * match the PDF and the project.
+ */
+export function milestoneSchedule<
+  T extends { kind?: string | null; selected?: boolean | null },
+>(items: T[]): T[] {
+  const milestones = items.filter((it) => it.kind === 'milestone');
+  const options = items.filter((it) => it.kind === 'option' && !!it.selected);
+  if (!milestones.length) return options;
+  return [...milestones.slice(0, -1), ...options, milestones[milestones.length - 1]];
+}
+
+/** Human file size: 820 B, 1.2 MB, 34 KB. */
+export function fileSize(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let n = Math.max(0, bytes);
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${n < 10 && i ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
 }

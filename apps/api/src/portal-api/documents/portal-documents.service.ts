@@ -36,8 +36,11 @@ export class PortalDocumentsService {
       clientPortalId,
       portalUserId,
     );
+    // A project's documents usually carry the client too, so the client
+    // branch only covers project-less documents - otherwise every document of
+    // an unshared (or outside the user's access) project would show.
     return {
-      OR: [{ clientId }, { projectId: { in: projectIds } }],
+      OR: [{ clientId, projectId: null }, { projectId: { in: projectIds } }],
     };
   }
 

@@ -6,68 +6,380 @@
   (saved)="save()"
   (deleted)="removeCurrent()"
 >
-  <div class="grid gap-4">
-    <app-field label="Milestone name">
-      <input
-        hlmInput
-        class="w-full"
-        [value]="draft().name"
-        (input)="patch({ name: $any($event.target).value })"
-        placeholder="Design approval"
-      />
-    </app-field>
-    <app-field label="Description">
-      <textarea
-        hlmTextarea
-        rows="3"
-        class="w-full"
-        [value]="draft().description"
-        (input)="patch({ description: $any($event.target).value })"
-      ></textarea>
-    </app-field>
-    <div class="grid gap-4 sm:grid-cols-2">
-      <app-field label="Due date">
-        <app-date-field
-          [value]="draft().dueDate"
-          (valueChange)="patch({ dueDate: $event ?? '' })"
+  <div class="grid gap-6">
+    <!-- Details -->
+    <div class="grid gap-4">
+      <app-field label="Milestone name">
+        <input
+          hlmInput
+          class="w-full"
+          [value]="draft().name"
+          (input)="patch({ name: $any($event.target).value })"
+          placeholder="Design approval"
         />
       </app-field>
-      <app-field label="Status">
-        <hlm-select
+      <app-field label="Description" hint="Client-facing - shown in the portal.">
+        <textarea
+          hlmTextarea
+          rows="3"
           class="w-full"
-          [value]="draft().status"
-          (valueChange)="patch({ status: $event ?? 'not_started' })"
-          [itemToString]="statusLabel"
-        >
-          <hlm-select-trigger class="w-full">
-            <hlm-select-value />
-          </hlm-select-trigger>
-          <hlm-select-content *hlmSelectPortal>
-            @for (opt of statusOptions; track opt[0]) {
-              <hlm-select-item [value]="opt[0]">{{ opt[1] }}</hlm-select-item>
-            }
-          </hlm-select-content>
-        </hlm-select>
+          [value]="draft().description"
+          (input)="patch({ description: $any($event.target).value })"
+        ></textarea>
       </app-field>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <app-field label="Status">
+          <hlm-select
+            class="w-full"
+            [value]="draft().status"
+            (valueChange)="patch({ status: $event ?? 'not_started' })"
+            [itemToString]="statusLabel"
+          >
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              @for (opt of statusOptions; track opt[0]) {
+                <hlm-select-item [value]="opt[0]">{{ opt[1] }}</hlm-select-item>
+              }
+            </hlm-select-content>
+          </hlm-select>
+        </app-field>
+        <app-field label="Due date">
+          <app-date-field
+            [value]="draft().dueDate"
+            (valueChange)="patch({ dueDate: $event ?? '' })"
+          />
+        </app-field>
+        <app-field label="Est. hours">
+          <input
+            hlmInput
+            type="number"
+            min="0"
+            class="w-full"
+            [value]="draft().estimatedHours"
+            (input)="patch({ estimatedHours: +$any($event.target).value || 0 })"
+          />
+        </app-field>
+      </div>
+      @if (draft().status === 'accepted') {
+        <app-field
+          label="Signed off by"
+          hint="Who confirmed the acceptance criteria are met."
+        >
+          <input
+            hlmInput
+            class="w-full"
+            [value]="draft().acceptedBy"
+            (input)="patch({ acceptedBy: $any($event.target).value })"
+            placeholder="Jane Doe, Product owner"
+          />
+        </app-field>
+      }
     </div>
-    <app-field label="Estimated effort" hint="Optional hours estimate">
-      <input
-        hlmInput
-        type="number"
-        min="0"
-        class="w-full"
-        [value]="draft().estimatedHours"
-        (input)="patch({ estimatedHours: +$any($event.target).value || 0 })"
-      />
-    </app-field>
-    <app-field label="Notes">
-      <textarea
-        hlmTextarea
-        rows="3"
-        class="w-full"
-        [value]="draft().notes"
-        (input)="patch({ notes: $any($event.target).value })"
-      ></textarea>
-    </app-field>
+
+    <!-- Billing -->
+    <section class="grid gap-4 border-t border-border pt-5">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h4 class="text-sm font-semibold">Billing</h4>
+          <p class="text-xs text-muted-foreground">
+            Leave the price empty if this milestone isn't invoiced on its own.
+          </p>
+        </div>
+        @if (milestone()?.invoice; as inv) {
+          <span
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success/12 px-2 py-0.5 text-[11px] font-medium text-success"
+          >
+            <ng-icon name="lucideReceipt" size="12" />
+            {{ inv.number }} · {{ inv.status }}
+          </span>
+        }
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <app-field [label]="'Price (' + currency() + ')'">
+          <input
+            hlmInput
+            type="number"
+            min="0"
+            step="0.01"
+            class="w-full"
+            placeholder="Not billed separately"
+            [value]="draft().amount ?? ''"
+            (input)="amountInput($event)"
+          />
+        </app-field>
+        <app-field label="Invoice">
+          <hlm-select
+            class="w-full"
+            [value]="draft().billingTrigger"
+            (valueChange)="patch({ billingTrigger: $event ?? 'on_acceptance' })"
+            [itemToString]="triggerLabel"
+            [disabled]="draft().amount === null"
+          >
+            <hlm-select-trigger class="w-full">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              @for (opt of triggerOptions; track opt[0]) {
+                <hlm-select-item [value]="opt[0]">{{ opt[1] }}</hlm-select-item>
+              }
+            </hlm-select-content>
+          </hlm-select>
+        </app-field>
+      </div>
+      <div
+        class="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2.5"
+      >
+        <span>
+          <span class="block text-sm font-medium">Final milestone</span>
+          <span class="block text-xs text-muted-foreground">
+            @if (retentionPercent() > 0) {
+              Its invoice releases the {{ retentionPercent() }}% retention held
+              on earlier milestones.
+            } @else {
+              Releases any retention held. This project holds none right now.
+            }
+          </span>
+        </span>
+        <hlm-switch
+          [checked]="draft().releasesRetention"
+          (checkedChange)="patch({ releasesRetention: $event })"
+          aria-label="Final milestone, releases retention"
+        />
+      </div>
+    </section>
+
+    <!-- Deliverables & sign-off -->
+    <section class="grid gap-4 border-t border-border pt-5">
+      <div class="flex items-center justify-between">
+        <h4 class="text-sm font-semibold">Deliverables</h4>
+        @if (draft().deliverables.length) {
+          <span class="text-xs tabular-nums text-muted-foreground">
+            {{ doneCount() }} of {{ draft().deliverables.length }} done
+          </span>
+        }
+      </div>
+      <div class="divide-y divide-border rounded-lg border border-border">
+        @for (d of draft().deliverables; track d.id) {
+          <div>
+          <div class="flex items-center gap-2.5 px-3 py-1.5">
+            <hlm-checkbox
+              [checked]="d.done"
+              (checkedChange)="updateDeliverable(d.id, { done: $event })"
+              [attr.aria-label]="'Mark ' + d.label + ' done'"
+            />
+            <input
+              hlmInput
+              class="h-8 flex-1 border-0 bg-transparent px-1.5 shadow-none focus-visible:bg-muted/60"
+              [class.line-through]="d.done"
+              [class.text-muted-foreground]="d.done"
+              [value]="d.label"
+              (input)="updateDeliverable(d.id, { label: $any($event.target).value })"
+              aria-label="Deliverable"
+            />
+            <button
+              type="button"
+              class="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors hover:bg-muted"
+              [class]="evidenceCount(d) ? 'text-primary' : 'text-muted-foreground'"
+              (click)="toggleEvidence(d.id)"
+              [attr.aria-expanded]="openEvidence() === d.id"
+              [attr.aria-label]="'Evidence for ' + d.label"
+            >
+              <ng-icon name="lucidePaperclip" size="13" />
+              @if (evidenceCount(d)) { {{ evidenceCount(d) }} }
+            </button>
+            <button
+              type="button"
+              class="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              (click)="removeDeliverable(d.id)"
+              [attr.aria-label]="'Remove ' + d.label"
+            >
+              <ng-icon name="lucideX" size="13" />
+            </button>
+          </div>
+          @if (openEvidence() === d.id) {
+            <div class="space-y-3 border-t border-dashed border-border bg-muted/20 px-3 py-3">
+              <p class="text-[11px] text-muted-foreground">
+                What the client sees when reviewing this deliverable.
+              </p>
+              <textarea
+                hlmTextarea
+                rows="2"
+                class="w-full text-sm"
+                placeholder="What was done, and what to look at"
+                [value]="d.note ?? ''"
+                (input)="updateDeliverable(d.id, { note: $any($event.target).value })"
+                aria-label="Note for the client"
+              ></textarea>
+
+              <div class="space-y-1.5">
+                <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Links</p>
+                @for (l of d.links ?? []; track $index; let li = $index) {
+                  <div class="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_28px] items-center gap-1.5">
+                    <input
+                      hlmInput
+                      class="h-8 w-full text-xs"
+                      placeholder="Staging build"
+                      [value]="l.label"
+                      (input)="updateLink(d.id, li, { label: $any($event.target).value })"
+                      aria-label="Link label"
+                    />
+                    <input
+                      hlmInput
+                      type="url"
+                      class="h-8 w-full text-xs"
+                      placeholder="https://"
+                      [value]="l.url"
+                      (input)="updateLink(d.id, li, { url: $any($event.target).value })"
+                      aria-label="Link URL"
+                    />
+                    <button
+                      type="button"
+                      class="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      (click)="removeLink(d.id, li)"
+                      aria-label="Remove link"
+                    >
+                      <ng-icon name="lucideX" size="12" />
+                    </button>
+                  </div>
+                }
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  (click)="addLink(d.id)"
+                >
+                  <ng-icon name="lucidePlus" size="12" /> Add link
+                </button>
+              </div>
+
+              <div class="space-y-1.5">
+                <p class="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Files</p>
+                @if (d.documentIds?.length) {
+                  <div class="flex flex-wrap gap-1.5">
+                    @for (docId of d.documentIds; track docId) {
+                      <span class="inline-flex max-w-full items-center gap-1 rounded-full bg-background px-2 py-0.5 text-xs ring-1 ring-border">
+                        <span class="truncate">{{ documentName(docId) }}</span>
+                        <button
+                          type="button"
+                          class="text-muted-foreground hover:text-destructive"
+                          (click)="detachDocument(d.id, docId)"
+                          [attr.aria-label]="'Remove ' + documentName(docId)"
+                        >
+                          <ng-icon name="lucideX" size="11" />
+                        </button>
+                      </span>
+                    }
+                  </div>
+                }
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  @if (documentOptions(d).length) {
+                    <app-option-autocomplete
+                      class="min-w-0 flex-1"
+                      placeholder="Attach a project file…"
+                      emptyText="No matching file"
+                      [options]="documentOptions(d)"
+                      [value]="attachPick()"
+                      (valueChange)="attachDocument(d.id, $event)"
+                    />
+                    <span class="hidden text-[11px] text-muted-foreground sm:inline">or</span>
+                  }
+                  <label
+                    class="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium transition-colors hover:bg-muted focus-within:ring-2 focus-within:ring-ring/50"
+                    [class.pointer-events-none]="uploadingFor() !== null"
+                    [class.opacity-60]="uploadingFor() !== null"
+                  >
+                    <ng-icon name="lucideUpload" size="13" />
+                    {{ uploadingFor() === d.id ? 'Uploading…' : 'Upload file' }}
+                    <input
+                      type="file"
+                      class="sr-only"
+                      [disabled]="uploadingFor() !== null"
+                      (change)="uploadEvidence(d.id, $event)"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          }
+          </div>
+        }
+        <form
+          class="flex items-center gap-2.5 px-3 py-1.5"
+          (submit)="$event.preventDefault(); addDeliverable()"
+        >
+          <ng-icon name="lucidePlus" size="14" class="text-muted-foreground" />
+          <input
+            #newInput
+            hlmInput
+            class="h-8 flex-1 border-0 bg-transparent px-1.5 shadow-none focus-visible:bg-muted/60"
+            placeholder="Add a deliverable and press Enter"
+            [value]="newDeliverable()"
+            (input)="newDeliverable.set(newInput.value)"
+          />
+        </form>
+      </div>
+      <app-field
+        label="Acceptance criteria"
+        hint="What the client checks before signing off."
+      >
+        <textarea
+          hlmTextarea
+          rows="3"
+          class="w-full"
+          [value]="draft().acceptanceCriteria"
+          (input)="patch({ acceptanceCriteria: $any($event.target).value })"
+          placeholder="Android build installs on test devices; checkout completes with M-Pesa sandbox"
+        ></textarea>
+      </app-field>
+    </section>
+
+    <section class="border-t border-border pt-5">
+      <app-field label="Internal notes" hint="Never shown to the client.">
+        <textarea
+          hlmTextarea
+          rows="3"
+          class="w-full"
+          [value]="draft().notes"
+          (input)="patch({ notes: $any($event.target).value })"
+        ></textarea>
+      </app-field>
+    </section>
   </div>
 </app-entity-sheet>
+
+<hlm-alert-dialog
+  [state]="confirmMove() ? 'open' : 'closed'"
+  (closed)="confirmMove.set(null)"
+>
+  <hlm-alert-dialog-content *hlmAlertDialogPortal="let ctx">
+    <div hlmAlertDialogHeader>
+      @if (confirmMove() === 'accepted') {
+        <h3 hlmAlertDialogTitle>Sign off "{{ draft().name }}"?</h3>
+        <p hlmAlertDialogDescription>
+          Only do this once the client has confirmed every acceptance criterion
+          is met. Their portal shows it as signed off
+          @if (acceptanceBills()) {
+            and a draft invoice for {{ money(draft().amount ?? 0, currency()) }}
+            @if (!draft().releasesRetention && retentionPercent() > 0) {
+              less {{ retentionPercent() }}% retention
+            }
+            is raised for you to review
+          }.
+        </p>
+      } @else {
+        <h3 hlmAlertDialogTitle>Hand over "{{ draft().name }}"?</h3>
+        <p hlmAlertDialogDescription>
+          It moves to Delivered and the client's portal users are told it's
+          ready for their review.
+        </p>
+      }
+    </div>
+    <div hlmAlertDialogFooter>
+      <button hlmAlertDialogCancel (click)="ctx.close()">Cancel</button>
+      <button hlmAlertDialogAction (click)="confirmSave(ctx)">
+        {{ confirmMove() === 'accepted' ? 'Sign off and save' : 'Mark delivered and save' }}
+      </button>
+    </div>
+  </hlm-alert-dialog-content>
+</hlm-alert-dialog>

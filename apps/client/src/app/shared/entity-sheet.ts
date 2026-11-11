@@ -15,7 +15,7 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
 
 /**
  * Right-hand CRUD panel ported from the project-flow EntitySheet:
- * full-width on mobile, capped at sm:max-w-xl on larger screens.
+ * full-width on mobile, capped at sm:max-w-xl (or 2xl when `wide`) on larger screens.
  */
 @Component({
   selector: 'app-entity-sheet',
@@ -38,7 +38,12 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
     >
       <hlm-sheet-content
         *hlmSheetPortal="let ctx"
-        class="flex min-w-0 flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
+        [class]="
+          'flex min-w-0 flex-col gap-0 p-0 data-[side=right]:w-full ' +
+          (wide()
+            ? 'data-[side=right]:sm:max-w-2xl'
+            : 'data-[side=right]:sm:max-w-xl')
+        "
       >
         <div hlmSheetHeader class="border-b border-border px-6 py-4 text-left">
           <h3 hlmSheetTitle class="text-base font-semibold">{{ title() }}</h3>
@@ -98,10 +103,13 @@ import { HlmSheetImports } from '@spartan-ng/helm/sheet';
             <button hlmBtn variant="ghost" size="sm" (click)="open.set(false)">
               Cancel
             </button>
+            <!-- Secondary record actions that sit beside Save (e.g. "Save & send"). -->
+            <ng-content select="[sheetActions]" />
             <button
               hlmBtn
               size="sm"
-              class="shadow-[var(--shadow-glow)]"
+              [variant]="primaryAction() ? 'default' : 'outline'"
+              [class]="primaryAction() ? 'shadow-[var(--shadow-glow)]' : ''"
               [disabled]="!canSave()"
               (click)="saved.emit()"
             >
@@ -120,6 +128,13 @@ export class EntitySheet {
   readonly saveLabel = input('Save');
   readonly canSave = input(true);
   readonly showDelete = input(false);
+  /** sm:max-w-2xl instead of xl, for dense editors (quotes). */
+  readonly wide = input(false);
+  /**
+   * Save is the footer's primary button. Turn it off when a projected
+   * `sheetActions` button is the main next step (e.g. sending a draft).
+   */
+  readonly primaryAction = input(true);
 
   readonly saved = output<void>();
   readonly deleted = output<void>();

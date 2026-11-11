@@ -42,6 +42,11 @@ export class MilestonesApiService {
     return this.http.delete<Milestone>(`${this.base}/${id}`);
   }
 
+  /** Raises the draft invoice for a priced milestone (manual/upfront billing, or a retry). */
+  raiseInvoice(id: string): Observable<Milestone> {
+    return this.http.post<Milestone>(`${this.base}/${id}/invoice`, {});
+  }
+
   reorder(body: ReorderMilestonesRequest): Observable<Milestone[]> {
     return this.http.post<Milestone[]>(`${this.base}/reorder`, body);
   }

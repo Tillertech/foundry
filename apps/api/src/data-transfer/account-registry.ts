@@ -110,6 +110,20 @@ export const ACCOUNT_TABLES: Record<Prisma.ModelName, TableRule> = {
     order: 18,
     owned: (id) => ({ clientPortalUser: { clientPortal: portal(id) } }),
   },
+  PortalNotification: {
+    order: 19,
+    owned: (id) => ({ clientPortalUser: { clientPortal: portal(id) } }),
+  },
+  // After ClientPortalUser (optional reviewer link) and Milestone.
+  MilestoneReview: {
+    order: 20,
+    owned: (id) => ({ milestone: { project: project(id) } }),
+  },
+  // After Quote and Document, the two rows it joins.
+  QuoteAttachment: {
+    order: 21,
+    owned: (id) => ({ quote: { client: client(id) } }),
+  },
 };
 
 export const isExported = (rule: TableRule): rule is ExportedTable =>

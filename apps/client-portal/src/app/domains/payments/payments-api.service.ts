@@ -14,7 +14,10 @@ export class PaymentsApiService {
   private readonly http = inject(HttpClient);
   private readonly base = `${API_BASE}/portal/payments`;
 
-  list(query?: PaginationQuery): Observable<PaginatedResponse<Payment>> {
+  /** `projectId` narrows to one shared project. */
+  list(
+    query?: PaginationQuery & { projectId?: string; method?: string },
+  ): Observable<PaginatedResponse<Payment>> {
     return this.http.get<PaginatedResponse<Payment>>(this.base, {
       params: toParams(query as Record<string, unknown>),
     });

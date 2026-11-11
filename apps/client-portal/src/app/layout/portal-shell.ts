@@ -36,10 +36,17 @@ interface NavItem {
   visible: () => boolean;
 }
 
+import { PortalNotificationsMenu } from './notifications-menu';
 @Component({
   selector: 'app-portal-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgIcon],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    NgIcon,
+    PortalNotificationsMenu,
+  ],
   providers: [
     provideIcons({
       lucideFileSignature,

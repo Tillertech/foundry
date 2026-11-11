@@ -1,21 +1,66 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { MilestoneEvents } from '../common/events';
-import { MilestoneStatus } from '../generated/prisma/enums';
-import type { MilestoneModel as Milestone } from '../generated/prisma/models';
+import { MilestoneEvents, type MilestoneChangedEvent } from '../common/events';
+import type { Prisma } from '../generated/prisma/client';
+import {
+  InvoiceStatus,
+  MilestoneBillingTrigger,
+  MilestoneStatus,
+} from '../generated/prisma/enums';
+import type { MilestoneModel } from '../generated/prisma/models';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateMilestoneDto } from './dto/create-milestone.dto';
 import { ReorderMilestonesDto } from './dto/reorder-milestones.dto';
 import { UpdateMilestoneDto } from './dto/update-milestone.dto';
 import { ProjectMilestonesSummaryEntity } from './entities/project-milestones-summary.entity';
+import { MilestoneBillingService } from './milestone-billing.service';
+
+/** Every milestone read/write carries a summary of the invoice that bills it. */
+export const MILESTONE_INCLUDE = {
+  invoice: { select: { id: true, number: true, status: true } },
+  reviews: {
+    orderBy: { round: 'asc' as const },
+    omit: { clientPortalUserId: true, milestoneId: true },
+  },
+} as const;
+
+export type Milestone = Prisma.MilestoneGetPayload<{
+  include: typeof MILESTONE_INCLUDE;
+}>;
+
+/** Statuses that count as finished work (completed for unpriced, accepted for signed-off). */
+const DONE: MilestoneStatus[] = [MilestoneStatus.completed, MilestoneStatus.accepted];
+const isDone = (s: MilestoneStatus) => DONE.includes(s);
+/** Statuses at or past hand-over. */
+const HANDED_OVER: MilestoneStatus[] = [
+  MilestoneStatus.delivered,
+  MilestoneStatus.accepted,
+  MilestoneStatus.completed,
+];
+
+type MilestoneWrite = Omit<UpdateMilestoneDto, 'deliverables'> & {
+  deliverables?: Prisma.InputJsonValue;
+  completedAt?: Date | null;
+  deliveredAt?: Date | null;
+  acceptedAt?: Date | null;
+  acceptedBy?: string | null;
+};
 
 @Injectable()
 export class MilestonesService {
+  private readonly logger = new Logger(MilestonesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly projects: ProjectsService,
     private readonly events: EventEmitter2,
+    private readonly billing: MilestoneBillingService,
   ) {}
 
   private scope(ownerId: string) {
@@ -23,19 +68,29 @@ export class MilestonesService {
   }
 
   async create(ownerId: string, dto: CreateMilestoneDto): Promise<Milestone> {
-    await this.projects.findOne(ownerId, dto.projectId);
+    const project = await this.projects.findOne(ownerId, dto.projectId);
+    if (dto.deliverables) await this.assertEvidence(project, dto.deliverables);
     const order = dto.order ?? (await this.nextOrder(dto.projectId));
-    return this.prisma.milestone.create({
+    const { deliverables, ...rest } = dto;
+    const created = await this.prisma.milestone.create({
       data: {
-        ...dto,
+        ...rest,
         order,
-        // Same rule as update(): a milestone recorded as already completed
-        // is stamped now, so completedAt never disagrees with the status.
-        ...(dto.status === MilestoneStatus.completed
-          ? { completedAt: new Date() }
-          : {}),
+        ...(deliverables ? { deliverables: plainDeliverables(deliverables) } : {}),
+        // Same rule as update(): a milestone recorded as already done is
+        // stamped now, so the dates never disagree with the status.
+        ...(dto.status ? setStamps(statusStamps(dto.status, null)) : {}),
       },
+      include: MILESTONE_INCLUDE,
     });
+    this.changed({
+      projectId: created.projectId,
+      milestoneId: created.id,
+      name: created.name,
+      status: created.status,
+      previousStatus: null,
+    });
+    return created;
   }
 
   /** Every milestone for a project, ordered by its manual position - a bounded, reorderable list rather than a paginated feed. */
@@ -47,12 +102,14 @@ export class MilestonesService {
     return this.prisma.milestone.findMany({
       where: { projectId },
       orderBy: { order: 'asc' },
+      include: MILESTONE_INCLUDE,
     });
   }
 
   async findOne(ownerId: string, id: string): Promise<Milestone> {
     const milestone = await this.prisma.milestone.findFirst({
       where: { id, ...this.scope(ownerId) },
+      include: MILESTONE_INCLUDE,
     });
     if (!milestone) throw new NotFoundException('Milestone not found');
     return milestone;
@@ -64,27 +121,62 @@ export class MilestonesService {
     dto: UpdateMilestoneDto,
   ): Promise<Milestone> {
     const existing = await this.findOne(ownerId, id);
-    const data: UpdateMilestoneDto & { completedAt?: Date | null } = { ...dto };
-
-    // Completion date tracks the status transition rather than being
-    // client-settable directly: entering `completed` stamps it (unless
-    // already set by an earlier completion), leaving it clears it.
-    if (dto.status && dto.status !== existing.status) {
-      data.completedAt =
-        dto.status === MilestoneStatus.completed
-          ? (existing.completedAt ?? new Date())
-          : null;
+    const { deliverables, ...fields } = dto;
+    const data: MilestoneWrite = { ...fields };
+    if (deliverables) {
+      const project = await this.projects.findOne(ownerId, existing.projectId);
+      await this.assertEvidence(project, deliverables);
+      data.deliverables = plainDeliverables(deliverables);
     }
 
-    const milestone = await this.prisma.milestone.update({
+    // Dates track status transitions rather than being client-settable
+    // directly: entering a state stamps it (keeping an earlier stamp),
+    // stepping back clears it.
+    if (dto.status && dto.status !== existing.status) {
+      Object.assign(data, statusStamps(dto.status, existing));
+      if (dto.status !== MilestoneStatus.accepted && dto.acceptedBy === undefined) {
+        data.acceptedBy = null;
+      }
+    }
+
+    let milestone = await this.prisma.milestone.update({
       where: { id },
       data,
+      include: MILESTONE_INCLUDE,
     });
 
+    const enteredAccepted =
+      dto.status === MilestoneStatus.accepted &&
+      existing.status !== MilestoneStatus.accepted;
     if (
-      dto.status === MilestoneStatus.completed &&
-      existing.status !== MilestoneStatus.completed
+      enteredAccepted &&
+      !milestone.invoice &&
+      Number(milestone.amount ?? 0) > 0 &&
+      milestone.billingTrigger === MilestoneBillingTrigger.on_acceptance
     ) {
+      // Sign-off is the billing trigger. A failed invoice must not undo the
+      // sign-off itself: the owner can raise it by hand from the milestone.
+      try {
+        await this.billing.invoice(ownerId, id);
+        // Re-read: billing also wrote the retention held on this milestone.
+        milestone = await this.findOne(ownerId, id);
+      } catch (err) {
+        this.logger.warn(
+          `Milestone ${id} accepted but its invoice could not be raised: ${String(err)}`,
+        );
+      }
+    }
+
+    this.changed({
+      projectId: milestone.projectId,
+      milestoneId: milestone.id,
+      name: milestone.name,
+      ...(dto.status && dto.status !== existing.status
+        ? { status: dto.status, previousStatus: existing.status }
+        : {}),
+    });
+
+    if (dto.status && isDone(dto.status) && !isDone(existing.status)) {
       const project = await this.prisma.project.findUnique({
         where: { id: milestone.projectId },
         include: { client: true },
@@ -102,9 +194,53 @@ export class MilestonesService {
     return milestone;
   }
 
+  /** Raises the draft invoice for a priced milestone by hand (manual/upfront billing, or a retry). */
+  async raiseInvoice(ownerId: string, id: string): Promise<Milestone> {
+    await this.billing.invoice(ownerId, id);
+    return this.findOne(ownerId, id);
+  }
+
+  /**
+   * Evidence files must be documents the client can be shown for this
+   * project: filed on the project itself or on its client.
+   */
+  private async assertEvidence(
+    project: { id: string; clientId: string },
+    deliverables: { documentIds?: string[] }[],
+  ): Promise<void> {
+    const ids = [...new Set(deliverables.flatMap((d) => d.documentIds ?? []))];
+    if (!ids.length) return;
+    const found = await this.prisma.document.count({
+      where: {
+        id: { in: ids },
+        OR: [{ projectId: project.id }, { clientId: project.clientId, projectId: null }],
+      },
+    });
+    if (found !== ids.length) {
+      throw new BadRequestException(
+        "Evidence files must be documents of this project or its client",
+      );
+    }
+  }
+
+  /** Live-view signal (client portal); never carries billing detail. */
+  private changed(event: MilestoneChangedEvent): void {
+    this.events.emit(MilestoneEvents.CHANGED, event);
+  }
+
   async remove(ownerId: string, id: string): Promise<Milestone> {
     await this.findOne(ownerId, id);
-    return this.prisma.milestone.delete({ where: { id } });
+    const removed = await this.prisma.milestone.delete({
+      where: { id },
+      include: MILESTONE_INCLUDE,
+    });
+    this.changed({
+      projectId: removed.projectId,
+      milestoneId: removed.id,
+      name: removed.name,
+      removed: true,
+    });
+    return removed;
   }
 
   /** Persists a full reordering of a project's milestones in one transaction. */
@@ -135,10 +271,13 @@ export class MilestonesService {
         this.prisma.milestone.update({ where: { id }, data: { order } }),
       ),
     );
-    return this.prisma.milestone.findMany({
+    const reordered = await this.prisma.milestone.findMany({
       where: { projectId: dto.projectId },
       orderBy: { order: 'asc' },
+      include: MILESTONE_INCLUDE,
     });
+    this.changed({ projectId: dto.projectId, milestoneId: null, name: null });
+    return reordered;
   }
 
   /**
@@ -166,9 +305,7 @@ export class MilestonesService {
 
     return projectIds.map((projectId) => {
       const items = byProject.get(projectId) ?? [];
-      const completed = items.filter(
-        (m) => m.status === MilestoneStatus.completed,
-      ).length;
+      const completed = items.filter((m) => isDone(m.status)).length;
       return {
         projectId,
         total: items.length,
@@ -191,4 +328,50 @@ export class MilestonesService {
     });
     return (last?.order ?? -1) + 1;
   }
+}
+
+/** Strips class-transformer instances down to JSON for the deliverables column. */
+function plainDeliverables(
+  list: {
+    id: string;
+    label: string;
+    done: boolean;
+    note?: string;
+    links?: { label: string; url: string }[];
+    documentIds?: string[];
+  }[],
+): Prisma.InputJsonValue {
+  return list.map(({ id, label, done, note, links, documentIds }) => ({
+    id,
+    label,
+    done,
+    ...(note?.trim() ? { note: note.trim() } : {}),
+    ...(links?.length ? { links: links.map(({ label: l, url }) => ({ label: l, url })) } : {}),
+    ...(documentIds?.length ? { documentIds: [...new Set(documentIds)] } : {}),
+  }));
+}
+
+/**
+ * Date stamps implied by moving into `next` from `prev` (null on create):
+ * completedAt for done states, deliveredAt from hand-over on, acceptedAt
+ * for sign-off. Earlier stamps are kept; leaving a state clears its stamp.
+ */
+function statusStamps(
+  next: MilestoneStatus,
+  prev: Pick<MilestoneModel, 'completedAt' | 'deliveredAt' | 'acceptedAt'> | null,
+): Pick<MilestoneWrite, 'completedAt' | 'deliveredAt' | 'acceptedAt'> {
+  const now = new Date();
+  return {
+    completedAt: isDone(next) ? (prev?.completedAt ?? now) : null,
+    deliveredAt: HANDED_OVER.includes(next) ? (prev?.deliveredAt ?? now) : null,
+    acceptedAt:
+      next === MilestoneStatus.accepted ? (prev?.acceptedAt ?? now) : null,
+  };
+}
+
+/** Only the stamps that apply - a new row has nothing to clear. */
+function setStamps<T extends Record<string, Date | null>>(stamps: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(stamps).filter(([, v]) => v !== null),
+  ) as Partial<T>;
 }

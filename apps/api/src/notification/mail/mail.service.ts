@@ -69,6 +69,8 @@ export interface QuoteMailContext {
   tax: string;
   total: string;
   notes: string;
+  /** Milestone scope is set out in the attached PDF (never listed in the mail). */
+  scopeInPdf: boolean;
 }
 
 export interface DocumentMailContext {

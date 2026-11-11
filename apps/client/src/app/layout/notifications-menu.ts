@@ -6,6 +6,11 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
+import { HlmDialogService } from '@spartan-ng/helm/dialog';
+import { ToastService } from '@foundry/shared-ui';
+import { WorkspaceRealtimeService } from '../core/realtime/workspace-realtime.service';
+import { InvoiceDetailsDialog } from '../shared/invoice-details-dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideBell, lucideCheckCheck } from '@ng-icons/lucide';
 import { interval } from 'rxjs';
@@ -16,8 +21,10 @@ import {
 
 /**
  * Header bell: unread badge plus a dropdown of the latest in-app
- * notifications (emailed invoices/quotes/documents, settlements, reminders).
- * The count refreshes on a slow poll; the list refreshes on open.
+ * notifications (sent invoices/quotes, client quote answers, settlements,
+ * milestone invoices...). New ones arrive live over the workspace socket
+ * (badge, list and a toast); a slow poll is only a safety net. Selecting one
+ * marks it read and opens what it is about.
  */
 @Component({
   selector: 'app-notifications-menu',
@@ -78,14 +85,14 @@ import {
               </p>
             } @else if (notifications().length === 0) {
               <p class="px-4 py-6 text-center text-xs text-muted-foreground">
-                Nothing yet - sent invoices, quotes and shared documents show up
-                here.
+                You're all caught up. Client answers to quotes, payments and
+                milestone invoices show up here as they happen.
               </p>
             } @else {
               @for (n of notifications(); track n.id) {
                 <button
                   type="button"
-                  (click)="markRead(n)"
+                  (click)="select(n)"
                   class="flex w-full items-start gap-2.5 border-b border-border/60 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-muted/40"
                 >
                   <span
@@ -119,6 +126,10 @@ import {
 export class NotificationsMenu {
   private readonly api = inject(NotificationsApiService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly realtime = inject(WorkspaceRealtimeService);
+  private readonly router = inject(Router);
+  private readonly dialogService = inject(HlmDialogService);
+  private readonly toast = inject(ToastService);
 
   protected readonly open = signal(false);
   protected readonly loading = signal(false);
@@ -127,9 +138,53 @@ export class NotificationsMenu {
 
   constructor() {
     this.refreshCount();
-    interval(60_000)
+    this.realtime.notifications$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((n) => {
+        this.unread.update((c) => c + 1);
+        this.notifications.update((list) => [n, ...list].slice(0, 30));
+        if (!this.open()) this.toast.info(n.title, n.body);
+      });
+    this.realtime.reconnected$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.refreshCount());
+    // Safety net only - live delivery is the socket.
+    interval(5 * 60_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.refreshCount());
+  }
+
+  /** Marks it read and opens whatever it is about. */
+  protected select(n: AppNotification): void {
+    this.markRead(n);
+    const id = n.resourceId;
+    if (!id) return;
+    this.close();
+    switch (n.kind) {
+      case 'quote_sent':
+      case 'quote_accepted':
+      case 'quote_declined':
+        void this.router.navigate(['/quotes', id]);
+        break;
+      case 'invoice_sent':
+      case 'invoice_paid':
+      case 'invoice_partially_paid':
+      case 'invoice_reminder':
+      case 'milestone_invoiced':
+        this.dialogService.open(InvoiceDetailsDialog, {
+          contentClass: 'sm:max-w-lg',
+          context: { invoiceId: id },
+        });
+        break;
+      case 'project_status_changed':
+      case 'milestone_completed':
+      case 'milestone_changes_requested':
+        void this.router.navigate(['/projects', id]);
+        break;
+      case 'document_shared':
+        void this.router.navigate(['/documents']);
+        break;
+    }
   }
 
   protected toggle(): void {

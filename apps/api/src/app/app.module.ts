@@ -24,6 +24,7 @@ import { MilestonesModule } from '../milestones/milestones.module';
 import { NotificationModule } from '../notification/notification.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { PortalApiModule } from '../portal-api/portal-api.module';
+import { PortalNotificationsModule } from '../portal-notifications/portal-notifications.module';
 import { PortalAuthModule } from '../portal-auth/portal-auth.module';
 import { PortalPublicModule } from '../portal-public/portal-public.module';
 import { PortalUsersModule } from '../portal-users/portal-users.module';
@@ -98,6 +99,7 @@ import { APP_GUARD } from '@nestjs/core';
     PortalUsersModule,
     PortalAuthModule,
     PortalApiModule,
+    PortalNotificationsModule,
     PortalPublicModule,
   ],
   controllers: [AppController],

@@ -2,6 +2,14 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProjectStatus } from '../../../generated/prisma/enums';
 import { PortalMilestoneEntity } from './portal-milestone.entity';
 
+export class PortalProjectQuoteRefEntity {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ example: 'Q-2001' })
+  number: string;
+}
+
 export class PortalProjectEntity {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -29,4 +37,11 @@ export class PortalProjectEntity {
 
   @ApiProperty({ type: PortalMilestoneEntity, isArray: true })
   milestones: PortalMilestoneEntity[];
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PortalProjectQuoteRefEntity,
+    description: 'Quote this project was created from (project detail only)',
+  })
+  quote?: PortalProjectQuoteRefEntity | null;
 }

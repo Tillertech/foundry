@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -13,7 +18,7 @@ import { ClientPortalUserStatus } from '../generated/prisma/enums';
 import type { ClientPortalUserModel as ClientPortalUser } from '../generated/prisma/models';
 
 type PortalUserWithSlug = ClientPortalUser & {
-  clientPortal: { slug: string };
+  clientPortal: { slug: string; active: boolean };
 };
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { PortalLoginDto } from './dto/portal-login.dto';
@@ -38,7 +43,7 @@ export class PortalAuthService {
 
   /** First login: accepts an invite, sets the password, and signs the user in. */
   async acceptInvite(dto: AcceptInviteDto): Promise<PortalAuthResponseEntity> {
-    const found = await this.findByEmail(dto.email);
+    const found = await this.findByEmail(dto.slug, dto.email);
     if (
       !found ||
       found.status !== ClientPortalUserStatus.invited ||
@@ -46,12 +51,14 @@ export class PortalAuthService {
     ) {
       throw new UnauthorizedException('Invalid or expired invite');
     }
-    const updated = await this.setCredentials(found.id, dto.password);
+    const updated = await this.setCredentials(found.id, dto.password, {
+      activate: true,
+    });
     return this.toAuthResponse(updated, found.clientPortal.slug);
   }
 
   async login(dto: PortalLoginDto): Promise<PortalAuthResponseEntity> {
-    const user = await this.findByEmail(dto.email);
+    const user = await this.findByEmail(dto.slug, dto.email);
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -70,15 +77,24 @@ export class PortalAuthService {
     if (!(await bcrypt.compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password');
     }
+    // Checked after the password so a disabled portal can't be probed for
+    // which emails it holds.
+    if (!user.clientPortal.active) {
+      throw new ForbiddenException('This client portal is currently disabled');
+    }
     return this.toAuthResponse(user, user.clientPortal.slug);
   }
 
-  /** Always generic so this cannot be used to enumerate portal accounts. */
+  /**
+   * Always generic so this cannot be used to enumerate portal accounts. Only
+   * active users get a link: a suspended user must not be able to reset
+   * their way back in, and an invited one still has their invite link.
+   */
   async forgotPassword(
     dto: ForgotPortalPasswordDto,
   ): Promise<{ message: string }> {
-    const user = await this.findByEmail(dto.email);
-    if (user) {
+    const user = await this.findByEmail(dto.slug, dto.email);
+    if (user?.status === ClientPortalUserStatus.active) {
       const token = this.generateToken();
       const tokenHash = await bcrypt.hash(token, SALT_ROUNDS);
       await this.prisma.clientPortalUser.update({
@@ -99,8 +115,14 @@ export class PortalAuthService {
   async resetPassword(
     dto: ResetPortalPasswordDto,
   ): Promise<{ message: string }> {
-    const found = await this.findByEmail(dto.email);
-    if (!found || !(await this.verifyToken(found.otpSecret, dto.token))) {
+    const found = await this.findByEmail(dto.slug, dto.email);
+    if (
+      !found ||
+      // Re-checked here: the user may have been suspended after the link
+      // went out, and a reset must never lift a suspension.
+      found.status !== ClientPortalUserStatus.active ||
+      !(await this.verifyToken(found.otpSecret, dto.token))
+    ) {
       throw new UnauthorizedException('Invalid or expired reset link');
     }
     await this.setCredentials(found.id, dto.password);
@@ -137,6 +159,7 @@ export class PortalAuthService {
       name: user.name,
       email: user.email,
       status: user.status,
+      canApproveMilestones: user.canApproveMilestones,
       clientPortal: {
         id: clientPortal.id,
         slug: clientPortal.slug,
@@ -151,10 +174,22 @@ export class PortalAuthService {
     };
   }
 
-  private findByEmail(email: string): Promise<PortalUserWithSlug | null> {
+  /**
+   * An email is only unique within one portal (the same person can be
+   * invited into several clients' portals), so every lookup is scoped by the
+   * slug the request came in on. Emails are stored lowercased; the
+   * case-insensitive match also covers rows written before that.
+   */
+  private findByEmail(
+    slug: string,
+    email: string,
+  ): Promise<PortalUserWithSlug | null> {
     return this.prisma.clientPortalUser.findFirst({
-      where: { email },
-      include: { clientPortal: { select: { slug: true } } },
+      where: {
+        email: { equals: email.trim(), mode: 'insensitive' },
+        clientPortal: { slug },
+      },
+      include: { clientPortal: { select: { slug: true, active: true } } },
     });
   }
 
@@ -175,20 +210,26 @@ export class PortalAuthService {
   }
 
   /**
-   * Shared by acceptInvite and resetPassword: bcrypt the new password,
-   * clear the spent token, and ensure the account is active.
+   * Shared by acceptInvite and resetPassword: bcrypt the new password and
+   * clear the spent token. Only accepting an invite activates the account -
+   * a reset leaves the status alone so it can never undo a suspension.
    */
   private async setCredentials(
     userId: string,
     password: string,
+    { activate = false } = {},
   ): Promise<ClientPortalUser> {
     return this.prisma.clientPortalUser.update({
       where: { id: userId },
       data: {
         passwordHash: await bcrypt.hash(password, SALT_ROUNDS),
         otpSecret: null,
-        status: ClientPortalUserStatus.active,
-        emailVerifiedAt: new Date(),
+        ...(activate
+          ? {
+              status: ClientPortalUserStatus.active,
+              emailVerifiedAt: new Date(),
+            }
+          : {}),
       },
     });
   }

@@ -10,8 +10,12 @@ import {
 import { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '../identity/auth/jwt-auth.guard';
 
+/** socket.io path under /api, so the SPA's existing /api proxies (dev and nginx) carry it. */
+export const WORKSPACE_SOCKET_PATH = '/api/ws-socket';
+
 @WebSocketGateway({
   namespace: '/ws/notifications',
+  path: WORKSPACE_SOCKET_PATH,
   cors: { origin: '*', credentials: true },
 })
 export class NotificationGateway

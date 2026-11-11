@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import type {
   Alignment,
   Content,
@@ -13,6 +15,20 @@ import type {
 // TypeScript's __importStar helper break.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfmake = require('pdfmake') as typeof import('pdfmake');
+
+/**
+ * Inter (SIL OFL, src/assets/fonts/inter) is embedded so documents look the
+ * same in every viewer. The bundle runs from dist (assets copied next to
+ * main.js); tests and tools run from source. Null when not found - documents
+ * then fall back to Helvetica.
+ */
+const INTER_DIR =
+  [
+    join(__dirname, 'assets', 'fonts', 'inter'),
+    join(__dirname, '..', 'assets', 'fonts', 'inter'),
+    join(process.cwd(), 'apps', 'api', 'src', 'assets', 'fonts', 'inter'),
+    join(process.cwd(), 'src', 'assets', 'fonts', 'inter'),
+  ].find((dir) => existsSync(join(dir, 'Inter_400Regular.ttf'))) ?? null;
 
 /** logo replaces the brand wordmark. */
 export interface PdfBrand {
@@ -47,8 +63,11 @@ export interface PdfTheme {
   /** Alternate-row shading in the items table. */
   striped?: boolean;
   density?: 'compact' | 'comfortable' | 'spacious';
-  /** One of the PDF standard font families (no embedding needed). */
-  font?: 'Helvetica' | 'Times' | 'Courier';
+  /**
+   * Helvetica/Times/Courier are PDF standard fonts (not embedded); Inter is
+   * embedded. Quotes default to Inter, other documents to Helvetica.
+   */
+  font?: 'Helvetica' | 'Times' | 'Courier' | 'Inter';
   pageSize?: 'A4' | 'LETTER' | 'LEGAL';
   /** Page margins in points. */
   margins?: { x: number; y: number };
@@ -141,6 +160,26 @@ export interface ReceiptPdfData {
   brand?: PdfBrand;
 }
 
+export interface QuotePdfLine {
+  description: string;
+  quantity: number;
+  rate: number;
+}
+
+/** A priced milestone and the scope the client will sign it off against. */
+export interface QuotePdfMilestone {
+  code: string;
+  description: string;
+  amount: number;
+  details: string;
+  deliverables: string[];
+  acceptanceCriteria: string;
+  /** A picked add-on slotted into the schedule. */
+  option: boolean;
+  /** The hand-over; releases retention. */
+  final: boolean;
+}
+
 export interface QuotePdfData {
   number: string;
   biller: PdfParty;
@@ -148,9 +187,21 @@ export interface QuotePdfData {
   issueDate: string;
   validUntil: string;
   currency: string;
-  items: { description: string; quantity: number; rate: number }[];
+  /** Milestones (and picked options) in billing order: priced on page one, scoped after it. */
+  milestones: QuotePdfMilestone[];
+  /** One-off lines that aren't milestones. */
+  lines: QuotePdfLine[];
+  /** Monthly charges, quoted alongside the total. */
+  recurring: QuotePdfLine[];
+  /** Third-party costs billed at cost - an estimate, not in the total. */
+  passThrough: QuotePdfLine[];
+  /** Options the client hasn't taken up. */
+  optional: QuotePdfLine[];
   taxRate: number;
+  retentionPercent: number;
   notes?: string;
+  /** Names of supporting documents sent with the quote. */
+  attachments: string[];
   brand?: PdfBrand;
 }
 
@@ -190,6 +241,30 @@ const PAGE_WIDTH: Record<NonNullable<PdfTheme['pageSize']>, number> = {
   LETTER: 612,
   LEGAL: 612,
 };
+
+const PAGE_HEIGHT: Record<NonNullable<PdfTheme['pageSize']>, number> = {
+  A4: 841.89,
+  LETTER: 792,
+  LEGAL: 1008,
+};
+
+/**
+ * A rough height for text set in a column, in points: enough to tell a
+ * milestone that fits comfortably on a page from one that may not.
+ * Deliberately generous (half an em per character).
+ */
+function estimateTextHeight(
+  text: string,
+  width: number,
+  fontSize: number,
+  lineHeight = 1.4,
+): number {
+  const perLine = Math.max(1, Math.floor(width / (fontSize * 0.5)));
+  const lines = text
+    .split('\n')
+    .reduce((n, para) => n + Math.max(1, Math.ceil(para.length / perLine)), 0);
+  return lines * fontSize * lineHeight;
+}
 
 const PADDING: Record<NonNullable<PdfTheme['density']>, [number, number]> = {
   compact: [4, 6],
@@ -259,7 +334,7 @@ function resolveTheme(theme: PdfTheme | undefined): ResolvedTheme {
           : ZEBRA,
     headerStyle: t.headerStyle ?? 'solid',
     headerFill: color(t.headerFill, HEADER_BG),
-    font: t.font ?? 'Helvetica',
+    font: t.font === 'Inter' && !INTER_DIR ? 'Helvetica' : (t.font ?? 'Helvetica'),
     pageSize,
     marginX,
     marginY,
@@ -302,6 +377,24 @@ export class PdfGeneratorService {
         italics: 'Courier-Oblique',
         bolditalics: 'Courier-BoldOblique',
       },
+      ...(INTER_DIR
+        ? {
+            // "Bold" is SemiBold: firm without shouting.
+            Inter: {
+              normal: join(INTER_DIR, 'Inter_400Regular.ttf'),
+              bold: join(INTER_DIR, 'Inter_600SemiBold.ttf'),
+              italics: join(INTER_DIR, 'Inter_400Regular_Italic.ttf'),
+              bolditalics: join(INTER_DIR, 'Inter_600SemiBold_Italic.ttf'),
+            },
+            // For titles that should read as headings without heavy weight.
+            InterMedium: {
+              normal: join(INTER_DIR, 'Inter_500Medium.ttf'),
+              bold: join(INTER_DIR, 'Inter_600SemiBold.ttf'),
+              italics: join(INTER_DIR, 'Inter_500Medium_Italic.ttf'),
+              bolditalics: join(INTER_DIR, 'Inter_600SemiBold_Italic.ttf'),
+            },
+          }
+        : {}),
     });
   }
 
@@ -313,19 +406,6 @@ export class PdfGeneratorService {
       dates: [
         { label: 'Issued', value: issueDate },
         { label: 'Due', value: dueDate },
-      ],
-    });
-  }
-
-  quotePdf(data: QuotePdfData): Promise<Buffer> {
-    const { issueDate, validUntil, ...rest } = data;
-    return this.documentPdf({
-      ...rest,
-      docType: 'QUOTE',
-      discount: 0,
-      dates: [
-        { label: 'Issued', value: issueDate },
-        { label: 'Valid until', value: validUntil },
       ],
     });
   }
@@ -666,81 +746,10 @@ export class PdfGeneratorService {
       paddingBottom: (i, node) => (i === node.table.body.length - 1 ? 9 : 5),
     };
 
-    const brandName = data.brand?.name?.trim() || 'FOUNDRY';
-    const brandSub = data.brand?.subName?.trim() || 'Studio Workspace';
-    const brandStack: Content[] =
-      t.showLogo && data.brand?.logoDataUrl
-        ? [
-            { image: data.brand.logoDataUrl, fit: [150, 48] },
-            { text: brandName, style: 'brandSub', margin: [0, 6, 0, 0] },
-          ]
-        : [
-            { text: brandName.toUpperCase(), style: 'brand' },
-            { text: brandSub, style: 'brandSub' },
-          ];
-
-    const dateRows: Content[] = data.dates.map((date, index) => ({
-      columns: [
-        {
-          text: date.label,
-          style: 'metaLabel',
-          alignment: 'right' as Alignment,
-        },
-        {
-          text: date.value,
-          style: 'metaValue',
-          alignment: 'right' as Alignment,
-          width: 96,
-        },
-      ],
-      margin: [0, index === 0 ? 12 : 3, 0, 0],
-    }));
+    const chrome = this.chrome(t, data);
 
     const content: Content[] = [
-      // Masthead: brand on the left, document identity + dates on the right.
-      {
-        columns: [
-          {
-            width: '*',
-            stack: brandStack,
-          },
-          {
-            width: 200,
-            stack: [
-              { text: data.docType, style: 'docType' },
-              { text: data.number, style: 'docNumber' },
-              ...dateRows,
-            ],
-          },
-        ],
-        margin: [0, 0, 0, 16],
-      },
-
-      // Brand accent bar in place of a plain divider (a hairline when off).
-      {
-        canvas: [
-          {
-            type: 'rect',
-            x: 0,
-            y: 0,
-            w: t.contentWidth,
-            h: t.showAccentBar ? 3 : 0.5,
-            color: t.showAccentBar ? t.accentBar : t.line,
-          },
-        ],
-        margin: [0, 0, 0, 22],
-      },
-
-      // Issuer (FROM) and recipient (BILLED TO), side by side.
-      {
-        columns: [
-          { width: '*', ...this.partyStack('FROM', data.biller) },
-          { width: 24, text: '' },
-          { width: '*', ...this.partyStack('BILLED TO', data.billedTo) },
-        ],
-        columnGap: 0,
-        margin: [0, 0, 0, 26],
-      },
+      ...chrome.head,
 
       // Line items.
       ...(regular.length > 0 || expenses.length === 0
@@ -843,6 +852,668 @@ export class PdfGeneratorService {
       });
     }
 
+    const definition: TDocumentDefinitions = {
+      pageSize: t.pageSize,
+      defaultStyle: { font: t.font, fontSize: 10, color: t.ink },
+      pageMargins: [t.marginX, t.marginY, t.marginX, t.marginY + 8],
+      content,
+      styles: chrome.styles,
+      footer: chrome.footer,
+    };
+
+    return pdfmake.createPdf(definition).getBuffer();
+  }
+
+  /**
+   * The quote: page one is the priced proposal (milestones, other lines,
+   * totals, what's quoted outside the total, notes); when any milestone has
+   * written scope, it follows on its own page(s) - one block per milestone
+   * with what's delivered and when it counts as signed off.
+   */
+  quotePdf(data: QuotePdfData): Promise<Buffer> {
+    const t = resolveTheme({
+      ...data.brand?.theme,
+      font: data.brand?.theme?.font ?? (INTER_DIR ? 'Inter' : undefined),
+    });
+    // Titles in Inter Medium rather than bold; other fonts keep their bold.
+    const heading = (size: number, color = t.ink) =>
+      t.font === 'Inter'
+        ? { font: 'InterMedium', bold: false, fontSize: size, color }
+        : { bold: true, fontSize: size, color };
+    // Inter's line box is taller than Helvetica's; tighten it to keep the same rhythm.
+    const tight = t.font === 'Inter';
+    const lh = (n: number) => (tight ? Math.max(1, n - 0.12) : n);
+    const money = (n: number) => this.money(data.currency, n);
+    const qty = (n: number) => n.toLocaleString('en-US');
+    const amount = (l: QuotePdfLine) => l.quantity * l.rate;
+    const subtotal =
+      data.milestones.reduce((s, m) => s + m.amount, 0) +
+      data.lines.reduce((s, l) => s + amount(l), 0);
+    const taxRate = data.taxRate || 0;
+    const tax = subtotal * (taxRate / 100);
+    const total = subtotal + tax;
+    const retention = Math.max(0, data.retentionPercent || 0);
+    const scoped = data.milestones.some(
+      (m) => m.details || m.deliverables.length || m.acceptanceCriteria,
+    );
+
+    const chrome = this.chrome(t, {
+      brand: data.brand,
+      biller: data.biller,
+      billedTo: data.billedTo,
+      docType: 'QUOTE',
+      number: data.number,
+      dates: [
+        { label: 'Issued', value: data.issueDate },
+        { label: 'Valid until', value: data.validUntil },
+      ],
+    }, t.font === 'Inter');
+
+    const th = (text: string, align: Alignment = 'left', colSpan = 1): TableCell => ({
+      text,
+      style: 'qth',
+      alignment: align,
+      colSpan,
+    });
+    const td = (text: string, align: Alignment = 'left'): TableCell => ({
+      text,
+      style: 'cell',
+      alignment: align,
+    });
+
+    // Open tables: an ink rule under the header, hairlines between rows.
+    const openLayout = (header: boolean): CustomTableLayout => ({
+      hLineWidth: (i) => (i === 0 ? 0 : header && i === 1 ? 1 : 0.5),
+      vLineWidth: () => 0,
+      hLineColor: (i) => (header && i === 1 ? t.ink : t.line),
+      paddingLeft: (col) => (col === 0 ? 0 : 8),
+      paddingRight: (col, node) =>
+        col === (node.table.widths?.length ?? 1) - 1 ? 0 : 8,
+      paddingTop: (i) => (header && i === 0 ? 0 : t.padding[0] - (tight ? 1 : -1)),
+      paddingBottom: (i) => (header && i === 0 ? 6 : t.padding[0] - (tight ? 1 : -1)),
+    });
+
+    const scopeHint = (m: QuotePdfMilestone): string => {
+      const n = m.deliverables.length;
+      const parts = [
+        n ? `${n} deliverable${n === 1 ? '' : 's'}` : '',
+        m.acceptanceCriteria ? 'sign-off criteria' : '',
+      ].filter(Boolean);
+      return parts.length ? `${parts.join(' and ')} in the milestone scope` : '';
+    };
+
+    const content: Content[] = [...chrome.head];
+
+    if (data.milestones.length) {
+      content.push(
+        {
+          table: {
+            widths: [30, '*', 'auto'],
+            headerRows: 1,
+            dontBreakRows: true,
+            body: [
+              [th('MILESTONES', 'left', 2), '', th('AMOUNT', 'right')],
+              ...data.milestones.map((m): TableCell[] => [
+                { text: m.code, style: 'code' },
+                {
+                  stack: [
+                    {
+                      text: [
+                        m.description,
+                        m.option ? { text: '   ADD-ON', style: 'tag' } : '',
+                      ],
+                      style: 'cellStrong',
+                    },
+                    ...(scopeHint(m)
+                      ? [
+                          {
+                            text: scopeHint(m),
+                            style: 'cellHint',
+                            margin: [0, 2, 0, 0],
+                          } as Content,
+                        ]
+                      : []),
+                  ],
+                },
+                td(money(m.amount), 'right'),
+              ]),
+            ],
+          },
+          layout: openLayout(true),
+        },
+      );
+      if (scoped) {
+        // Points at the scope pages rather than repeating them here.
+        content.push({
+          text: [
+            { text: 'Milestone scope  ', bold: true, color: t.accent },
+            'What each milestone delivers, and what counts as signing it off, follows on the next pages. Each milestone is invoiced once you sign it off against that scope.',
+          ],
+          style: 'fine',
+          lineHeight: lh(1.3),
+          margin: [0, 8, 0, 0],
+        });
+      }
+    }
+
+    if (data.lines.length) {
+      content.push(
+        {
+          margin: [0, data.milestones.length ? 20 : 0, 0, 0],
+          table: {
+            widths: ['*', 'auto', 'auto', 'auto'],
+            headerRows: 1,
+            dontBreakRows: true,
+            body: [
+              [
+                th(data.milestones.length ? 'ALSO INCLUDED' : 'SERVICES'),
+                th('QTY', 'right'),
+                th('RATE', 'right'),
+                th('AMOUNT', 'right'),
+              ],
+              ...data.lines.map((l) => [
+                td(l.description),
+                td(qty(l.quantity), 'right'),
+                td(money(l.rate), 'right'),
+                td(money(amount(l)), 'right'),
+              ]),
+            ],
+          },
+          layout: openLayout(true),
+        },
+      );
+    }
+
+    // Totals: quiet rows, then the total on an ink rule in the accent colour.
+    const totalsLayout: CustomTableLayout = {
+      hLineWidth: (i, node) => (i === node.table.body.length - 1 ? 1.25 : 0),
+      vLineWidth: () => 0,
+      hLineColor: () => t.ink,
+      paddingLeft: () => 0,
+      paddingRight: () => 0,
+      paddingTop: (i, node) => (i === node.table.body.length - 1 ? 9 : 3),
+      paddingBottom: () => 3,
+    };
+    content.push({
+      margin: [0, 18, 0, 0],
+      unbreakable: true,
+      stack: [
+        {
+          columns: [
+            { width: '*', text: '' },
+            {
+              width: TOTALS_WIDTH,
+              table: {
+                widths: ['*', 'auto'],
+                body: [
+                  [
+                    { text: 'Subtotal', style: 'sumLabel' },
+                    { text: money(subtotal), style: 'sumValue' },
+                  ],
+                  [
+                    { text: `VAT (${taxRate}%)`, style: 'sumLabel' },
+                    { text: money(tax), style: 'sumValue' },
+                  ],
+                  [
+                    { text: 'Total', style: 'sumTotalLabel' },
+                    { text: money(total), style: 'quoteTotal' },
+                  ],
+                ],
+              },
+              layout: totalsLayout,
+            },
+          ],
+        },
+        ...(retention > 0 && data.milestones.length > 1
+          ? [
+              {
+                text: `${retention}% of each milestone invoice is held as retention and released with ${data.milestones[data.milestones.length - 1].code}.`,
+                style: 'fine',
+                alignment: 'right',
+                margin: [0, 8, 0, 0],
+              } as Content,
+            ]
+          : []),
+      ],
+    });
+
+    // Quoted outside the total, in one compact table: monthly, at cost, optional.
+    const outside = [
+      ...data.recurring.map((l) => ({ l, kind: 'Monthly, after launch', suffix: ' / month' })),
+      ...data.passThrough.map((l) => ({ l, kind: 'Third-party cost, billed at cost (estimate)', suffix: '' })),
+      ...data.optional.map((l) => ({ l, kind: 'Optional add-on, not included unless chosen', suffix: '' })),
+    ];
+    if (outside.length) {
+      content.push({
+        margin: [0, 22, 0, 0],
+        table: {
+          widths: ['*', 'auto'],
+          headerRows: 1,
+          dontBreakRows: true,
+          body: [
+            [th('QUOTED SEPARATELY - NOT IN THE TOTAL'), th('AMOUNT', 'right')],
+            ...outside.map(({ l, kind, suffix }): TableCell[] => [
+              {
+                text: [l.description, { text: `   ${kind}`, style: 'cellHint' }],
+                style: 'cell',
+              },
+              td(`${money(amount(l))}${suffix}`, 'right'),
+            ]),
+          ],
+        },
+        layout: openLayout(true),
+      });
+    }
+
+    if (data.notes && t.showNotes) {
+      content.push({
+        margin: [0, 22, 0, 0],
+        stack: [
+          { text: 'NOTES', style: 'eyebrow' },
+          { text: data.notes, style: 'notes', margin: [0, 5, 0, 0] },
+        ],
+      });
+    }
+
+    if (data.attachments.length) {
+      content.push({
+        margin: [0, 20, 0, 0],
+        stack: [
+          { text: 'SUPPORTING DOCUMENTS', style: 'eyebrow' },
+          {
+            ul: data.attachments,
+            style: 'notes',
+            markerColor: t.faint,
+            margin: [0, 5, 0, 0],
+          },
+        ],
+      });
+    }
+
+    if (t.terms) {
+      content.push({
+        margin: [0, 20, 0, 0],
+        stack: [
+          { text: 'TERMS', style: 'eyebrow' },
+          { text: t.terms, style: 'notes', margin: [0, 5, 0, 0] },
+        ],
+      });
+    }
+
+    if (scoped) content.push(...this.scopePages(t, data, money, retention, tight));
+
+    const definition: TDocumentDefinitions = {
+      pageSize: t.pageSize,
+      defaultStyle: {
+        font: t.font,
+        fontSize: tight ? 9.5 : 10,
+        color: t.ink,
+        lineHeight: tight ? 0.95 : 1,
+      },
+      pageMargins: tight
+        ? [t.marginX, t.marginY - 10, t.marginX, t.marginY - 2]
+        : [t.marginX, t.marginY, t.marginX, t.marginY + 8],
+      content,
+      styles: {
+        ...chrome.styles,
+        ...(tight
+          ? {
+              brand: { fontSize: 18, bold: true, color: t.ink, characterSpacing: 1 },
+              notes: { fontSize: 9.5, color: t.muted, lineHeight: lh(1.3) },
+            }
+          : {}),
+        qth: { fontSize: 7.5, bold: true, color: t.muted, characterSpacing: 1 },
+        code: { fontSize: 9, bold: true, color: t.accent, characterSpacing: 0.5 },
+        cellStrong: heading(10.5),
+        cellHint: { fontSize: 8.5, color: t.faint },
+        tag: { fontSize: 7, bold: true, color: t.accent, characterSpacing: 1 },
+        fine: { fontSize: 8.5, color: t.muted },
+        quoteTotal: { fontSize: 15, bold: true, color: t.accent, alignment: 'right' },
+        scopeTitle: heading(20),
+        scopeIntro: { fontSize: 10, color: t.muted, lineHeight: lh(1.35) },
+        msCode: { fontSize: 10, bold: true, color: t.accent, characterSpacing: 0.5 },
+        msTitle: heading(13),
+        msAmount: { ...heading(10.5), alignment: 'right' },
+        msDetails: { fontSize: 10, color: t.ink, lineHeight: lh(1.4) },
+        msLabel: { fontSize: 7.5, bold: true, color: t.faint, characterSpacing: 1.2 },
+        msItem: { fontSize: 9.5, color: t.ink, lineHeight: lh(1.3) },
+        msCriteria: { fontSize: 9.5, color: t.ink, lineHeight: lh(1.4) },
+        msNone: { fontSize: 9, italics: true, color: t.faint },
+      },
+      footer: chrome.footer,
+      info: { title: `Quote ${data.number}` },
+    };
+    return pdfmake.createPdf(definition).getBuffer();
+  }
+
+  /** The milestone scope, from a fresh page: one unbroken block per milestone. */
+  private scopePages(
+    t: ResolvedTheme,
+    data: QuotePdfData,
+    money: (n: number) => string,
+    retention: number,
+    tight = false,
+  ): Content[] {
+    const gap = tight ? 13 : 18;
+    const several = data.milestones.length > 1;
+    // Body width beside the 42pt code gutter; half of it when deliverables and
+    // criteria sit side by side.
+    const bodyWidth = t.contentWidth - 42;
+    const halfWidth = (bodyWidth - 20) / 2;
+    // The tallest block that can safely be kept on one page: the first scope
+    // page loses ~150pt to its heading, so stay well under a full page.
+    const pageBody =
+      PAGE_HEIGHT[t.pageSize] - (tight ? t.marginY * 2 - 12 : t.marginY * 2 + 8);
+    const keepTogetherMax = pageBody * 0.5;
+    const list = (items: string[]): Content => ({
+      ul: items.map((d) => ({ text: d, style: 'msItem', margin: [0, 0, 0, 3] })),
+      type: 'square',
+      markerColor: t.accentBar,
+    });
+    const blocks: Content[] = data.milestones.map((m, i) => {
+      const listHeight = (width: number) =>
+        m.deliverables.reduce(
+          (h, d) => h + estimateTextHeight(d, width - 12, 9.5, 1.3) + 3,
+          m.deliverables.length ? 18 : 0,
+        );
+      const criteriaHeight = (width: number) =>
+        m.acceptanceCriteria
+          ? 18 + 16 + estimateTextHeight(m.acceptanceCriteria, width - 22, 9.5)
+          : 0;
+      const sideBySide = !!(m.deliverables.length && m.acceptanceCriteria);
+      const estimate =
+        40 +
+        (m.details ? estimateTextHeight(m.details, bodyWidth, 10) + 8 : 0) +
+        (sideBySide
+          ? Math.max(listHeight(halfWidth), criteriaHeight(halfWidth)) + 12
+          : listHeight(bodyWidth) + criteriaHeight(bodyWidth) + 12);
+      // pdfmake silently drops an unbreakable block taller than the page, so a
+      // long milestone flows across pages instead (full-width sections, the
+      // heading kept with its first deliverable).
+      const long = estimate > keepTogetherMax;
+
+      const received: Content[] = m.deliverables.length
+        ? [
+            { text: "YOU'LL RECEIVE", style: 'msLabel', margin: [0, 0, 0, 6] },
+            list(m.deliverables),
+          ]
+        : [];
+      const signoff: Content[] = m.acceptanceCriteria
+        ? [
+            { text: 'SIGNED OFF WHEN', style: 'msLabel', margin: [0, 0, 0, 6] },
+            {
+              table: {
+                widths: ['*'],
+                body: [[{ text: m.acceptanceCriteria, style: 'msCriteria' }]],
+              },
+              layout: {
+                hLineWidth: () => 0,
+                vLineWidth: (col) => (col === 0 ? 2 : 0),
+                vLineColor: () => t.accentBar,
+                fillColor: () => t.zebra ?? ZEBRA,
+                paddingLeft: () => 10,
+                paddingRight: () => 10,
+                paddingTop: () => 8,
+                paddingBottom: () => 8,
+              },
+            },
+          ]
+        : [];
+
+      const tags = [
+        m.option ? 'Add-on' : '',
+        m.final && several
+          ? retention > 0
+            ? `Final milestone, releases the ${retention}% retention`
+            : 'Final milestone'
+          : '',
+      ].filter(Boolean);
+
+      const inner: Content[] = [];
+      if (m.details) {
+        inner.push({ text: m.details, style: 'msDetails', margin: [0, 8, 0, 0] });
+      }
+      if (long) {
+        // Built below: flows across pages.
+      } else if (received.length && signoff.length) {
+        inner.push({
+          columns: [
+            { width: '*', stack: received },
+            { width: '*', stack: signoff },
+          ],
+          columnGap: 20,
+          margin: [0, tight ? 9 : 12, 0, 0],
+        });
+      } else if (received.length || signoff.length) {
+        inner.push({ stack: [...received, ...signoff], margin: [0, 12, 0, 0] });
+      }
+      if (!inner.length && !long) {
+        inner.push({
+          text: 'Delivered as described in the quote.',
+          style: 'msNone',
+          margin: [0, 6, 0, 0],
+        });
+      }
+
+      const block: Content[] = [];
+      if (i > 0) {
+        block.push({
+          canvas: [
+            {
+              type: 'line',
+              x1: 0,
+              y1: 0,
+              x2: t.contentWidth,
+              y2: 0,
+              lineWidth: 0.5,
+              lineColor: t.line,
+            },
+          ],
+          margin: [0, 0, 0, gap],
+        });
+      }
+      block.push(
+        {
+          columns: [
+            { width: 34, text: m.code, style: 'msCode', margin: [0, 2, 0, 0] },
+            {
+              width: '*',
+              stack: [
+                { text: m.description, style: 'msTitle' },
+                ...(tags.length
+                  ? [
+                      {
+                        text: tags.join('  ·  '),
+                        style: 'cellHint',
+                        margin: [0, 2, 0, 0],
+                      } as Content,
+                    ]
+                  : []),
+              ],
+            },
+            {
+              width: 'auto',
+              text: money(m.amount),
+              style: 'msAmount',
+              margin: [0, 2, 0, 0],
+            },
+          ],
+          columnGap: 8,
+        },
+        { stack: inner, margin: [42, 0, 0, 0] },
+      );
+      if (!long) {
+        return {
+          stack: block,
+          unbreakable: true,
+          margin: [0, i === 0 ? 0 : gap, 0, 0],
+        } as Content;
+      }
+
+      // Long milestone: keep the heading (and the start of what follows it)
+      // together, let the rest break between deliverables.
+      const [first, ...rest] = m.deliverables;
+      const lead: Content[] = first
+        ? [
+            { text: "YOU'LL RECEIVE", style: 'msLabel', margin: [42, tight ? 9 : 12, 0, 6] },
+            { ...(list([first]) as object), margin: [42, 0, 0, 0] } as Content,
+          ]
+        : [];
+      const flowing: Content[] = [];
+      if (rest.length) {
+        flowing.push({ ...(list(rest) as object), margin: [42, 0, 0, 0] } as Content);
+      }
+      if (signoff.length) {
+        flowing.push({
+          stack: signoff,
+          unbreakable: criteriaHeight(bodyWidth) < keepTogetherMax,
+          margin: [42, 12, 0, 0],
+        });
+      }
+      return {
+        stack: [
+          { stack: [...block, ...lead], unbreakable: true },
+          ...flowing,
+        ],
+        margin: [0, i === 0 ? 0 : gap, 0, 0],
+      } as Content;
+    });
+
+    return [
+      {
+        pageBreak: 'before',
+        columns: [
+          { width: '*', text: 'MILESTONE SCOPE', style: 'eyebrow' },
+          { width: 'auto', text: `Quote ${data.number}`, style: 'fine' },
+        ],
+      },
+      {
+        text: 'What each milestone delivers',
+        style: 'scopeTitle',
+        margin: [0, 6, 0, 0],
+      },
+      {
+        text: 'Each milestone is complete when the work below is handed over and you confirm it meets its sign-off criteria. That sign-off triggers the milestone invoice.',
+        style: 'scopeIntro',
+        margin: [0, 6, 0, 0],
+      },
+      {
+        canvas: [
+          {
+            type: 'rect',
+            x: 0,
+            y: 0,
+            w: t.contentWidth,
+            h: t.showAccentBar ? 3 : 0.5,
+            color: t.showAccentBar ? t.accentBar : t.line,
+          },
+        ],
+        margin: [0, 16, 0, 22],
+      },
+      ...blocks,
+    ];
+  }
+
+  /**
+   * What every invoice/quote page shares: the masthead (brand left, document
+   * identity and dates right), the accent bar, the two parties, the base
+   * styles and the page footer.
+   */
+  private chrome(
+    t: ResolvedTheme,
+    data: {
+      brand?: PdfBrand;
+      docType: 'INVOICE' | 'QUOTE';
+      number: string;
+      dates: { label: string; value: string }[];
+      biller: PdfParty;
+      billedTo: PdfParty;
+    },
+    /** Tighter masthead spacing (taller-set fonts such as Inter). */
+    compact = false,
+  ): {
+    head: Content[];
+    styles: StyleDictionary;
+    footer: TDocumentDefinitions['footer'];
+  } {
+    const brandName = data.brand?.name?.trim() || 'FOUNDRY';
+    const brandSub = data.brand?.subName?.trim() || 'Studio Workspace';
+    const brandStack: Content[] =
+      t.showLogo && data.brand?.logoDataUrl
+        ? [
+            { image: data.brand.logoDataUrl, fit: [150, 48] },
+            { text: brandName, style: 'brandSub', margin: [0, 6, 0, 0] },
+          ]
+        : [
+            { text: brandName.toUpperCase(), style: 'brand' },
+            { text: brandSub, style: 'brandSub' },
+          ];
+
+    const dateRows: Content[] = data.dates.map((date, index) => ({
+      columns: [
+        {
+          text: date.label,
+          style: 'metaLabel',
+          alignment: 'right' as Alignment,
+        },
+        {
+          text: date.value,
+          style: 'metaValue',
+          alignment: 'right' as Alignment,
+          width: 96,
+        },
+      ],
+      margin: [0, index === 0 ? 12 : 3, 0, 0],
+    }));
+
+    const head: Content[] = [
+      // Masthead: brand on the left, document identity + dates on the right.
+      {
+        columns: [
+          { width: '*', stack: brandStack },
+          {
+            width: 200,
+            stack: [
+              { text: data.docType, style: 'docType' },
+              { text: data.number, style: 'docNumber' },
+              ...dateRows,
+            ],
+          },
+        ],
+        margin: [0, 0, 0, compact ? 12 : 16],
+      },
+      // Brand accent bar in place of a plain divider (a hairline when off).
+      {
+        canvas: [
+          {
+            type: 'rect',
+            x: 0,
+            y: 0,
+            w: t.contentWidth,
+            h: t.showAccentBar ? 3 : 0.5,
+            color: t.showAccentBar ? t.accentBar : t.line,
+          },
+        ],
+        margin: [0, 0, 0, compact ? 16 : 22],
+      },
+      // Issuer and recipient, side by side.
+      {
+        columns: [
+          { width: '*', ...this.partyStack('FROM', data.biller) },
+          { width: 24, text: '' },
+          {
+            width: '*',
+            ...this.partyStack(
+              data.docType === 'QUOTE' ? 'PREPARED FOR' : 'BILLED TO',
+              data.billedTo,
+            ),
+          },
+        ],
+        columnGap: 0,
+        margin: [0, 0, 0, compact ? 18 : 26],
+      },
+    ];
+
     const styles: StyleDictionary = {
       brand: { fontSize: 26, bold: true, color: t.ink, characterSpacing: 2 },
       brandSub: { fontSize: 10, color: t.muted, characterSpacing: 1 },
@@ -896,35 +1567,26 @@ export class PdfGeneratorService {
       },
     };
 
-    const definition: TDocumentDefinitions = {
-      pageSize: t.pageSize,
-      defaultStyle: { font: t.font, fontSize: 10, color: t.ink },
-      pageMargins: [t.marginX, t.marginY, t.marginX, t.marginY + 8],
-      content,
-      styles,
-      footer: (currentPage, pageCount) => ({
-        margin: [t.marginX, 0, t.marginX, 32],
-        columns: [
-          {
-            text: (t.footerText ?? brandName).toUpperCase(),
-            fontSize: 8,
-            bold: true,
-            color: t.faint,
-            characterSpacing: 1,
-          },
-          {
-            text: t.showPageNumbers
-              ? `Page ${currentPage} of ${pageCount}`
-              : '',
-            fontSize: 8,
-            color: t.faint,
-            alignment: 'right',
-          },
-        ],
-      }),
-    };
+    const footer: TDocumentDefinitions['footer'] = (currentPage, pageCount) => ({
+      margin: [t.marginX, 0, t.marginX, 32],
+      columns: [
+        {
+          text: (t.footerText ?? brandName).toUpperCase(),
+          fontSize: 8,
+          bold: true,
+          color: t.faint,
+          characterSpacing: 1,
+        },
+        {
+          text: t.showPageNumbers ? `Page ${currentPage} of ${pageCount}` : '',
+          fontSize: 8,
+          color: t.faint,
+          alignment: 'right',
+        },
+      ],
+    });
 
-    return pdfmake.createPdf(definition).getBuffer();
+    return { head, styles, footer };
   }
 
   /**

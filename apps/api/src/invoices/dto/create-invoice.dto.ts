@@ -1,9 +1,9 @@
+import { IsApiDate } from '../../common/api-date';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
-  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -48,11 +48,11 @@ export class CreateInvoiceDto {
   status?: InvoiceStatus;
 
   @ApiProperty({ example: '2026-06-20' })
-  @IsDateString()
+  @IsApiDate()
   issueDate: string;
 
   @ApiProperty({ example: '2026-07-12' })
-  @IsDateString()
+  @IsApiDate()
   dueDate: string;
 
   @ApiPropertyOptional(CURRENCY_SCHEMA)

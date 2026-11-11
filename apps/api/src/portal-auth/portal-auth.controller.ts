@@ -29,7 +29,9 @@ export class PortalAuthController {
 
   @Throttle(PORTAL_AUTH_THROTTLE)
   @Post('accept-invite')
-  @ApiOperation({ summary: 'Accept a client-portal invite, set a password, and sign in' })
+  @ApiOperation({
+    summary: 'Accept a client-portal invite, set a password, and sign in',
+  })
   @ApiOkResponse({ type: PortalAuthResponseEntity })
   @ApiUnauthorizedResponse({ description: 'Invalid or expired invite' })
   acceptInvite(@Body() dto: AcceptInviteDto) {
@@ -55,7 +57,9 @@ export class PortalAuthController {
 
   @Throttle(PORTAL_AUTH_THROTTLE)
   @Post('reset-password')
-  @ApiOperation({ summary: 'Reset a client-portal password from an emailed link' })
+  @ApiOperation({
+    summary: 'Reset a client-portal password from an emailed link',
+  })
   @ApiOkResponse({ type: PortalMessageResponseEntity })
   @ApiUnauthorizedResponse({ description: 'Invalid or expired reset link' })
   resetPassword(@Body() dto: ResetPortalPasswordDto) {
@@ -65,7 +69,9 @@ export class PortalAuthController {
   @Get('me')
   @ApiBearerAuth()
   @UseGuards(PortalJwtAuthGuard)
-  @ApiOperation({ summary: 'The signed-in portal user and their portal permissions' })
+  @ApiOperation({
+    summary: 'The signed-in portal user and their portal permissions',
+  })
   @ApiOkResponse({ type: PortalMeEntity })
   me(@CurrentPortalUser() portalUser: PortalJwtPayload) {
     return this.portalAuthService.me(portalUser.sub);

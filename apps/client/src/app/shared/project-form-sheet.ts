@@ -10,7 +10,14 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { FormField, form, minLength, required } from '@angular/forms/signals';
+import {
+  FormField,
+  form,
+  max,
+  min,
+  minLength,
+  required,
+} from '@angular/forms/signals';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
@@ -40,6 +47,7 @@ interface ProjectForm {
   status: ProjectStatus;
   budget: number;
   hourlyRate: number;
+  retentionPercent: number;
   startDate: string;
   endDate: string;
   description: string;
@@ -52,6 +60,7 @@ const emptyProject = (): ProjectForm => ({
   status: 'planning',
   budget: 0,
   hourlyRate: 0,
+  retentionPercent: 0,
   startDate: new Date().toISOString().slice(0, 10),
   endDate: '',
   description: '',
@@ -104,6 +113,8 @@ export class ProjectFormSheet {
     required(p.name, { message: 'Project name is required' });
     minLength(p.name, 2, { message: 'Use at least 2 characters' });
     required(p.clientId, { message: 'Select a client' });
+    min(p.retentionPercent, 0, { message: 'Between 0 and 100' });
+    max(p.retentionPercent, 100, { message: 'Between 0 and 100' });
   });
   protected readonly fieldError = fieldError;
 
@@ -140,6 +151,7 @@ export class ProjectFormSheet {
               status: p.status,
               budget: num(p.budget),
               hourlyRate: num(p.hourlyRate),
+              retentionPercent: num(p.retentionPercent),
               startDate: isoDay(p.startDate),
               endDate: isoDay(p.endDate),
               description: p.description ?? '',
@@ -161,6 +173,7 @@ export class ProjectFormSheet {
       status: v.status,
       budget: num(v.budget),
       hourlyRate: num(v.hourlyRate),
+      retentionPercent: num(v.retentionPercent),
       startDate: toApiDate(v.startDate),
       endDate: v.endDate ? toApiDate(v.endDate) : undefined,
       description: v.description.trim() || undefined,

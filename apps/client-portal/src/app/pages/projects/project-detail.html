@@ -3,99 +3,431 @@
     Loading…
   </div>
 } @else if (project(); as p) {
-  <div class="mx-auto max-w-[1080px] px-4 py-8 md:px-8 md:py-10">
-    <a
-      [routerLink]="projectsLink()"
-      hlmBtn
-      variant="ghost"
-      size="sm"
-      class="mb-5 -ml-2 gap-1.5 text-muted-foreground"
-    >
-      <ng-icon name="lucideArrowLeft" size="16" /> All projects
-    </a>
+  <div class="mx-auto max-w-[1200px] px-4 py-8 md:px-8">
+    <nav aria-label="Breadcrumb" class="mb-4">
+      <ol class="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <li>
+          <a [routerLink]="projectsLink()" class="hover:text-foreground hover:underline">Projects</a>
+        </li>
+        <li aria-hidden="true"><ng-icon name="lucideChevronRight" size="12" /></li>
+        <li class="truncate font-medium text-foreground" aria-current="page">{{ p.name }}</li>
+      </ol>
+    </nav>
 
-    <header class="mb-7">
-      <div class="min-w-0 max-w-2xl">
+    <header class="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-3">
-          <h1 class="text-2xl font-semibold sm:text-[28px]">{{ p.name }}</h1>
+          <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">{{ p.name }}</h1>
           <app-status-badge [status]="p.status" />
         </div>
-        @if (p.description) {
-          <p class="mt-2 text-sm leading-6 text-muted-foreground">
-            {{ p.description }}
-          </p>
-        }
+        <p class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          @if (p.quote; as q) {
+            @if (permission()?.viewQuotes) {
+              <a
+                [routerLink]="[base(), 'quotes', q.id]"
+                class="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+              >
+                <ng-icon name="lucideFileSignature" size="12" /> From quote
+                <span class="font-mono">{{ q.number }}</span>
+              </a>
+            } @else {
+              <span class="inline-flex items-center gap-1">
+                <ng-icon name="lucideFileSignature" size="12" /> From quote
+                <span class="font-mono">{{ q.number }}</span>
+              </span>
+            }
+            <span aria-hidden="true">·</span>
+          }
+          <span class="inline-flex items-center gap-1">
+            <ng-icon name="lucideCalendarDays" size="12" /> Started {{ isoDay(p.startDate) }}
+          </span>
+          @if (expectedEnd(); as end) {
+            <span aria-hidden="true">·</span>
+            <span>{{ p.status === 'completed' ? 'Completed' : 'Target' }} {{ isoDay(end) }}</span>
+          }
+        </p>
       </div>
     </header>
 
     <div hlmTabs [tab]="tab()" (tabActivated)="tab.set($event)">
       <div hlmTabsList class="mb-6 h-9">
         <button hlmTabsTrigger="overview" class="text-xs">Overview</button>
-        <button hlmTabsTrigger="milestones" class="text-xs">Milestones</button>
+        <button hlmTabsTrigger="milestones" class="text-xs">
+          Milestones
+          @if (p.milestones.length) {
+            <span class="ml-1.5 rounded-full bg-muted px-1.5 text-[10px] tabular-nums text-muted-foreground">{{ p.milestones.length }}</span>
+          }
+        </button>
+        @if (permission()?.viewPayments) {
+          <button hlmTabsTrigger="invoices" class="text-xs">
+            Invoices
+            @if (invoices().length) {
+              <span class="ml-1.5 rounded-full bg-muted px-1.5 text-[10px] tabular-nums text-muted-foreground">{{ invoices().length }}</span>
+            }
+          </button>
+          <button hlmTabsTrigger="payments" class="text-xs">
+            Payments
+            @if (payments().length) {
+              <span class="ml-1.5 rounded-full bg-muted px-1.5 text-[10px] tabular-nums text-muted-foreground">{{ payments().length }}</span>
+            }
+          </button>
+        }
         @if (permission()?.viewDocuments) {
           <button hlmTabsTrigger="files" class="text-xs">Files</button>
         }
       </div>
 
-      <div hlmTabsContent="overview" class="space-y-6">
-        @if (progress(); as prog) {
-          @if (prog.total > 0) {
-            <section class="surface-card p-5 sm:p-6">
-              <div class="mb-2 flex items-center justify-between text-sm">
-                <span class="font-medium">Overall progress</span>
-                <span class="font-semibold tabular-nums text-primary">{{ prog.progress }}% complete</span>
+      <div hlmTabsContent="overview" class="space-y-5">
+        <!-- 1. What the client needs to do -->
+        @if (actionItems().length) {
+          <section aria-labelledby="attention-heading" class="surface-card overflow-hidden">
+            <h2 id="attention-heading" class="border-b border-border px-5 py-3 text-sm font-semibold">
+              Needs your attention
+              <span class="ml-1.5 rounded-full bg-primary/12 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-primary">{{ actionItems().length }}</span>
+            </h2>
+            <ul class="divide-y divide-border">
+              @for (a of actionItems(); track a.key) {
+                <li>
+                  <button
+                    type="button"
+                    (click)="a.run()"
+                    class="group flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+                  >
+                    <span
+                      class="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                      [class]="a.tone === 'overdue' ? 'bg-destructive/10 text-destructive' : a.tone === 'review' ? 'bg-info/12 text-info' : 'bg-primary/10 text-primary'"
+                    >
+                      <ng-icon [name]="a.icon" size="15" />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-sm font-medium">{{ a.title }}</span>
+                      <span class="block truncate text-xs text-muted-foreground">{{ a.detail }}</span>
+                    </span>
+                    <span class="hidden shrink-0 items-center gap-1 text-xs font-medium text-primary sm:inline-flex">
+                      {{ a.cta }} <ng-icon name="lucideChevronRight" size="13" class="transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </button>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
+        <!-- 2. Delivery + money, side by side -->
+        <div class="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(300px,1fr)]">
+          <section
+            aria-labelledby="delivery-heading"
+            class="surface-card flex flex-col p-5 sm:p-6"
+            [class.lg:col-span-2]="!financials()"
+          >
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="delivery-heading" class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Delivery progress</h2>
+                @if (progress(); as prog) {
+                  <p class="mt-2 text-3xl font-semibold tabular-nums">
+                    {{ prog.progress === null ? '-' : prog.progress + '%' }}
+                  </p>
+                  <p class="mt-0.5 text-xs text-muted-foreground">
+                    @if (prog.total) {
+                      {{ prog.completed }} of {{ prog.total }} milestones done
+                    } @else {
+                      No milestones planned yet
+                    }
+                  </p>
+                }
               </div>
-              <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div class="h-full rounded-full bg-primary transition-all" [style.width.%]="prog.progress"></div>
+              @if (deliveryNote(); as note) {
+                <span
+                  class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  [class]="note.tone === 'late' ? 'bg-warning/12 text-warning' : 'bg-info/12 text-info'"
+                >{{ note.text }}</span>
+              }
+            </div>
+            @if (progress(); as prog) {
+              <div
+                class="mt-4 h-2 w-full overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                aria-label="Delivery progress"
+                [attr.aria-valuenow]="prog.progress ?? 0"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <div class="h-full rounded-full bg-primary transition-all" [style.width.%]="prog.progress ?? 0"></div>
               </div>
-              <dl class="mt-5 grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
-                <div>
-                  <dt class="text-xs text-muted-foreground">Current milestone</dt>
-                  <dd class="mt-1 text-sm font-semibold">{{ prog.current?.name ?? 'Work in progress' }}</dd>
+              @if (deliverableTotals(); as d) {
+                <p class="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <ng-icon name="lucideCheck" size="13" class="text-success" />
+                  <span><span class="font-medium tabular-nums text-foreground">{{ d.done }} of {{ d.total }}</span> deliverables completed across all milestones</span>
+                </p>
+              }
+              <!-- Pushes the facts to the bottom when the panel stretches to match its neighbour. -->
+              <div class="min-h-5 flex-1" aria-hidden="true"></div>
+              <dl class="grid gap-4 border-t border-border pt-5 sm:grid-cols-3">
+                <div class="min-w-0">
+                  <dt class="text-[11px] uppercase tracking-wider text-muted-foreground">Now</dt>
+                  <dd class="mt-1 truncate text-sm font-semibold">
+                    @if (awaitingReview()[0]; as r) {
+                      {{ r.name }}
+                      <span class="block text-xs font-normal text-info">With you for review</span>
+                    } @else if (prog.current; as c) {
+                      {{ c.name }}
+                      <span class="block text-xs font-normal text-muted-foreground">In progress</span>
+                    } @else {
+                      <span class="text-muted-foreground">Nothing in progress</span>
+                    }
+                  </dd>
+                </div>
+                <div class="min-w-0">
+                  <dt class="text-[11px] uppercase tracking-wider text-muted-foreground">Up next</dt>
+                  <dd class="mt-1 truncate text-sm font-semibold">
+                    @if (prog.next; as n) {
+                      {{ n.name }}
+                      @if (n.dueDate) {
+                        <span class="block text-xs font-normal text-muted-foreground">Due {{ isoDay(n.dueDate) }}</span>
+                      }
+                    } @else {
+                      <span class="text-muted-foreground">{{ prog.total ? 'Final delivery' : '-' }}</span>
+                    }
+                  </dd>
                 </div>
                 <div>
-                  <dt class="text-xs text-muted-foreground">Next milestone</dt>
-                  <dd class="mt-1 text-sm font-semibold">{{ prog.next?.name ?? 'Final delivery' }}</dd>
+                  <dt class="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    {{ p.status === 'completed' ? 'Completed' : 'Expected completion' }}
+                  </dt>
+                  <dd class="mt-1 text-sm font-semibold tabular-nums">
+                    {{ expectedEnd() ? isoDay(expectedEnd()!) : 'Not set' }}
+                  </dd>
                 </div>
               </dl>
+            }
+          </section>
+
+          @if (financials(); as f) {
+            <section aria-labelledby="money-heading" class="surface-card p-5 sm:p-6">
+              <div class="flex items-center justify-between gap-3">
+                <h2 id="money-heading" class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Financial position</h2>
+                <button type="button" class="text-xs font-medium text-primary hover:underline" (click)="tab.set('invoices')">
+                  {{ f.invoiceCount }} {{ f.invoiceCount === 1 ? 'invoice' : 'invoices' }}
+                </button>
+              </div>
+              @if (budgetBar(); as bar) {
+                <div
+                  class="mt-4 flex h-2 w-full overflow-hidden rounded-full bg-muted"
+                  role="img"
+                  [attr.aria-label]="'Paid ' + money(f.paid, f.currency) + ', outstanding ' + money(f.outstanding, f.currency) + ', budget ' + money(f.budget, f.currency)"
+                >
+                  <span class="h-full bg-success transition-all" [style.width.%]="bar.paid"></span>
+                  <span class="h-full transition-all" [class]="f.overdue > 0 ? 'bg-destructive/70' : 'bg-primary/60'" [style.width.%]="bar.outstanding"></span>
+                </div>
+              }
+              <dl class="mt-4 divide-y divide-border text-sm">
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                  <dt class="text-muted-foreground">Budget <span class="text-[11px]">(excl. tax)</span></dt>
+                  <dd class="font-medium tabular-nums">{{ money(f.budget, f.currency) }}</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                  <dt class="text-muted-foreground">Invoiced <span class="text-[11px]">(incl. tax)</span></dt>
+                  <dd class="font-medium tabular-nums">{{ money(f.invoiced, f.currency) }}</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                  <dt class="flex items-center gap-1.5 text-muted-foreground"><span class="h-2 w-2 rounded-full bg-success" aria-hidden="true"></span>Paid</dt>
+                  <dd class="font-medium tabular-nums text-success">{{ money(f.paid, f.currency) }}</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                  <dt class="flex items-center gap-1.5 font-medium">
+                    <span class="h-2 w-2 rounded-full" [class]="f.overdue > 0 ? 'bg-destructive/70' : 'bg-primary/60'" aria-hidden="true"></span>Outstanding
+                  </dt>
+                  <dd class="text-right font-semibold tabular-nums" [class.text-destructive]="f.overdue > 0">
+                    {{ money(f.outstanding, f.currency) }}
+                    @if (f.overdue > 0) {
+                      <span class="block text-[11px] font-medium">{{ money(f.overdue, f.currency) }} overdue</span>
+                    }
+                  </dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                  <dt class="text-muted-foreground">Remaining budget <span class="text-[11px]">(not invoiced)</span></dt>
+                  <dd class="font-medium tabular-nums">{{ money(f.remainingToInvoice, f.currency) }}</dd>
+                </div>
+              </dl>
+              @if (f.retentionHeld > 0) {
+                <p class="mt-3 flex items-start gap-1.5 text-[11px] leading-4 text-muted-foreground">
+                  <ng-icon name="lucideShieldCheck" size="12" class="mt-px shrink-0" />
+                  {{ money(f.retentionHeld, f.currency) }} retention held, billed with the final milestone.
+                </p>
+              }
+              @if (f.otherCurrencyInvoices > 0) {
+                <p class="mt-2 text-[11px] text-muted-foreground">
+                  {{ f.otherCurrencyInvoices }} invoice{{ f.otherCurrencyInvoices === 1 ? ' is' : 's are' }} in another currency and not included.
+                </p>
+              }
             </section>
           }
-        }
-        <section>
-          <h2 class="mb-3 text-sm font-semibold">Project snapshot</h2>
-          <dl
-            class="surface-card grid divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0"
-          >
-            <div class="p-5">
-              <dt class="text-xs text-muted-foreground">Start date</dt>
-              <dd class="mt-1.5 text-xl font-semibold tabular-nums">
-                {{ isoDay(p.startDate) }}
-              </dd>
+        </div>
+
+        <!-- 3. Milestones | details + activity -->
+        <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(300px,1fr)]">
+          <div class="space-y-5">
+          <section aria-labelledby="timeline-heading" class="surface-card p-5 sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <h2 id="timeline-heading" class="text-sm font-semibold">Milestones</h2>
+              @if (timeline().length) {
+                <button type="button" class="text-xs font-medium text-primary hover:underline" (click)="tab.set('milestones')">
+                  Deliverables and details
+                </button>
+              }
             </div>
-            <div class="p-5">
-              <dt class="text-xs text-muted-foreground">
-                {{ p.status === 'completed' ? 'Completed' : 'Expected end' }}
-              </dt>
-              <dd class="mt-1.5 text-xl font-semibold tabular-nums">
-                {{ p.endDate ? isoDay(p.endDate) : '-' }}
-              </dd>
-            </div>
-            <div class="p-5">
-              <dt class="text-xs text-muted-foreground">Budget</dt>
-              <dd class="mt-1.5 text-xl font-semibold tabular-nums">
-                {{ money(p.budget, auth.currency()) }}
-              </dd>
-            </div>
-            @if (p.hourlyRate) {
-              <div class="p-5">
-                <dt class="text-xs text-muted-foreground">Hourly rate</dt>
-                <dd class="mt-1.5 text-xl font-semibold tabular-nums">
-                  {{ money(p.hourlyRate, auth.currency()) }}
-                </dd>
-              </div>
+            @if (timeline().length === 0) {
+              <p class="text-sm text-muted-foreground">No milestones have been shared yet.</p>
+            } @else {
+              <ol class="relative">
+                @for (t of timeline(); track t.milestone.id; let last = $last) {
+                  <li class="relative flex gap-3 pb-4 last:pb-0">
+                    @if (!last) {
+                      <span
+                        class="absolute left-[11px] top-6 h-[calc(100%-1.25rem)] w-px"
+                        [class]="t.state === 'done' ? 'bg-success/40' : 'bg-border'"
+                        aria-hidden="true"
+                      ></span>
+                    }
+                    <span
+                      class="relative z-10 mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ring-4 ring-card"
+                      [class]="
+                        t.state === 'done' ? 'bg-success text-white' :
+                        t.state === 'review' ? 'bg-info text-white' :
+                        t.state === 'active' ? 'bg-primary text-primary-foreground' :
+                        t.state === 'hold' ? 'bg-warning/15 text-warning' :
+                        'bg-muted text-muted-foreground'
+                      "
+                      aria-hidden="true"
+                    >
+                      @switch (t.state) {
+                        @case ('done') { <ng-icon name="lucideCheck" size="12" /> }
+                        @case ('review') { <ng-icon name="lucidePackageCheck" size="12" /> }
+                        @case ('active') { <ng-icon name="lucideCircleDot" size="12" /> }
+                        @case ('hold') { <ng-icon name="lucideCirclePause" size="12" /> }
+                        @default { <span class="h-1.5 w-1.5 rounded-full bg-muted-foreground/50"></span> }
+                      }
+                    </span>
+                    <button
+                      type="button"
+                      (click)="openReview(t.milestone)"
+                      class="-mx-2 -my-1 min-w-0 flex-1 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+                      [class.opacity-60]="t.state === 'cancelled'"
+                    >
+                      <span class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span class="text-sm font-medium" [class.text-muted-foreground]="t.state === 'done'">{{ t.milestone.name }}</span>
+                        @switch (t.state) {
+                          @case ('review') {
+                            <span class="rounded-full bg-info/12 px-1.5 py-0.5 text-[10px] font-medium text-info">Awaiting your review</span>
+                          }
+                          @case ('active') {
+                            <span class="rounded-full bg-primary/12 px-1.5 py-0.5 text-[10px] font-medium text-primary">In progress</span>
+                          }
+                          @case ('hold') {
+                            <span class="rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-medium text-warning">On hold</span>
+                          }
+                          @case ('cancelled') {
+                            <span class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Cancelled</span>
+                          }
+                          @case ('upcoming') {
+                            @if (t.next) {
+                              <span class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Up next</span>
+                            }
+                          }
+                        }
+                      </span>
+                      <span class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                        @if (t.date) {
+                          <span>{{ t.dateLabel }} {{ isoDay(t.date) }}</span>
+                        } @else if (t.state !== 'done') {
+                          <span>No due date</span>
+                        }
+                        @if (t.deliverablesTotal) {
+                          <span class="inline-flex items-center gap-1.5 tabular-nums">
+                            {{ t.deliverablesDone }}/{{ t.deliverablesTotal }} deliverables
+                            <span class="inline-block h-1 w-10 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                              <span class="block h-full rounded-full" [class]="t.state === 'done' ? 'bg-success' : 'bg-primary'" [style.width.%]="(t.deliverablesDone / t.deliverablesTotal) * 100"></span>
+                            </span>
+                          </span>
+                        }
+                      </span>
+                    </button>
+                  </li>
+                }
+              </ol>
             }
-          </dl>
-        </section>
+          </section>
+            <section aria-labelledby="activity-heading" class="surface-card p-5 sm:p-6">
+              <h2 id="activity-heading" class="text-sm font-semibold">Recent activity</h2>
+              @if (activity().length === 0) {
+                <p class="mt-2 text-xs text-muted-foreground">Updates appear here as the project moves along.</p>
+              } @else {
+                <ol class="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                  @for (a of activity(); track a.key) {
+                    <li class="flex gap-2.5">
+                      <span class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden="true">
+                        <ng-icon [name]="a.icon" size="12" />
+                      </span>
+                      <span class="min-w-0">
+                        <span class="block text-xs font-medium leading-5">{{ a.text }}</span>
+                        <span class="block text-[11px] text-muted-foreground">{{ isoDay(a.date) }}</span>
+                      </span>
+                    </li>
+                  }
+                </ol>
+              }
+            </section>
+          </div>
+
+          <div class="space-y-5">
+            <section aria-labelledby="details-heading" class="surface-card p-5">
+              <h2 id="details-heading" class="text-sm font-semibold">Project details</h2>
+              @if (description(); as d) {
+                <p class="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{{ d }}</p>
+              }
+              <dl class="mt-3 divide-y divide-border text-sm">
+                <div class="flex justify-between gap-3 py-2">
+                  <dt class="text-muted-foreground">Start date</dt>
+                  <dd class="font-medium tabular-nums">{{ isoDay(p.startDate) }}</dd>
+                </div>
+                <div class="flex justify-between gap-3 py-2">
+                  <dt class="text-muted-foreground">{{ p.status === 'completed' ? 'Completed' : 'Target end' }}</dt>
+                  <dd class="font-medium tabular-nums">{{ p.endDate ? isoDay(p.endDate) : 'Not set' }}</dd>
+                </div>
+                @if (!financials()) {
+                  <div class="flex justify-between gap-3 py-2">
+                    <dt class="text-muted-foreground">Budget</dt>
+                    <dd class="font-medium tabular-nums">{{ money(p.budget, auth.currency()) }}</dd>
+                  </div>
+                }
+                @if (p.hourlyRate) {
+                  <div class="flex justify-between gap-3 py-2">
+                    <dt class="text-muted-foreground">Rate for extra work</dt>
+                    <dd class="font-medium tabular-nums">{{ money(p.hourlyRate, auth.currency()) }}/hr</dd>
+                  </div>
+                }
+                @if (retentionPercent() > 0) {
+                  <div class="flex justify-between gap-3 py-2">
+                    <dt class="text-muted-foreground">Retention</dt>
+                    <dd class="font-medium tabular-nums">{{ retentionPercent() }}% per milestone</dd>
+                  </div>
+                }
+                @if (permission()?.viewDocuments) {
+                  <div class="flex justify-between gap-3 py-2">
+                    <dt class="text-muted-foreground">Files</dt>
+                    <dd>
+                      <button type="button" class="font-medium tabular-nums text-primary hover:underline" (click)="tab.set('files')">
+                        {{ projectDocs().length }} shared
+                      </button>
+                    </dd>
+                  </div>
+                }
+              </dl>
+            </section>
+
+
+          </div>
+        </div>
       </div>
 
       <div hlmTabsContent="milestones">
@@ -104,35 +436,161 @@
             No milestones shared yet.
           </div>
         } @else {
-          <div class="surface-card divide-y divide-border">
-            @for (m of p.milestones; track m.id) {
-              <div class="flex items-start gap-3 px-5 py-4" [class.opacity-60]="m.status === 'completed'">
-                <span
-                  class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-                  [class]="m.status === 'completed' ? 'bg-success' : m.status === 'in_progress' ? 'bg-primary' : 'bg-muted-foreground/40'"
-                ></span>
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <p class="text-sm font-medium" [class.line-through]="m.status === 'completed'">{{ m.name }}</p>
-                    <app-status-badge [status]="m.status" />
-                  </div>
-                  @if (m.description) {
-                    <p class="mt-1 text-xs leading-5 text-muted-foreground">{{ m.description }}</p>
-                  }
-                  <p class="mt-1.5 text-xs text-muted-foreground">
-                    @if (m.dueDate) {
-                      Due {{ isoDay(m.dueDate) }}
+          <ol class="space-y-3">
+            @for (m of p.milestones; track m.id; let i = $index) {
+              @let mp = milestoneProgress(m);
+              <li
+                [id]="'milestone-' + m.id"
+                class="surface-card p-5 transition-shadow duration-500"
+                [class.opacity-60]="m.status === 'cancelled'"
+                [class.ring-2]="fresh().has(m.id) || mp.awaitingReview"
+                [class.ring-primary/40]="fresh().has(m.id)"
+                [class.ring-info/40]="mp.awaitingReview && !fresh().has(m.id)"
+              >
+                <div class="flex flex-wrap items-start gap-x-3 gap-y-1">
+                  <span class="mt-0.5 font-mono text-[11px] font-semibold text-primary">
+                    {{ (i + 1).toString().padStart(2, '0') }}
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <p class="text-sm font-semibold">{{ m.name }}</p>
+                      <app-status-badge [status]="m.status" />
+                    </div>
+                    @if (m.description) {
+                      <p class="mt-1 whitespace-pre-line text-xs leading-5 text-muted-foreground">{{ m.description }}</p>
                     }
-                    @if (m.completedAt) {
-                      · Completed {{ isoDay(m.completedAt) }}
+                  </div>
+                  <p class="w-full text-xs text-muted-foreground sm:w-auto sm:text-right">
+                    @if (m.acceptedAt) {
+                      Signed off {{ isoDay(m.acceptedAt) }}
+                    } @else if (m.completedAt) {
+                      Completed {{ isoDay(m.completedAt) }}
+                    } @else if (m.deliveredAt) {
+                      Delivered {{ isoDay(m.deliveredAt) }}
+                    } @else if (m.dueDate) {
+                      Due {{ isoDay(m.dueDate) }}
                     }
                   </p>
                 </div>
-              </div>
+
+                @if (mp.stage >= 0) {
+                  <!-- Stage track -->
+                  <div class="mt-4" role="img" [attr.aria-label]="'Stage: ' + stages[mp.stage]">
+                    <div class="grid grid-cols-4 gap-1.5">
+                      @for (stage of stages; track stage; let s = $index) {
+                        <span
+                          class="h-1.5 rounded-full transition-colors"
+                          [class]="s <= mp.stage ? (mp.stage === 3 ? 'bg-success' : mp.stage === 2 ? 'bg-info' : 'bg-primary') : 'bg-muted'"
+                        ></span>
+                      }
+                    </div>
+                    <div class="mt-1.5 grid grid-cols-4 gap-1.5 text-[10px] sm:text-[11px]">
+                      @for (stage of stages; track stage; let s = $index) {
+                        <span
+                          class="truncate"
+                          [class]="s === mp.stage ? 'font-semibold text-foreground' : 'text-muted-foreground'"
+                        >{{ stage }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (mp.deliverablesTotal > 0) {
+                  <div class="mt-4 rounded-lg border border-border">
+                    <div class="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
+                      <span class="text-xs font-medium">Deliverables</span>
+                      <span class="flex items-center gap-2 text-xs tabular-nums text-muted-foreground">
+                        {{ mp.deliverablesDone }} of {{ mp.deliverablesTotal }}
+                        <span class="hidden h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:block">
+                          <span class="block h-full rounded-full bg-primary transition-all" [style.width.%]="mp.percent"></span>
+                        </span>
+                        <span class="font-semibold text-foreground">{{ mp.percent }}%</span>
+                      </span>
+                    </div>
+                    <ul class="divide-y divide-border/60">
+                      @for (d of m.deliverables; track d.id) {
+                        <li class="flex items-center gap-2.5 px-3 py-2 text-sm">
+                          <span
+                            class="grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border"
+                            [class]="d.done ? 'border-primary bg-primary text-primary-foreground' : 'border-input'"
+                          >
+                            @if (d.done) {
+                              <ng-icon name="lucideCheck" size="11" />
+                            }
+                          </span>
+                          <span class="min-w-0 break-words" [class.text-muted-foreground]="!d.done">{{ d.label }}</span>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+
+                @if (m.acceptanceCriteria) {
+                  <div class="mt-3 rounded-lg bg-muted/40 px-3 py-2.5">
+                    <p class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Acceptance criteria
+                    </p>
+                    <p class="mt-1 whitespace-pre-line break-words text-xs leading-5">{{ m.acceptanceCriteria }}</p>
+                  </div>
+                }
+
+                @if (m.status === 'delivered') {
+                  <div class="mt-4 flex flex-col gap-3 rounded-lg border border-info/30 bg-info/8 px-3.5 py-3 sm:flex-row sm:items-center">
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium">Ready for your review{{ m.reviews.length ? ' · round ' + (m.reviews.length + 1) : '' }}</p>
+                      <p class="text-xs text-muted-foreground">
+                        @if (auth.me()?.canApproveMilestones) {
+                          Check the deliverables and criteria, then approve it or ask for changes.
+                        } @else {
+                          Your team's approver signs this off - you can still look through it.
+                        }
+                      </p>
+                    </div>
+                    <button hlmBtn size="sm" type="button" class="shrink-0" (click)="openReviewDialog(m)">
+                      {{ auth.me()?.canApproveMilestones ? 'Review and respond' : 'View review' }}
+                    </button>
+                  </div>
+                } @else if (latestReview(m); as r) {
+                  <p class="mt-3 text-xs text-muted-foreground">
+                    Round {{ r.round }}:
+                    <span [class]="r.decision === 'approved' ? 'text-success' : 'text-warning'">
+                      {{ r.decision === 'approved' ? 'approved' : 'changes requested' }}
+                    </span>
+                    by {{ r.reviewerName }} on {{ isoDay(r.createdAt) }}
+                    @if (r.decision === 'changes_requested' && m.status === 'in_progress') {
+                      · the team is working on your {{ r.comments.length }} {{ r.comments.length === 1 ? 'note' : 'notes' }}
+                    }
+                  </p>
+                }
+              </li>
             }
-          </div>
+          </ol>
         }
       </div>
+
+      @if (permission()?.viewPayments) {
+        <div hlmTabsContent="invoices">
+          @if (billingLoading() && invoices().length === 0) {
+            <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">Loading…</div>
+          } @else if (invoices().length === 0) {
+            <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
+              No invoices on this project yet.
+            </div>
+          } @else {
+            <app-invoice-table [invoices]="invoices()" [showProject]="false" (open)="openInvoice($event)" />
+          }
+        </div>
+
+        <div hlmTabsContent="payments">
+          @if (payments().length === 0) {
+            <div class="surface-card px-6 py-10 text-center text-sm text-muted-foreground">
+              No payments recorded against this project's invoices yet.
+            </div>
+          } @else {
+            <app-payment-table [payments]="payments()" [showProject]="false" />
+          }
+        </div>
+      }
 
       @if (permission()?.viewDocuments) {
         <div hlmTabsContent="files">

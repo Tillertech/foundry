@@ -26,6 +26,9 @@ export class PortalUserEntity {
   })
   allProjects: boolean;
 
+  @ApiProperty({ description: 'May approve or request changes on delivered milestones' })
+  canApproveMilestones: boolean;
+
   @ApiProperty({
     type: [String],
     format: 'uuid',

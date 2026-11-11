@@ -97,6 +97,16 @@ export function buildAppRoutes(extensions: AppRouteExtensions = {}): Route[] {
             import('./pages/quotes/quotes').then((m) => m.Quotes),
         },
         {
+          // `new` or a quote id; the same component, so creating swaps the URL in place.
+          path: 'quotes/:id',
+          title: 'Quote - Foundry',
+          loadComponent: () =>
+            import('./pages/quotes/quote-editor').then((m) => m.QuoteEditor),
+          canDeactivate: [
+            (page: { canLeave?: () => boolean }) => page.canLeave?.() ?? true,
+          ],
+        },
+        {
           path: 'payments',
           title: 'Payments - Foundry',
           loadComponent: () =>

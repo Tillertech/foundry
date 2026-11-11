@@ -1,5 +1,10 @@
 import { Route } from '@angular/router';
-import { authGuard, guestGuard, rootRedirectGuard } from './domains/auth';
+import {
+  authGuard,
+  guestGuard,
+  permissionGuard,
+  rootRedirectGuard,
+} from './domains/auth';
 import { PortalShell } from './layout/portal-shell';
 
 // todo: dedicated per-tenant domain is a later step, not this one.
@@ -28,9 +33,7 @@ export const appRoutes: Route[] = [
         path: 'forgot-password',
         title: 'Forgot password - Client Portal',
         loadComponent: () =>
-          import('./pages/auth/forgot-password').then(
-            (m) => m.ForgotPassword,
-          ),
+          import('./pages/auth/forgot-password').then((m) => m.ForgotPassword),
       },
       {
         path: 'reset-password',
@@ -52,6 +55,7 @@ export const appRoutes: Route[] = [
           },
           {
             path: 'projects',
+            canActivate: [permissionGuard('viewProjects')],
             pathMatch: 'full',
             title: 'Projects - Client Portal',
             loadComponent: () =>
@@ -59,6 +63,7 @@ export const appRoutes: Route[] = [
           },
           {
             path: 'projects/:id',
+            canActivate: [permissionGuard('viewProjects')],
             title: 'Project - Client Portal',
             loadComponent: () =>
               import('./pages/projects/project-detail').then(
@@ -67,24 +72,35 @@ export const appRoutes: Route[] = [
           },
           {
             path: 'invoices',
+            canActivate: [permissionGuard('viewPayments')],
             title: 'Invoices - Client Portal',
             loadComponent: () =>
               import('./pages/invoices/invoices').then((m) => m.Invoices),
           },
           {
             path: 'quotes',
+            canActivate: [permissionGuard('viewQuotes')],
             title: 'Quotes - Client Portal',
             loadComponent: () =>
               import('./pages/quotes/quotes').then((m) => m.Quotes),
           },
           {
+            path: 'quotes/:id',
+            canActivate: [permissionGuard('viewQuotes')],
+            title: 'Quote - Client Portal',
+            loadComponent: () =>
+              import('./pages/quotes/quote-detail').then((m) => m.QuoteDetail),
+          },
+          {
             path: 'payments',
+            canActivate: [permissionGuard('viewPayments')],
             title: 'Payments - Client Portal',
             loadComponent: () =>
               import('./pages/payments/payments').then((m) => m.Payments),
           },
           {
             path: 'documents',
+            canActivate: [permissionGuard('viewDocuments')],
             title: 'Documents - Client Portal',
             loadComponent: () =>
               import('./pages/documents/documents').then((m) => m.Documents),

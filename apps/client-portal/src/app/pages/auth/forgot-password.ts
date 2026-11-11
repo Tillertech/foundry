@@ -127,15 +127,19 @@ export class ForgotPassword {
     if (this.f().invalid() || this.submitting()) return;
     this.error.set('');
     this.submitting.set(true);
-    this.api.forgotPassword({ email: this.model().email.trim() }).subscribe({
-      next: () => {
-        this.submitting.set(false);
-        this.sent.set(true);
-      },
-      error: (err) => {
-        this.submitting.set(false);
-        this.error.set(apiErrorMessage(err, 'Could not send the reset link.'));
-      },
-    });
+    this.api
+      .forgotPassword({ slug: this.slug(), email: this.model().email.trim() })
+      .subscribe({
+        next: () => {
+          this.submitting.set(false);
+          this.sent.set(true);
+        },
+        error: (err) => {
+          this.submitting.set(false);
+          this.error.set(
+            apiErrorMessage(err, 'Could not send the reset link.'),
+          );
+        },
+      });
   }
 }

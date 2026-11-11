@@ -67,6 +67,9 @@ export class PortalMeEntity {
   })
   status: ClientPortalUserStatus;
 
+  @ApiProperty({ description: 'May approve / request changes on delivered milestones' })
+  canApproveMilestones: boolean;
+
   @ApiProperty({ type: PortalMeClientPortalEntity })
   clientPortal: PortalMeClientPortalEntity;
 }

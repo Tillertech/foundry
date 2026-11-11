@@ -5,19 +5,31 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { PortalRealtimeService } from '../../domains/realtime';
+import { refreshOne } from '../../core/live-list';
+
+const RECENT_QUOTES = 20;
+const newestFirst = (a: Quote, b: Quote) =>
+  b.createdAt.localeCompare(a.createdAt);
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowRight,
   lucideCircleCheck,
   lucideFileSignature,
+  lucidePackageCheck,
   lucideFileText,
   lucideFolderOpen,
   lucideWallet,
 } from '@ng-icons/lucide';
 import { PortalAuthService } from '../../domains/auth';
 import { Invoice, InvoicesApiService } from '../../domains/invoices';
-import { Project, ProjectsApiService, projectProgress } from '../../domains/projects';
+import {
+  Project,
+  ProjectsApiService,
+  projectProgress,
+} from '../../domains/projects';
 import { Quote, QuotesApiService } from '../../domains/quotes';
 import { invoiceTotal, isoDay, money } from '@foundry/shared-util';
 import { StatusBadge } from '@foundry/shared-ui';
@@ -28,6 +40,7 @@ interface AttentionItem {
   title: string;
   detail: string;
   to: string;
+  query?: Record<string, string>;
 }
 
 @Component({
@@ -39,6 +52,7 @@ interface AttentionItem {
       lucideArrowRight,
       lucideCircleCheck,
       lucideFileSignature,
+      lucidePackageCheck,
       lucideFileText,
       lucideFolderOpen,
       lucideWallet,
@@ -95,15 +109,20 @@ export class Dashboard {
         items.push({
           key: `quote-${q.id}`,
           icon: 'lucideFileSignature',
-          title: 'Quote awaiting approval',
-          detail: `${q.number} is ready for your review.`,
+          title: 'Quote awaiting your answer',
+          detail: `${q.number} is ready to accept or decline.`,
           to: `${base}/quotes`,
+          query: { quote: q.id },
         });
       }
     }
     if (permission?.viewPayments) {
       for (const i of this.invoices()) {
-        if (i.status !== 'sent' && i.status !== 'viewed' && i.status !== 'overdue') {
+        if (
+          i.status !== 'sent' &&
+          i.status !== 'viewed' &&
+          i.status !== 'overdue'
+        ) {
           continue;
         }
         items.push({
@@ -112,7 +131,23 @@ export class Dashboard {
           title: i.status === 'overdue' ? 'Invoice overdue' : 'Invoice due',
           detail: `${i.number} · ${money(invoiceTotal(i).total, i.currency)} due ${isoDay(i.dueDate)}`,
           to: `${base}/invoices`,
+          query: { invoice: i.id },
         });
+      }
+    }
+    if (permission?.viewProjects) {
+      for (const p of this.projects()) {
+        for (const m of p.milestones) {
+          if (m.status !== 'delivered') continue;
+          items.push({
+            key: `milestone-${m.id}`,
+            icon: 'lucidePackageCheck',
+            title: 'Milestone ready for your review',
+            detail: `${m.name} · ${p.name}`,
+            to: `${base}/projects/${p.id}`,
+            query: { view: 'milestones' },
+          });
+        }
       }
     }
     return items;
@@ -150,6 +185,44 @@ export class Dashboard {
   });
 
   constructor() {
+    this.loadProjects();
+    this.loadQuotes();
+    if (this.permission()?.viewPayments) {
+      this.invoicesApi.list({ take: 20 }).subscribe({
+        next: (res) => this.invoices.set(res.results),
+        error: () => undefined,
+      });
+    }
+    // Keep progress and quotes current while the dashboard is open, one
+    // item at a time: only the changed project / quote is refetched.
+    const realtime = inject(PortalRealtimeService);
+    realtime.milestones$.pipe(takeUntilDestroyed()).subscribe((change) => {
+      if (!this.projects().some((p) => p.id === change.projectId)) return;
+      refreshOne(
+        change.projectId,
+        false,
+        (id) => this.projectsApi.get(id),
+        (update) => this.projects.update(update),
+      );
+    });
+    realtime.quotes$.pipe(takeUntilDestroyed()).subscribe((change) => {
+      if (!this.permission()?.viewQuotes) return;
+      refreshOne(
+        change.quoteId,
+        change.removed,
+        (id) => this.quotesApi.get(id),
+        (update) =>
+          this.quotes.update((list) => update(list).slice(0, RECENT_QUOTES)),
+        newestFirst,
+      );
+    });
+    realtime.reconnected$.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.loadProjects();
+      this.loadQuotes();
+    });
+  }
+
+  private loadProjects(): void {
     if (this.permission()?.viewProjects) {
       this.projectsApi.list({ take: 50 }).subscribe({
         next: (res) => {
@@ -161,15 +234,12 @@ export class Dashboard {
     } else {
       this.loading.set(false);
     }
+  }
+
+  private loadQuotes(): void {
     if (this.permission()?.viewQuotes) {
-      this.quotesApi.list({ take: 20 }).subscribe({
+      this.quotesApi.list({ take: RECENT_QUOTES }).subscribe({
         next: (res) => this.quotes.set(res.results),
-        error: () => undefined,
-      });
-    }
-    if (this.permission()?.viewPayments) {
-      this.invoicesApi.list({ take: 20 }).subscribe({
-        next: (res) => this.invoices.set(res.results),
         error: () => undefined,
       });
     }

@@ -1,138 +1,103 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
+  effect,
   inject,
+  input,
   signal,
 } from '@angular/core';
-
-import { FormField, form, required } from '@angular/forms/signals';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus, lucideSearch, lucideSend } from '@ng-icons/lucide';
-import { BrnAlertDialogContent } from '@spartan-ng/brain/alert-dialog';
-import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
+import {
+  lucideBadgeCheck,
+  lucideFolderKanban,
+  lucidePlus,
+  lucideSearch,
+} from '@ng-icons/lucide';
+import { toast } from '@spartan-ng/brain/sonner';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSelectImports } from '@spartan-ng/helm/select';
-import { HlmTextarea } from '@spartan-ng/helm/textarea';
-import {
-  apiErrorMessage,
-  Currency,
-  isoDay,
-  money,
-  newId,
-  num,
-  quoteTotal,
-  toApiDate,
-} from '@foundry/shared-util';
+import { apiErrorMessage, isoDay, money, quoteTotal } from '@foundry/shared-util';
+import { PageHeader, StatusBadge } from '@foundry/shared-ui';
 import { ApiClient, ClientsApiService } from '../../domains/clients';
-import { ProjectsApiService } from '../../domains/projects';
-import {
-  CreateQuoteRequest,
-  Quote,
-  QuoteStatus,
-  QuotesApiService,
-  UpdateQuoteRequest,
-} from '../../domains/quotes';
-import { toast } from '@spartan-ng/brain/sonner';
-import { DateField } from '../../shared/date-field';
-import { EntitySheet } from '../../shared/entity-sheet';
+import { Project, ProjectsApiService } from '../../domains/projects';
+import { Quote, QuotesApiService } from '../../domains/quotes';
 import { WorkspaceCurrencyService } from '../../domains/workspaces';
-import {
-  CurrencyAutocomplete,
-  Field,
-  fieldError,
-  OptionAutocomplete,
-  PageHeader,
-  StatusBadge,
-} from '@foundry/shared-ui';
-import { clientOptions } from '../../shared/entity-options';
-import { LineItemDraft, LineItemsEditor } from '../../shared/line-items-editor';
+import { WorkspaceRealtimeService } from '../../core/realtime/workspace-realtime.service';
 import { ListSkeleton } from '../../shared/list-skeleton';
 
-interface QuoteForm {
-  id: string;
-  number: string;
-  clientId: string;
-  status: QuoteStatus;
-  issueDate: string;
-  validUntil: string;
-  currency: Currency;
-  items: LineItemDraft[];
-  taxRate: number;
-  notes: string;
-}
-
-const emptyQuote = (): QuoteForm => ({
-  id: '',
-  number: '',
-  clientId: '',
-  status: 'draft',
-  issueDate: new Date().toISOString().slice(0, 10),
-  validUntil: new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10),
-  currency: 'USD',
-  items: [],
-  taxRate: 0,
-  notes: '',
-});
-
+/** The quotes list; each quote opens as its own page (quote-editor). */
 @Component({
   selector: 'app-quotes',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    OptionAutocomplete,
-    CurrencyAutocomplete,
-    FormField,
     NgIcon,
-    BrnAlertDialogContent,
-    HlmAlertDialogImports,
+    RouterLink,
     HlmButton,
     HlmInput,
-    HlmTextarea,
     HlmSelectImports,
-    DateField,
-    EntitySheet,
-    Field,
-    LineItemsEditor,
     ListSkeleton,
     PageHeader,
     StatusBadge,
   ],
-  providers: [provideIcons({ lucidePlus, lucideSearch, lucideSend })],
+  providers: [
+    provideIcons({
+      lucideBadgeCheck,
+      lucideFolderKanban,
+      lucidePlus,
+      lucideSearch,
+    }),
+  ],
   templateUrl: './quotes.html',
 })
 export class Quotes {
   private readonly quotesApi = inject(QuotesApiService);
   private readonly clientsApi = inject(ClientsApiService);
   private readonly projectsApi = inject(ProjectsApiService);
+  private readonly realtime = inject(WorkspaceRealtimeService);
+  private readonly router = inject(Router);
   protected readonly fx = inject(WorkspaceCurrencyService);
+
+  /** Legacy `?quote=<id>` links land on the quote's own page. */
+  readonly quote = input<string>();
 
   protected readonly loading = signal(true);
   protected readonly quotes = signal<Quote[]>([]);
   protected readonly clients = signal<ApiClient[]>([]);
+  /** Projects created from quotes, for the list chip. */
+  protected readonly projects = signal<Project[]>([]);
 
   protected readonly query = signal('');
   protected readonly statusFilter = signal('all');
-  protected readonly sheetOpen = signal(false);
-  protected readonly saving = signal(false);
-  protected readonly sending = signal(false);
-  protected readonly projectDialogOpen = signal(false);
-  protected readonly acceptedQuote = signal<Quote | null>(null);
-  protected isNew = true;
-
-  protected readonly model = signal<QuoteForm>(emptyQuote());
-  protected readonly f = form(this.model, (p) => {
-    required(p.clientId, { message: 'Select a client' });
-  });
-  protected readonly fieldError = fieldError;
-
-  protected readonly clientOptions = computed(() =>
-    clientOptions(this.clients()),
-  );
 
   constructor() {
+    effect(() => {
+      const id = this.quote();
+      if (id) void this.router.navigate(['/quotes', id], { replaceUrl: true });
+    });
+
     this.fx.refresh();
     this.refresh();
+
+    // The client answering in the portal arrives live.
+    const destroyRef = inject(DestroyRef);
+    this.realtime.quotes$
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe(() => this.loadQuotes());
+    this.realtime.reconnected$
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe(() => this.loadQuotes());
+  }
+
+  private loadQuotes(): void {
+    this.quotesApi.list({ take: 100 }).subscribe({
+      next: (res) => this.quotes.set(res.results),
+      error: () => undefined,
+    });
   }
 
   private refresh(): void {
@@ -152,11 +117,23 @@ export class Quotes {
       next: (res) => this.clients.set(res.results),
       error: () => undefined,
     });
+    this.projectsApi.list({ take: 100 }).subscribe({
+      next: (res) => this.projects.set(res.results),
+      error: () => undefined,
+    });
   }
+
+  protected readonly projectMap = computed(() =>
+    Object.fromEntries(this.projects().map((p) => [p.id, p])),
+  );
 
   protected readonly clientMap = computed(() =>
     Object.fromEntries(this.clients().map((c) => [c.id, c])),
   );
+
+  /** "Ada" out of "Ada <ada@x.com>". */
+  protected readonly responder = (q: Quote) =>
+    (q.respondedBy ?? '').replace(/\s*<[^>]*>$/, '') || 'The client';
 
   private readonly statusLabels: Record<string, string> = {
     draft: 'Draft',
@@ -165,13 +142,8 @@ export class Quotes {
     declined: 'Declined',
     expired: 'Expired',
   };
-  protected readonly statusLabel = (v: string) => this.statusLabels[v] ?? v;
   protected readonly statusFilterLabel = (v: string) =>
-    v === 'all' ? 'All statuses' : this.statusLabel(v);
-  protected readonly clientLabel = (v: string) => {
-    const c = this.clientMap()[v];
-    return c ? c.company || c.name : v;
-  };
+    v === 'all' ? 'All statuses' : (this.statusLabels[v] ?? v);
 
   protected readonly filtered = computed(() => {
     const term = this.query().toLowerCase();
@@ -183,206 +155,13 @@ export class Quotes {
           (status === 'all' || q.status === status) &&
           (!term ||
             q.number.toLowerCase().includes(term) ||
-            (
-              clientMap[q.clientId]?.company ||
-              clientMap[q.clientId]?.name ||
-              ''
-            )
+            (clientMap[q.clientId]?.company || clientMap[q.clientId]?.name || '')
               .toLowerCase()
               .includes(term)),
       )
       .slice()
       .sort((a, b) => (a.issueDate < b.issueDate ? 1 : -1));
   });
-
-  protected get totals() {
-    return quoteTotal(this.model());
-  }
-
-  protected openNew(): void {
-    const c = this.clients()[0];
-    this.model.set({
-      ...emptyQuote(),
-      clientId: c?.id ?? '',
-      currency: c?.currency ?? 'USD',
-      items: [{ id: newId(), description: '', quantity: 1, rate: 0 }],
-    });
-    this.isNew = true;
-    this.sheetOpen.set(true);
-  }
-
-  protected openEdit(q: Quote): void {
-    this.model.set({
-      id: q.id,
-      number: q.number,
-      clientId: q.clientId,
-      status: q.status,
-      issueDate: isoDay(q.issueDate),
-      validUntil: isoDay(q.validUntil),
-      currency: q.currency,
-      items: q.items.map((it) => ({
-        id: it.id,
-        description: it.description,
-        quantity: num(it.quantity),
-        rate: num(it.rate),
-      })),
-      taxRate: num(q.taxRate),
-      notes: q.notes ?? '',
-    });
-    this.isNew = false;
-    this.sheetOpen.set(true);
-  }
-
-  protected save(): void {
-    const v = this.model();
-    if (this.f().invalid() || v.items.length === 0 || this.saving()) return;
-    const common: UpdateQuoteRequest = {
-      number: v.number.trim() || undefined,
-      status: v.status,
-      issueDate: toApiDate(v.issueDate),
-      validUntil: toApiDate(v.validUntil),
-      currency: v.currency,
-      taxRate: num(v.taxRate),
-      notes: v.notes.trim() || undefined,
-      items: v.items.map(({ description, quantity, rate }) => ({
-        description,
-        quantity,
-        rate,
-      })),
-    };
-    this.saving.set(true);
-    const request = this.isNew
-      ? this.quotesApi.create({
-          ...common,
-          clientId: v.clientId,
-        } as CreateQuoteRequest)
-      : this.quotesApi.update(v.id, common);
-    request.subscribe({
-      next: (quote) => {
-        this.fx.ensure(quote.currency);
-        this.saving.set(false);
-        this.quotes.update((list) =>
-          this.isNew
-            ? [quote, ...list]
-            : list.map((q) => (q.id === quote.id ? quote : q)),
-        );
-        this.sheetOpen.set(false);
-        if (this.isNew) toast.success('Quote created');
-        else toast.success('Quote updated');
-        if (quote.status === 'accepted') {
-          this.acceptedQuote.set(quote);
-          this.projectDialogOpen.set(true);
-        }
-      },
-      error: (err) => {
-        this.saving.set(false);
-        toast.error('Could not save quote', {
-          description: apiErrorMessage(err),
-        });
-      },
-    });
-  }
-
-  /** Emails the quote (with PDF) to the client and marks it sent. */
-  protected sendCurrent(): void {
-    if (this.isNew || this.sending()) return;
-    this.sending.set(true);
-    this.quotesApi.send(this.model().id).subscribe({
-      next: (quote) => {
-        this.sending.set(false);
-        this.quotes.update((list) =>
-          list.map((q) => (q.id === quote.id ? quote : q)),
-        );
-        this.sheetOpen.set(false);
-        toast.success('Quote sent', {
-          description: `${quote.number} was emailed to the client.`,
-        });
-      },
-      error: (err) => {
-        this.sending.set(false);
-        toast.error('Could not send quote', {
-          description: apiErrorMessage(err),
-        });
-      },
-    });
-  }
-
-  protected removeCurrent(): void {
-    const id = this.model().id;
-    this.quotesApi.delete(id).subscribe({
-      next: () => {
-        this.quotes.update((list) => list.filter((q) => q.id !== id));
-        this.sheetOpen.set(false);
-        toast.success('Quote deleted');
-      },
-      error: (err) =>
-        toast.error('Could not delete quote', {
-          description: apiErrorMessage(err),
-        }),
-    });
-  }
-
-  protected onClientChange(clientId: string): void {
-    const c = this.clients().find((x) => x.id === clientId);
-    this.model.update((m) => ({
-      ...m,
-      clientId,
-      currency: c?.currency ?? m.currency,
-    }));
-  }
-
-  protected skipProjectCreation(ctx: { close: () => void }): void {
-    ctx.close();
-    this.projectDialogOpen.set(false);
-    this.acceptedQuote.set(null);
-  }
-
-  /** Spins up a project for the just-accepted quote, named from its items and client. */
-  protected confirmProjectCreation(ctx: { close: () => void }): void {
-    ctx.close();
-    this.projectDialogOpen.set(false);
-    const quote = this.acceptedQuote();
-    this.acceptedQuote.set(null);
-    if (!quote) return;
-    const client = this.clientMap()[quote.clientId];
-    this.projectsApi
-      .create({
-        name: this.randomProjectName(quote, client),
-        clientId: quote.clientId,
-        startDate: toApiDate(new Date().toISOString().slice(0, 10)),
-        budget: this.total(quote),
-        description: `Created from quote ${quote.number}.`,
-      })
-      .subscribe({
-        next: (project) => {
-          toast.success('Project created', {
-            description: `${project.name} is ready to go.`,
-          });
-        },
-        error: (err) => {
-          toast.error('Could not create project', {
-            description: apiErrorMessage(err),
-          });
-        },
-      });
-  }
-
-  /** Picks a random line item to riff on for the new proj name.
-   * prolly create in transaction
-   */
-  private randomProjectName(quote: Quote, client?: ApiClient): string {
-    const descriptions = quote.items.map((i) => i.description).filter(Boolean);
-    const pick =
-      descriptions.length > 0
-        ? descriptions[Math.floor(Math.random() * descriptions.length)]
-        : 'New engagement';
-    const clientName = client?.company || client?.name || 'client';
-    return `${pick} - ${clientName}`;
-  }
-
-  protected onItemsChange(items: LineItemDraft[]): void {
-    this.model.update((m) => ({ ...m, items }));
-  }
 
   protected total(q: Quote): number {
     return quoteTotal(q).total;

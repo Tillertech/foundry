@@ -1,3 +1,4 @@
+import { PortalProjectRefEntity } from '../../billing/portal-billing.entities';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { LineItemEntity } from '../../../common/dto/line-item.dto';
 import {
@@ -64,6 +65,22 @@ export class PortalInvoiceEntity {
 
   @ApiPropertyOptional({ nullable: true, type: String, format: 'uuid' })
   projectId: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PortalProjectRefEntity,
+    description: 'The project this invoice bills - only when that project is shared with you (projectId is null otherwise)',
+  })
+  project: PortalProjectRefEntity | null;
+
+  @ApiProperty({ description: 'Total incl. tax, after discount', example: 313200 })
+  total: number;
+
+  @ApiProperty({ description: 'Payments recorded against this invoice', example: 100000 })
+  amountPaid: number;
+
+  @ApiProperty({ description: 'Still to pay (never negative)', example: 213200 })
+  balanceDue: number;
 
   @ApiProperty({ type: [PortalInvoiceItemEntity] })
   items: PortalInvoiceItemEntity[];

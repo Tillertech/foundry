@@ -119,6 +119,22 @@
                 <dt class="text-muted-foreground">Payments received</dt>
                 <dd class="font-medium tabular-nums">{{ money(paymentsReceived(), client()?.currency || 'USD') }}</dd>
               </div>
+              @if (milestoneBilling().count) {
+                <div class="flex items-center justify-between py-2.5 text-sm">
+                  <dt class="text-muted-foreground">
+                    Milestones billed
+                    <span class="block text-[11px]">{{ milestoneBilling().invoicedCount }} of {{ milestoneBilling().count }} invoiced</span>
+                  </dt>
+                  <dd class="text-right font-medium tabular-nums">
+                    {{ money(milestoneBilling().invoiced, client()?.currency || 'USD') }}
+                    @if (milestoneBilling().held > 0) {
+                      <span class="block text-[11px] font-normal text-muted-foreground">
+                        {{ money(milestoneBilling().held, client()?.currency || 'USD') }} retention held
+                      </span>
+                    }
+                  </dd>
+                </div>
+              }
               <div class="flex items-center justify-between py-2.5 text-sm">
                 <dt class="font-medium">Remaining budget</dt>
                 <dd class="font-semibold tabular-nums">{{ money(remainingBudget(), client()?.currency || 'USD') }}</dd>
@@ -150,12 +166,20 @@
                     <button type="button" (click)="openMilestone(m)" class="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted/40">
                       <span
                         class="h-2 w-2 shrink-0 rounded-full"
-                        [class]="m.status === 'completed' ? 'bg-success' : m.status === 'in_progress' ? 'bg-primary' : 'bg-muted-foreground/40'"
+                        [class]="isDone(m) ? 'bg-success' : m.status === 'delivered' ? 'bg-info' : m.status === 'in_progress' ? 'bg-primary' : 'bg-muted-foreground/40'"
                       ></span>
                       <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-medium" [class.line-through]="m.status === 'completed'">{{ m.name }}</span>
+                        <span class="block truncate text-sm font-medium" [class.text-muted-foreground]="isDone(m)">{{ m.name }}</span>
                         <span class="mt-0.5 block text-xs text-muted-foreground">{{ statusLabel(m.status) }} · Due {{ m.dueDate ? isoDay(m.dueDate) : 'not set' }}</span>
                       </span>
+                      @if (m.amount !== null) {
+                        <span class="shrink-0 text-right text-xs tabular-nums">
+                          <span class="block font-medium">{{ money(m.amount, client()?.currency || 'USD') }}</span>
+                          @if (m.invoice) {
+                            <span class="block text-[11px] text-success">{{ m.invoice.number }}</span>
+                          }
+                        </span>
+                      }
                     </button>
                   }
                 </div>
@@ -239,9 +263,13 @@
         <app-milestones-panel
           [projectId]="id()"
           [milestones]="milestones()"
+          [currency]="client()?.currency || 'USD'"
+          [retentionPercent]="retentionPercent()"
           (milestonesChange)="milestones.set($event)"
           (requestNew)="openNewMilestone()"
           (requestEdit)="openMilestone($event)"
+          (invoiceRaised)="reloadInvoices()"
+          (openInvoice)="openInvoice($event)"
         />
       </div>
 
@@ -438,6 +466,11 @@
   <app-milestone-form-sheet
     [projectId]="id()"
     [milestone]="editingMilestone()"
+    [currency]="client()?.currency || 'USD'"
+    [retentionPercent]="retentionPercent()"
+    [documents]="documents()"
+    [clientId]="project()?.clientId ?? null"
+    (documentUploaded)="documents.update((list) => [$event, ...list])"
     [(open)]="milestoneFormOpen"
     (saved)="onMilestoneSaved($event)"
     (deleted)="onMilestoneDeleted($event)"

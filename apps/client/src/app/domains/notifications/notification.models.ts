@@ -6,9 +6,16 @@ export type NotificationKind =
   | 'invoice_partially_paid'
   | 'invoice_reminder'
   | 'quote_sent'
+  /** The client answered a quote in the portal (resourceId = quote). */
+  | 'quote_accepted'
+  | 'quote_declined'
   | 'document_shared'
   | 'project_status_changed'
   | 'milestone_completed'
+  /** A signed-off milestone raised its draft invoice (resourceId = invoice). */
+  | 'milestone_invoiced'
+  /** The client asked for changes on a delivered milestone (resourceId = project). */
+  | 'milestone_changes_requested'
   /** An account export finished (or failed); has no resourceId. */
   | 'account_export';
 

@@ -8,6 +8,7 @@ import {
 import { FormField, form, required } from '@angular/forms/signals';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideLoaderCircle,
   lucidePlus,
   lucideReceipt,
   lucideSearch,
@@ -124,7 +125,13 @@ const emptyInvoice = (): InvoiceForm => ({
     StatusBadge,
   ],
   providers: [
-    provideIcons({ lucidePlus, lucideReceipt, lucideSearch, lucideSend }),
+    provideIcons({
+      lucideLoaderCircle,
+      lucidePlus,
+      lucideReceipt,
+      lucideSearch,
+      lucideSend,
+    }),
   ],
   templateUrl: './invoices.html',
 })
@@ -385,7 +392,82 @@ export class Invoices {
     this.sheetOpen.set(true);
   }
 
-  protected save(): void {
+  /** Statuses that can be (re)emailed: drafts go out, unpaid ones get a fresh copy. */
+  private readonly sendable: InvoiceStatus[] = [
+    'draft',
+    'sent',
+    'viewed',
+    'partially_paid',
+    'overdue',
+  ];
+  protected readonly canSendRow = (i: Invoice) => this.sendable.includes(i.status);
+
+  /** Footer send: anything not settled or cancelled. */
+  protected readonly canSend = computed(() =>
+    this.sendable.includes(this.model().status),
+  );
+  /** A draft's natural next step is sending it, so that becomes the primary button. */
+  protected readonly sendIsPrimary = computed(
+    () => this.model().status === 'draft',
+  );
+
+  /** Row whose send button is waiting for its confirming second click. */
+  protected readonly confirmingSend = signal<string | null>(null);
+  /** Row currently being sent from the list. */
+  protected readonly sendingRow = signal<string | null>(null);
+  private confirmTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Emails straight from the list. Sending reaches the client, so it takes
+   * two clicks on the same button - "Send" then "Confirm" - which guards
+   * against a slip onto the wrong row without a modal in the way.
+   */
+  protected sendRow(inv: Invoice, event: Event): void {
+    event.stopPropagation();
+    if (this.sendingRow()) return;
+    if (this.confirmingSend() !== inv.id) {
+      this.confirmingSend.set(inv.id);
+      clearTimeout(this.confirmTimer);
+      this.confirmTimer = setTimeout(() => this.confirmingSend.set(null), 4000);
+      return;
+    }
+    clearTimeout(this.confirmTimer);
+    this.confirmingSend.set(null);
+    this.sendingRow.set(inv.id);
+    this.invoicesApi.send(inv.id).subscribe({
+      next: (invoice) => {
+        this.sendingRow.set(null);
+        this.invoices.update((list) =>
+          list.map((i) => (i.id === invoice.id ? invoice : i)),
+        );
+        this.toast.success(
+          inv.status === 'draft' ? 'Invoice sent' : 'Invoice re-sent',
+          `${invoice.number} was emailed to ${this.clientLabel(invoice.clientId)}.`,
+        );
+      },
+      error: (err) => {
+        this.sendingRow.set(null);
+        this.toast.error('Could not send invoice', apiErrorMessage(err));
+      },
+    });
+  }
+
+  /** "Send" for a draft, "Resend" once the client already has it. */
+  protected rowSendLabel(inv: Invoice): string {
+    if (this.confirmingSend() === inv.id) return 'Confirm';
+    return inv.status === 'draft' ? 'Send' : 'Resend';
+  }
+
+  private clientLabel(id: string): string {
+    const c = this.clientMap()[id];
+    return c ? c.company || c.name : 'the client';
+  }
+
+  /**
+   * Saves, then optionally emails it. Sending always follows the save, so
+   * the client never gets an older version than the one on screen.
+   */
+  protected save(andSend = false): void {
     const v = this.model();
     const lineCount = v.items.length + v.expenseLines.length;
     if (this.f().invalid() || lineCount === 0 || this.saving()) return;
@@ -439,6 +521,14 @@ export class Invoices {
             ? [invoice, ...list]
             : list.map((i) => (i.id === invoice.id ? invoice : i)),
         );
+        if (andSend) {
+          // From here the sheet is the saved invoice, so a failed send can
+          // simply be retried without creating it twice.
+          this.isNew = false;
+          this.model.update((m) => ({ ...m, id: invoice.id, number: invoice.number }));
+          this.send(invoice.id);
+          return;
+        }
         this.sheetOpen.set(false);
         if (this.isNew) this.toast.created('Invoice');
         else this.toast.updated('Invoice');
@@ -450,11 +540,10 @@ export class Invoices {
     });
   }
 
-  /** Emails the invoice (with PDF) to the client and marks it sent. */
-  protected sendCurrent(): void {
-    if (this.isNew || this.sending()) return;
+  /** Emails the saved invoice (with PDF) to the client and marks a draft sent. */
+  private send(id: string): void {
     this.sending.set(true);
-    this.invoicesApi.send(this.model().id).subscribe({
+    this.invoicesApi.send(id).subscribe({
       next: (invoice) => {
         this.sending.set(false);
         this.invoices.update((list) =>
@@ -468,7 +557,11 @@ export class Invoices {
       },
       error: (err) => {
         this.sending.set(false);
-        this.toast.error('Could not send invoice', apiErrorMessage(err));
+        // The save itself went through: the sheet stays open, as saved.
+        this.toast.error(
+          'Saved, but the invoice could not be sent',
+          apiErrorMessage(err),
+        );
       },
     });
   }

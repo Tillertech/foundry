@@ -1,3 +1,7 @@
+import {
+  PortalInvoiceRefEntity,
+  PortalProjectRefEntity,
+} from '../../billing/portal-billing.entities';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod } from '../../../generated/prisma/enums';
 import { CURRENCY_SCHEMA } from '../../../common/currency';
@@ -26,6 +30,16 @@ export class PortalPaymentEntity {
 
   @ApiPropertyOptional({ nullable: true, type: String, format: 'uuid' })
   invoiceId: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: PortalInvoiceRefEntity, description: 'The invoice this payment settled' })
+  invoice: PortalInvoiceRefEntity | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PortalProjectRefEntity,
+    description: "The invoice's project - only when that project is shared with you",
+  })
+  project: PortalProjectRefEntity | null;
 
   @ApiProperty()
   createdAt: Date;

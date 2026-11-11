@@ -1,0 +1,564 @@
+@if (loading()) {
+<div class="mx-auto max-w-[1180px] space-y-6 px-4 py-8 md:px-8">
+  <div class="skeleton-shimmer h-4 w-40 rounded-md"></div>
+  <div class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_280px]">
+    <div class="space-y-4">
+      <div class="skeleton-shimmer h-9 w-56 rounded-md"></div>
+      <div class="skeleton-shimmer h-64 w-full rounded-xl"></div>
+    </div>
+    <div class="skeleton-shimmer h-72 w-full rounded-xl"></div>
+  </div>
+</div>
+} @else if (notFound()) {
+<div class="mx-auto max-w-md px-6 py-24 text-center">
+  <p class="text-sm font-semibold">Quote not found</p>
+  <p class="mt-1 text-sm text-muted-foreground">
+    It may have been deleted or is no longer available.
+  </p>
+  <a hlmBtn variant="outline" size="sm" class="mt-6" routerLink="/quotes"
+    >Back to quotes</a
+  >
+</div>
+} @else {
+<!-- Header: where you are, what state it's in, the one next step -->
+<div
+  class="sticky top-14 z-10 border-b border-border bg-background/85 backdrop-blur-md"
+>
+  <div
+    class="mx-auto flex h-14 max-w-[1180px] items-center gap-3 px-4 md:px-8"
+  >
+    <nav class="flex min-w-0 items-center gap-1.5 text-sm" aria-label="Breadcrumb">
+      <a
+        routerLink="/quotes"
+        class="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+        >Quotes</a
+      >
+      <ng-icon
+        name="lucideChevronRight"
+        size="14"
+        class="shrink-0 text-muted-foreground/60"
+      />
+      <span class="truncate font-medium">
+        {{ isNew() ? 'New quote' : model().number || saved()?.number }}
+      </span>
+    </nav>
+    @if (!isNew()) {
+    <app-status-badge [status]="status()" />
+    }
+    <span
+      class="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex"
+      aria-live="polite"
+    >
+      <span
+        class="h-1.5 w-1.5 rounded-full"
+        [class]="
+          saveState() === 'Saved'
+            ? 'bg-success'
+            : saveState() === 'Saving…'
+              ? 'animate-pulse bg-primary'
+              : 'bg-muted-foreground/40'
+        "
+      ></span>
+      {{ saveState() }}
+    </span>
+
+    <div class="ml-auto flex shrink-0 items-center gap-1.5">
+      <button
+        hlmBtn
+        type="button"
+        variant="ghost"
+        size="sm"
+        class="gap-1.5"
+        [attr.aria-pressed]="preview()"
+        (click)="togglePreview()"
+      >
+        <ng-icon [name]="preview() ? 'lucidePencilLine' : 'lucideEye'" size="15" />
+        <span class="hidden sm:inline">{{ preview() ? 'Edit' : 'Preview' }}</span>
+      </button>
+
+      @if (!autosave()) {
+      <button
+        hlmBtn
+        type="button"
+        variant="outline"
+        size="sm"
+        [disabled]="saving() || !valid() || (!isNew() && !dirty())"
+        (click)="save()"
+      >
+        {{ isNew() ? 'Save draft' : 'Save' }}
+      </button>
+      }
+
+      @switch (primary()) {
+        @case ('project') {
+        <a
+          hlmBtn
+          size="sm"
+          class="gap-1.5"
+          [routerLink]="['/projects', saved()!.projectId]"
+        >
+          <ng-icon name="lucideFolderKanban" size="15" />
+          <span class="hidden sm:inline">Open project</span>
+        </a>
+        }
+        @case ('start') {
+        <button
+          hlmBtn
+          type="button"
+          size="sm"
+          class="gap-1.5 shadow-[var(--shadow-glow)]"
+          [disabled]="saving()"
+          (click)="runPrimary()"
+        >
+          <ng-icon name="lucideFolderPlus" size="15" />
+          Start project
+        </button>
+        }
+        @case ('accept') {
+        <button
+          hlmBtn
+          type="button"
+          size="sm"
+          class="gap-1.5 shadow-[var(--shadow-glow)]"
+          [disabled]="saving() || !valid()"
+          (click)="runPrimary()"
+        >
+          <ng-icon name="lucideFolderPlus" size="15" />
+          <span class="hidden sm:inline">Accept &amp; start project</span>
+          <span class="sm:hidden">Accept</span>
+        </button>
+        }
+        @default {
+        <button
+          hlmBtn
+          type="button"
+          size="sm"
+          class="gap-1.5 shadow-[var(--shadow-glow)]"
+          [disabled]="saving() || sending() || !valid()"
+          (click)="runPrimary()"
+          [attr.title]="'Email it to the client (Ctrl/⌘ + Enter)'"
+        >
+          <ng-icon name="lucideSend" size="14" />
+          {{ sending() ? 'Sending…' : primary() === 'send' ? 'Send' : 'Resend' }}
+        </button>
+        }
+      }
+
+      @if (!isNew() && !saved()?.projectId) {
+      <button
+        hlmBtn
+        type="button"
+        variant="ghost"
+        size="icon"
+        class="h-8 w-8"
+        [hlmDropdownMenuTrigger]="moreMenu"
+        align="end"
+        aria-label="More actions"
+      >
+        <ng-icon name="lucideEllipsis" size="16" />
+      </button>
+      }
+    </div>
+  </div>
+</div>
+
+<ng-template #moreMenu>
+  <hlm-dropdown-menu class="w-52">
+    @if (status() === 'sent') {
+    <button hlmDropdownMenuItem (triggered)="send()">
+      <ng-icon name="lucideSend" size="14" />
+      Resend to client
+    </button>
+    <hlm-dropdown-menu-separator />
+    }
+    @if (status() !== 'accepted' && status() !== 'sent') {
+    <button hlmDropdownMenuItem (triggered)="setStatus('accepted')">
+      <ng-icon name="lucideBadgeCheck" size="14" />
+      Mark as accepted
+    </button>
+    }
+    @if (status() === 'draft' || status() === 'sent') {
+    <button hlmDropdownMenuItem (triggered)="setStatus('declined')">
+      <ng-icon name="lucideCircleX" size="14" />
+      Mark as declined
+    </button>
+    }
+    @if (status() === 'sent') {
+    <button hlmDropdownMenuItem (triggered)="setStatus('expired')">
+      <ng-icon name="lucideClock" size="14" />
+      Mark as expired
+    </button>
+    }
+    @if (status() !== 'draft') {
+    <button hlmDropdownMenuItem (triggered)="setStatus('draft')">
+      <ng-icon name="lucideRotateCcw" size="14" />
+      Revert to draft
+    </button>
+    }
+  </hlm-dropdown-menu>
+</ng-template>
+
+<div class="mx-auto max-w-[1180px] px-4 pb-24 pt-8 md:px-8 md:pt-10">
+  @if (preview()) {
+  <div class="mx-auto max-w-[920px]">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <p class="text-xs text-muted-foreground">
+        The PDF {{ clientName() || 'the client' }} receives with the email,
+        including unsaved edits.
+      </p>
+      @if (pdfUrl(); as url) {
+      <a
+        hlmBtn
+        variant="ghost"
+        size="sm"
+        class="gap-1.5"
+        [href]="url"
+        [attr.download]="pdfName()"
+      >
+        <ng-icon name="lucideDownload" size="14" />
+        Download PDF
+      </a>
+      }
+    </div>
+    @if (pdfFrame(); as frame) {
+    <iframe
+      [src]="frame"
+      title="Quote PDF preview"
+      class="h-[calc(100vh-14rem)] min-h-[520px] w-full rounded-xl border border-border bg-muted/30"
+    ></iframe>
+    } @else if (pdfError(); as err) {
+    <div
+      class="grid min-h-[320px] place-items-center rounded-xl border border-dashed border-border px-6 text-center"
+    >
+      <div>
+        <p class="text-sm font-medium">The preview couldn't be rendered</p>
+        <p class="mt-1 text-xs text-muted-foreground">{{ err }}</p>
+        <button hlmBtn variant="outline" size="sm" class="mt-4" (click)="renderPdf()">
+          Try again
+        </button>
+      </div>
+    </div>
+    } @else {
+    <div class="skeleton-shimmer h-[calc(100vh-14rem)] min-h-[520px] w-full rounded-xl"></div>
+    }
+  </div>
+  } @else {
+  <div
+    class="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-[auto_1fr] lg:gap-x-14"
+  >
+    <!-- Rail, top: state and details (above the document on mobile) -->
+    <aside class="min-w-0 space-y-8 self-start lg:col-start-2 lg:row-start-1">
+      @if (saved()?.projectId) {
+      <a
+        [routerLink]="['/projects', saved()!.projectId]"
+        class="group block rounded-xl border border-success/25 bg-success/8 p-4 transition-colors hover:bg-success/12"
+      >
+        <span class="flex items-center gap-2 text-sm font-medium">
+          <ng-icon name="lucideFolderKanban" size="15" class="text-success" />
+          <span class="min-w-0 flex-1 truncate">
+            {{ project()?.name || 'Project created' }}
+          </span>
+          <ng-icon
+            name="lucideArrowUpRight"
+            size="15"
+            class="text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          />
+        </span>
+        <span class="mt-1 block text-xs leading-relaxed text-muted-foreground">
+          Running as a project. Milestones are invoiced as the client signs them
+          off.
+        </span>
+      </a>
+      } @else if (status() === 'accepted') {
+      <div class="rounded-xl border border-success/25 bg-success/8 p-4">
+        <p class="flex items-center gap-2 text-sm font-medium">
+          <ng-icon name="lucideBadgeCheck" size="15" class="text-success" />
+          @if (saved()?.respondedAt) { Accepted by {{ responder() }} } @else {
+          Accepted }
+        </p>
+        <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
+          @if (saved()?.respondedAt) { On {{ day(saved()!.respondedAt!) }}. }
+          Start the project to set up its milestones and billing schedule.
+        </p>
+      </div>
+      } @else if (status() === 'declined') {
+      <div class="rounded-xl border border-destructive/25 bg-destructive/5 p-4">
+        <p class="flex items-center gap-2 text-sm font-medium">
+          <ng-icon name="lucideCircleX" size="15" class="text-destructive" />
+          @if (saved()?.respondedAt) { Declined by {{ responder() }} } @else {
+          Declined }
+        </p>
+        @if (saved()?.responseNote) {
+        <p
+          class="mt-1.5 whitespace-pre-line break-words text-xs italic text-foreground/80"
+        >
+          "{{ saved()!.responseNote }}"
+        </p>
+        }
+        <p class="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+          Revise it and send it again to ask for a new answer.
+        </p>
+      </div>
+      } @else if (status() === 'sent') {
+      <div class="rounded-xl border border-border bg-muted/30 p-4">
+        <p class="text-sm font-medium">
+          Waiting on {{ clientName() || 'the client' }}
+        </p>
+        <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
+          They can accept or decline it from their portal. Edits here change
+          what they see, so save deliberately.
+        </p>
+      </div>
+      } @else if (status() === 'expired') {
+      <div class="rounded-xl border border-border bg-muted/30 p-4">
+        <p class="text-sm font-medium">Expired</p>
+        <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
+          Valid until {{ model().validUntil }}. Extend the date and resend it to
+          reopen it.
+        </p>
+      </div>
+      }
+
+      <section>
+        <h2
+          class="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        >
+          Details
+        </h2>
+        <div class="grid gap-4">
+          @if (isNew()) {
+          <app-field label="Client" [error]="fieldError(f.clientId())">
+            <app-option-autocomplete
+              placeholder="Select a client"
+              emptyText="No client found"
+              [options]="clientOptions()"
+              [value]="model().clientId"
+              (valueChange)="onClientChange($event)"
+            />
+          </app-field>
+          } @else {
+          <app-field label="Client">
+            <p class="text-sm font-medium">{{ clientName() || '-' }}</p>
+          </app-field>
+          }
+          <div class="grid grid-cols-2 gap-3">
+            <app-field label="Issued">
+              <app-date-field
+                [value]="f.issueDate().value()"
+                (valueChange)="f.issueDate().value.set($event ?? '')"
+              />
+            </app-field>
+            <app-field label="Valid until">
+              <app-date-field
+                [value]="f.validUntil().value()"
+                (valueChange)="f.validUntil().value.set($event ?? '')"
+              />
+            </app-field>
+          </div>
+          <app-field label="Currency">
+            @if (locked()) {
+            <p class="font-mono text-sm">{{ model().currency }}</p>
+            } @else {
+            <app-currency-autocomplete [formField]="f.currency" />
+            }
+          </app-field>
+          <div class="grid grid-cols-2 gap-3">
+            <app-field label="Tax / VAT %">
+              <input
+                hlmInput
+                type="number"
+                step="0.01"
+                class="h-9 w-full text-right tabular-nums"
+                [formField]="f.taxRate"
+              />
+            </app-field>
+            <app-field
+              label="Retention %"
+              [error]="fieldError(f.retentionPercent())"
+            >
+              <input
+                hlmInput
+                type="number"
+                step="0.5"
+                class="h-9 w-full text-right tabular-nums"
+                [formField]="f.retentionPercent"
+              />
+            </app-field>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- The document -->
+    <div class="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+      <div class="mb-10">
+        <p
+          class="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+        >
+          Quote{{ clientName() ? ' for ' + clientName() : '' }}
+        </p>
+        <input
+          class="mt-1 w-full rounded-md bg-transparent font-mono text-3xl font-semibold tracking-tight outline-none placeholder:text-muted-foreground/40 hover:bg-muted/40 focus-visible:bg-muted/60 -mx-1 px-1"
+          [value]="model().number"
+          (input)="onNumberInput($any($event.target).value)"
+          placeholder="Auto-numbered"
+          aria-label="Quote number"
+          spellcheck="false"
+        />
+      </div>
+
+      <app-quote-lines-editor
+        [items]="model().items"
+        [currency]="model().currency"
+        [locked]="locked()"
+        [lockNote]="lockNote()"
+        (itemsChange)="onItemsChange($event)"
+      />
+
+      <div class="mt-12 flex justify-end">
+        <dl class="grid w-full max-w-sm grid-cols-[1fr_auto] gap-y-2 text-sm">
+          <dt class="text-muted-foreground">Subtotal</dt>
+          <dd class="text-right tabular-nums">{{ money(totals().subtotal) }}</dd>
+          <dt class="text-muted-foreground">Tax ({{ model().taxRate }}%)</dt>
+          <dd class="text-right tabular-nums">{{ money(totals().tax) }}</dd>
+          <dt
+            class="mt-2 border-t border-foreground/80 pt-3 text-base font-semibold"
+          >
+            Total
+          </dt>
+          <dd
+            class="mt-2 border-t border-foreground/80 pt-3 text-right text-2xl font-semibold tracking-tight tabular-nums"
+          >
+            {{ money(totals().total) }}
+            @if (fx.approx(totals().total, model().currency); as approx) {
+            <span class="block text-xs font-normal tracking-normal text-muted-foreground"
+              >{{ approx }}</span
+            >
+            }
+          </dd>
+          @if (totals().recurring) {
+          <dt class="text-xs text-muted-foreground">Recurring, after launch</dt>
+          <dd class="text-right text-xs tabular-nums text-muted-foreground">
+            {{ money(totals().recurring) }}/mo
+          </dd>
+          } @if (totals().passThrough) {
+          <dt class="text-xs text-muted-foreground">Pass-through at cost (est.)</dt>
+          <dd class="text-right text-xs tabular-nums text-muted-foreground">
+            {{ money(totals().passThrough) }}
+          </dd>
+          }
+        </dl>
+      </div>
+
+      <section class="mt-14">
+        <h2
+          class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        >
+          Notes
+        </h2>
+        <textarea
+          hlmTextarea
+          rows="3"
+          class="w-full border-transparent bg-muted/30 shadow-none focus-visible:bg-background"
+          placeholder="Terms, assumptions or a personal note - shown to the client on the quote"
+          [formField]="f.notes"
+        ></textarea>
+      </section>
+    </div>
+
+    <!-- Rail, bottom: billing, files, history -->
+    <aside class="min-w-0 space-y-8 self-start lg:col-start-2 lg:row-start-2">
+      @if (schedule().length) {
+      <section>
+        <h2
+          class="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        >
+          Billing schedule
+        </h2>
+        <ol class="grid gap-1.5 text-[13px]">
+          @for (m of schedule(); track m.id) {
+          <li class="flex items-baseline gap-2">
+            <span class="w-7 shrink-0 font-mono text-[10px] font-semibold text-primary"
+              >{{ m.code }}</span
+            >
+            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">
+              {{ m.label }}
+              @if (m.option) {
+              <span class="text-[11px] text-muted-foreground">· option</span>
+              }
+            </span>
+            <span class="shrink-0 tabular-nums text-muted-foreground"
+              >{{ money(m.amount) }}</span
+            >
+          </li>
+          }
+        </ol>
+        <p class="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+          Each milestone is invoiced when the client signs it off.
+          @if (retentionHeld() > 0) { {{ model().retentionPercent }}% retention
+          ({{ money(retentionHeld()) }}) is held and released with
+          {{ schedule()[schedule().length - 1].code }}. }
+        </p>
+      </section>
+      }
+
+      <section>
+        <h2
+          class="mb-3 flex items-baseline gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        >
+          Attachments
+          @if (model().attachments.length) {
+          <span class="font-normal tabular-nums">{{ model().attachments.length }}</span>
+          }
+        </h2>
+        @if (model().clientId) {
+        <app-quote-attachments
+          [clientId]="model().clientId"
+          [attachments]="model().attachments"
+          [locked]="locked()"
+          (attachmentsChange)="onAttachmentsChange($event)"
+        />
+        } @else {
+        <p class="text-xs text-muted-foreground">Pick a client to attach their documents.</p>
+        }
+      </section>
+
+      @if (saved(); as q) {
+      <section class="border-t border-border pt-6 text-[11px] text-muted-foreground">
+        <p>Created {{ day(q.createdAt) }} · Updated {{ day(q.updatedAt) }}</p>
+        <hlm-alert-dialog>
+          <button
+            hlmAlertDialogTrigger
+            type="button"
+            class="mt-4 inline-flex items-center gap-1.5 text-destructive/80 transition-colors hover:text-destructive"
+          >
+            <ng-icon name="lucideTrash2" size="12" />
+            Delete quote
+          </button>
+          <hlm-alert-dialog-content *hlmAlertDialogPortal="let ctx">
+            <div hlmAlertDialogHeader>
+              <h3 hlmAlertDialogTitle>Delete {{ q.number }}?</h3>
+              <p hlmAlertDialogDescription>
+                This can't be undone. The client will no longer see it in their
+                portal.
+              </p>
+            </div>
+            <div hlmAlertDialogFooter>
+              <button hlmAlertDialogCancel (click)="ctx.close()">Cancel</button>
+              <button
+                hlmAlertDialogAction
+                class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                (click)="ctx.close(); remove()"
+              >
+                Delete
+              </button>
+            </div>
+          </hlm-alert-dialog-content>
+        </hlm-alert-dialog>
+      </section>
+      }
+    </aside>
+  </div>
+  }
+</div>
+}

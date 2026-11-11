@@ -17,10 +17,28 @@ enum NotificationKind {
   invoice_partially_paid
   invoice_reminder
   quote_sent
+  /// The client accepted / declined a quote in the portal.
+  quote_accepted
+  quote_declined
   document_shared
   project_status_changed
   milestone_completed
+  /// A signed-off milestone raised its draft invoice.
+  milestone_invoiced
+  /// The client asked for changes on a delivered milestone.
+  milestone_changes_requested
   account_export
+}
+
+/// What a client-portal user is being told about.
+enum PortalNotificationKind {
+  quote_sent
+  invoice_sent
+  document_shared
+  milestone_started
+  /// Handed over and waiting for the client's review.
+  milestone_delivered
+  milestone_accepted
 }
 
 enum ClientStatus {
@@ -39,9 +57,43 @@ enum ProjectStatus {
 enum MilestoneStatus {
   not_started
   in_progress
+  /// Work handed over, waiting for the client's sign-off.
+  delivered
+  /// Client signed off: the billing trigger for a priced milestone.
+  accepted
   completed
   on_hold
   cancelled
+}
+
+/// The client's answer at the end of a milestone review round.
+enum MilestoneReviewDecision {
+  approved
+  changes_requested
+}
+
+/// When a priced milestone is invoiced.
+enum MilestoneBillingTrigger {
+  /// A draft invoice is raised as soon as the milestone is accepted.
+  on_acceptance
+  /// Invoiced at the start, before the work (e.g. a deposit milestone).
+  upfront
+  /// Never raised automatically - invoiced by hand.
+  manual
+}
+
+/// What a quote line represents; decides its section and whether it counts towards the total.
+enum QuoteItemKind {
+  /// Plain one-off line.
+  standard
+  /// Fixed-price deliverable that becomes a project milestone on conversion.
+  milestone
+  /// Monthly charge (retainer, support plan) - shown per month, not in the total.
+  recurring
+  /// Third-party cost billed at cost - shown as an estimate, not in the total.
+  pass_through
+  /// Add-on the client may pick; counts (and converts) only when selected.
+  option
 }
 
 enum InvoiceStatus {
@@ -131,6 +183,24 @@ model Notification {
 
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+/// In-app notification for one client-portal user (each user keeps their own read state).
+model PortalNotification {
+  id         String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind       PortalNotificationKind
+  title      String
+  body       String
+  /// Id of the quote, invoice, document or project the notification opens.
+  resourceId String?                @db.Uuid
+  readAt     DateTime?
+  createdAt  DateTime               @default(now())
+
+  clientPortalUserId String           @db.Uuid
+  clientPortalUser   ClientPortalUser @relation(fields: [clientPortalUserId], references: [id], onDelete: Cascade)
+
+  @@index([clientPortalUserId, createdAt])
+  @@map("portal_notifications")
 }
 
 model Workspace {
@@ -233,31 +303,84 @@ model Project {
   clientPortalProjects     ClientPortalProject[]
   clientPortalUserProjects ClientPortalUserProject[]
   milestones               Milestone[]
+  /// The quote this project was created from, if any.
+  quote                    Quote?
+
+  /// Percent of each priced milestone's amount held back until the retention-releasing milestone is invoiced.
+  retentionPercent Decimal @default(0) @db.Decimal(5, 2)
 
   @@index([clientId])
   @@map("projects")
 }
 
 model Milestone {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name           String
-  description    String?
-  status         MilestoneStatus @default(not_started)
-  dueDate        DateTime?
-  completedAt    DateTime?
-  estimatedHours Int?
-  notes          String?
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  description        String?
+  status             MilestoneStatus         @default(not_started)
+  dueDate            DateTime?
+  completedAt        DateTime?
+  estimatedHours     Int?
+  notes              String?
   /// Manual position within the project's milestone list (lower sorts first); reordered in whole-list swaps, not a priority ranking.
-  order          Int             @default(0)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  order              Int                     @default(0)
+  /// Fixed price, in the project's client currency. null = not billed per milestone.
+  amount             Decimal?                @db.Decimal(12, 2)
+  billingTrigger     MilestoneBillingTrigger @default(on_acceptance)
+  /// The final milestone: its invoice also releases everything retained on the earlier ones.
+  releasesRetention  Boolean                 @default(false)
+  /// Retention actually held back on this milestone's invoice (snapshot at invoicing).
+  retainedAmount     Decimal                 @default(0) @db.Decimal(12, 2)
+  /// Checklist: [{ id, label, done }].
+  deliverables       Json                    @default("[]")
+  acceptanceCriteria String?
+  deliveredAt        DateTime?
+  acceptedAt         DateTime?
+  /// Who signed off, as recorded by the owner (name or email).
+  acceptedBy         String?                 @db.VarChar(250)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
 
   projectId String  @db.Uuid
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  /// The invoice raised for this milestone.
+  invoice   Invoice?
+  /// The quote line it was generated from.
+  quoteItem QuoteItem?
+  /// Client review rounds, one per hand-over the client answered.
+  reviews   MilestoneReview[]
+
   @@index([projectId])
   @@index([status])
   @@map("milestones")
+}
+
+/// One round of the client reviewing a delivered milestone: their decision,
+/// feedback (per deliverable or general) and who answered. Approving signs
+/// the milestone off; requesting changes sends it back to in progress, and
+/// the next hand-over opens round n+1.
+model MilestoneReview {
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round             Int
+  decision          MilestoneReviewDecision
+  /// [{ deliverableId: string | null, body: string }] - null = about the milestone as a whole.
+  comments          Json                    @default("[]")
+  /// The reviewer ticked every acceptance criterion before approving.
+  criteriaConfirmed Boolean                 @default(false)
+  reviewerName      String                  @db.VarChar(250)
+  reviewerEmail     String                  @db.VarChar(320)
+  createdAt         DateTime                @default(now())
+
+  milestoneId        String            @db.Uuid
+  milestone          Milestone         @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  /// The portal user who answered (kept as text above if they're later removed).
+  clientPortalUserId String?           @db.Uuid
+  clientPortalUser   ClientPortalUser? @relation(fields: [clientPortalUserId], references: [id], onDelete: SetNull)
+
+  @@unique([milestoneId, round])
+  @@index([milestoneId])
+  @@map("milestone_reviews")
 }
 
 model Invoice {
@@ -275,12 +398,15 @@ model Invoice {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  clientId    String    @db.Uuid
-  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  projectId   String?   @db.Uuid
-  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  workspaceId String    @db.Uuid
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  clientId    String     @db.Uuid
+  client      Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId   String?    @db.Uuid
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  workspaceId String     @db.Uuid
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// The milestone this invoice bills - at most one invoice per milestone.
+  milestoneId String?    @unique @db.Uuid
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
 
   items           InvoiceItem[]
   payments        Payment[]
@@ -311,34 +437,77 @@ model InvoiceItem {
 }
 
 model Quote {
-  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  number     String      @unique
-  status     QuoteStatus @default(draft)
-  issueDate  DateTime
-  validUntil DateTime
-  currency   String      @default("USD") @db.VarChar(3)
-  taxRate    Decimal     @default(0) @db.Decimal(5, 2)
-  notes      String?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number           String      @unique
+  status           QuoteStatus @default(draft)
+  issueDate        DateTime
+  validUntil       DateTime
+  currency         String      @default("USD") @db.VarChar(3)
+  taxRate          Decimal     @default(0) @db.Decimal(5, 2)
+  /// Client's own answer from the portal (accept/decline); cleared if the owner moves the quote back.
+  respondedAt      DateTime?
+  /// Portal user who answered, as "Name <email>".
+  respondedBy      String?     @db.VarChar(500)
+  /// Optional reason given with a decline.
+  responseNote     String?
+  /// Percent held back from each milestone invoice until the final one; copied to the project on conversion.
+  retentionPercent Decimal     @default(0) @db.Decimal(5, 2)
+  notes            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  clientId String @db.Uuid
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId  String   @db.Uuid
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// Set once the quote is converted; its lines are locked from then on.
+  projectId String?  @unique @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  items QuoteItem[]
+  items       QuoteItem[]
+  /// Supporting files sent with the quote (MSA, spec, wireframes); locked with the lines.
+  attachments QuoteAttachment[]
 
   @@index([clientId])
   @@map("quotes")
 }
 
-model QuoteItem {
-  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  description String
-  quantity    Decimal @default(1) @db.Decimal(12, 2)
-  rate        Decimal @default(0) @db.Decimal(12, 2)
+/// A client (or client-project) document attached to a quote as supporting material - the scope itself lives on the lines.
+model QuoteAttachment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quoteId    String   @db.Uuid
+  quote      Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  documentId String   @db.Uuid
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  /// Order as attached (replaced wholesale on update, like the lines).
+  position   Int      @default(0)
 
-  quoteId String @db.Uuid
-  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  @@unique([quoteId, documentId])
+  @@index([documentId])
+  @@map("quote_attachments")
+}
+
+model QuoteItem {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  description    String
+  quantity       Decimal       @default(1) @db.Decimal(12, 2)
+  rate           Decimal       @default(0) @db.Decimal(12, 2)
+  kind           QuoteItemKind @default(standard)
+  /// Longer client-facing text (milestone scope); description stays the one-line label.
+  details        String?
+  estimatedHours Int?
+  /// Milestone/option lines: what will be handed over, as [{id,label}]; copied to the milestone's deliverables on conversion.
+  deliverables       Json    @default("[]")
+  /// Milestone/option lines: what the client checks before signing off; copied to the milestone on conversion.
+  acceptanceCriteria String?
+  /// Options only: whether the client picked it.
+  selected       Boolean       @default(false)
+  /// Line order as entered (items are replaced wholesale on update).
+  position       Int           @default(0)
+
+  quoteId     String     @db.Uuid
+  quote       Quote      @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  /// The milestone created from this line when the quote was converted.
+  milestoneId String?    @unique @db.Uuid
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
 
   @@index([quoteId])
   @@map("quote_items")
@@ -434,6 +603,8 @@ model Document {
   workspaceId String?    @db.Uuid
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  quoteAttachments QuoteAttachment[]
+
   @@index([clientId])
   @@index([projectId])
   @@index([workspaceId])
@@ -468,11 +639,15 @@ model ClientPortalUser {
   /// false: sees only the shared projects listed in `projects`.
   allProjects     Boolean                @default(true)
 
-  clientPortalId String                    @db.Uuid
-  clientPortal   ClientPortal              @relation(fields: [clientPortalId], references: [id], onDelete: Cascade)
-  projects       ClientPortalUserProject[]
-  updatedAt      DateTime                  @updatedAt
-  createdAt      DateTime                  @default(now())
+  clientPortalId       String                    @db.Uuid
+  clientPortal         ClientPortal              @relation(fields: [clientPortalId], references: [id], onDelete: Cascade)
+  projects             ClientPortalUserProject[]
+  notifications        PortalNotification[]
+  milestoneReviews     MilestoneReview[]
+  /// May approve or request changes on delivered milestones (viewing alone doesn't need it).
+  canApproveMilestones Boolean                   @default(true)
+  updatedAt            DateTime                  @updatedAt
+  createdAt            DateTime                  @default(now())
 
   @@unique([email, clientPortalId])
   @@map("clientPortalUser")
