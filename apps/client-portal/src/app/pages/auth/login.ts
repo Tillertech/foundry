@@ -177,12 +177,15 @@ export class Login {
     this.submitting.set(true);
     const { email, password } = this.model();
 
-    this.auth.login({ email: email.trim(), password }).subscribe({
-      next: (res) => void this.router.navigateByUrl(`/${res.user.portalSlug}`),
-      error: (err) => {
-        this.submitting.set(false);
-        this.error.set(apiErrorMessage(err, 'Invalid email or password.'));
-      },
-    });
+    this.auth
+      .login({ slug: this.slug(), email: email.trim(), password })
+      .subscribe({
+        next: (res) =>
+          void this.router.navigateByUrl(`/${res.user.portalSlug}`),
+        error: (err) => {
+          this.submitting.set(false);
+          this.error.set(apiErrorMessage(err, 'Invalid email or password.'));
+        },
+      });
   }
 }

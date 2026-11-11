@@ -151,7 +151,12 @@ export class ResetPassword {
     this.error.set('');
     this.submitting.set(true);
     this.api
-      .resetPassword({ email, token, password: this.model().password })
+      .resetPassword({
+        slug: this.slug(),
+        email,
+        token,
+        password: this.model().password,
+      })
       .subscribe({
         next: () => {
           this.submitting.set(false);

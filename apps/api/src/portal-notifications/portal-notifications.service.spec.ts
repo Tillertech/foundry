@@ -103,6 +103,26 @@ describe('PortalNotificationsService', () => {
       ).resolves.toEqual([]);
     });
 
+    it('billing news of an unshared project still reaches all-projects users', async () => {
+      prisma.clientPortal.findUnique.mockResolvedValue(
+        portal({ clientPortalProjects: [] }),
+      );
+      await service.recipients('c-1', 'viewPayments', 'p-1', { billing: true });
+      expect(
+        prisma.clientPortalUser.findMany.mock.calls[0][0].where.OR,
+      ).toEqual([{ allProjects: true }]);
+    });
+
+    it('billing news of a shared project reaches users limited to it', async () => {
+      await service.recipients('c-1', 'viewPayments', 'p-1', { billing: true });
+      expect(
+        prisma.clientPortalUser.findMany.mock.calls[0][0].where.OR,
+      ).toEqual([
+        { allProjects: true },
+        { projects: { some: { projectId: 'p-1' } } },
+      ]);
+    });
+
     it('narrows project news to users whose access covers the project', async () => {
       await service.recipients('c-1', 'viewProjects', 'p-1');
       expect(

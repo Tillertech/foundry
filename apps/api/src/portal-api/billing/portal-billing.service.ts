@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client';
 import { InvoiceStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PortalContextService } from '../portal-context.service';
+
+/** A `where` fragment on projectId shared by invoices and quotes. */
+export type BillingScope = {
+  OR?: ({ projectId: null } | { projectId: { in: string[] } })[];
+};
 
 export interface PortalProjectRef {
   id: string;
@@ -45,7 +51,10 @@ export class PortalBillingService {
     clientPortalId: string,
     portalUserId: string,
   ): Promise<Map<string, PortalProjectRef>> {
-    const ids = await this.context.sharedProjectIds(clientPortalId, portalUserId);
+    const ids = await this.context.sharedProjectIds(
+      clientPortalId,
+      portalUserId,
+    );
     if (!ids.length) return new Map();
     const rows = await this.prisma.project.findMany({
       where: { id: { in: ids } },
@@ -54,14 +63,49 @@ export class PortalBillingService {
     return new Map(rows.map((p) => [p.id, p]));
   }
 
+  /**
+   * Which billing records (invoices, quotes - and payments through their
+   * invoice) this user may see, as a `where` fragment on `projectId`. A user
+   * on "all shared projects" sees every client record (an unshared project's
+   * stays anonymous via visibleProjects). A user on "specific projects" sees
+   * only project-less records and those of their own visible projects.
+   */
+  async billingScope(
+    clientPortalId: string,
+    portalUserId: string,
+  ): Promise<BillingScope> {
+    const access = await this.context.projectAccess(
+      clientPortalId,
+      portalUserId,
+    );
+    if (access.allProjects) return {};
+    return {
+      OR: [{ projectId: null }, { projectId: { in: access.projectIds } }],
+    };
+  }
+
+  /** billingScope() for payments, which reach a project through their invoice. */
+  async paymentScope(
+    clientPortalId: string,
+    portalUserId: string,
+  ): Promise<Prisma.PaymentWhereInput> {
+    const scope = await this.billingScope(clientPortalId, portalUserId);
+    if (!scope.OR) return {};
+    return { OR: [{ invoiceId: null }, { invoice: scope }] };
+  }
+
   /** 404s a project filter the user can't see (same as opening it). */
   async assertVisible(
     clientPortalId: string,
     portalUserId: string,
     projectId: string,
   ): Promise<void> {
-    const ids = await this.context.sharedProjectIds(clientPortalId, portalUserId);
-    if (!ids.includes(projectId)) throw new NotFoundException('Project not found');
+    const ids = await this.context.sharedProjectIds(
+      clientPortalId,
+      portalUserId,
+    );
+    if (!ids.includes(projectId))
+      throw new NotFoundException('Project not found');
   }
 
   /** Same formula as invoiceTotal() in shared-util: discount before tax. */
@@ -153,7 +197,12 @@ export class PortalBillingService {
     let received = 0;
     let overdue = 0;
     let otherCurrencyInvoices = 0;
-    let nextDue: { id: string; number: string; dueDate: Date; balance: number } | null = null;
+    let nextDue: {
+      id: string;
+      number: string;
+      dueDate: Date;
+      balance: number;
+    } | null = null;
     for (const inv of invoices) {
       if (inv.currency !== currency) {
         otherCurrencyInvoices++;
@@ -168,14 +217,22 @@ export class PortalBillingService {
       if (balance > 0) {
         if (inv.dueDate.getTime() < now) overdue += balance;
         else if (!nextDue) {
-          nextDue = { id: inv.id, number: inv.number, dueDate: inv.dueDate, balance };
+          nextDue = {
+            id: inv.id,
+            number: inv.number,
+            dueDate: inv.dueDate,
+            balance,
+          };
         }
       }
     }
 
     // Held on billed milestone invoices, until the final milestone's invoice releases it.
     const billed = project.milestones.filter(
-      (m) => m.invoice && m.invoice.status !== InvoiceStatus.draft && m.invoice.status !== InvoiceStatus.cancelled,
+      (m) =>
+        m.invoice &&
+        m.invoice.status !== InvoiceStatus.draft &&
+        m.invoice.status !== InvoiceStatus.cancelled,
     );
     const released = billed.some((m) => m.releasesRetention);
     const retentionHeld = released

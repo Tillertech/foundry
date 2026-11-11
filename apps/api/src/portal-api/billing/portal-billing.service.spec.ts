@@ -9,7 +9,7 @@ describe('PortalBillingService', () => {
     invoice: { findMany: Mock };
     payment: { groupBy: Mock };
   };
-  let context: { require: Mock; sharedProjectIds: Mock };
+  let context: { require: Mock; sharedProjectIds: Mock; projectAccess: Mock };
 
   const now = new Date('2026-11-10T12:00:00Z');
   const invoice = (overrides: Record<string, unknown>) => ({
@@ -28,12 +28,18 @@ describe('PortalBillingService', () => {
     vi.useFakeTimers().setSystemTime(now);
     prisma = {
       project: {
-        findMany: vi.fn().mockResolvedValue([{ id: 'p-1', name: 'Griid Android' }]),
+        findMany: vi
+          .fn()
+          .mockResolvedValue([{ id: 'p-1', name: 'Griid Android' }]),
         findUnique: vi.fn().mockResolvedValue({
           budget: '400000',
           client: { currency: 'KES' },
           milestones: [
-            { retainedAmount: '10000', releasesRetention: false, invoice: { status: 'sent' } },
+            {
+              retainedAmount: '10000',
+              releasesRetention: false,
+              invoice: { status: 'sent' },
+            },
             { retainedAmount: '0', releasesRetention: true, invoice: null },
           ],
         }),
@@ -41,29 +47,73 @@ describe('PortalBillingService', () => {
       invoice: {
         findMany: vi.fn().mockResolvedValue([
           // overdue, part-paid
-          invoice({ id: 'a', number: 'INV-1', dueDate: new Date('2026-11-01') }),
+          invoice({
+            id: 'a',
+            number: 'INV-1',
+            dueDate: new Date('2026-11-01'),
+          }),
           // due later, unpaid - the next one due
-          invoice({ id: 'b', number: 'INV-2', dueDate: new Date('2026-12-01') }),
+          invoice({
+            id: 'b',
+            number: 'INV-2',
+            dueDate: new Date('2026-12-01'),
+          }),
           // other currency: counted separately, not summed
           invoice({ id: 'c', number: 'INV-3', currency: 'USD' }),
         ]),
       },
       payment: {
-        groupBy: vi.fn().mockResolvedValue([{ invoiceId: 'a', _sum: { amount: '16000' } }]),
+        groupBy: vi
+          .fn()
+          .mockResolvedValue([{ invoiceId: 'a', _sum: { amount: '16000' } }]),
       },
     };
     context = {
       require: vi.fn().mockResolvedValue({ clientId: 'c-1' }),
       sharedProjectIds: vi.fn().mockResolvedValue(['p-1']),
+      projectAccess: vi
+        .fn()
+        .mockResolvedValue({ allProjects: true, projectIds: ['p-1'] }),
     };
     service = new PortalBillingService(prisma as any, context as any);
+  });
+
+  describe('billing scope', () => {
+    it('leaves billing unfiltered for an all-projects user', async () => {
+      await expect(service.billingScope('portal-1', 'pu-1')).resolves.toEqual(
+        {},
+      );
+      await expect(service.paymentScope('portal-1', 'pu-1')).resolves.toEqual(
+        {},
+      );
+    });
+
+    it('limits a specific-projects user to project-less records and their projects', async () => {
+      context.projectAccess.mockResolvedValue({
+        allProjects: false,
+        projectIds: ['p-1'],
+      });
+      const scope = {
+        OR: [{ projectId: null }, { projectId: { in: ['p-1'] } }],
+      };
+      await expect(service.billingScope('portal-1', 'pu-1')).resolves.toEqual(
+        scope,
+      );
+      await expect(service.paymentScope('portal-1', 'pu-1')).resolves.toEqual({
+        OR: [{ invoiceId: null }, { invoice: scope }],
+      });
+    });
   });
 
   afterEach(() => vi.useRealTimers());
 
   it('totals an invoice with the discount taken before tax', () => {
     expect(
-      service.amounts({ items: [{ quantity: 2, rate: 100 }], discount: 50, taxRate: 10 }),
+      service.amounts({
+        items: [{ quantity: 2, rate: 100 }],
+        discount: 50,
+        taxRate: 10,
+      }),
     ).toEqual({ net: 150, total: 165 });
   });
 
@@ -83,7 +133,12 @@ describe('PortalBillingService', () => {
       retentionHeld: 10000,
       invoiceCount: 2,
       otherCurrencyInvoices: 1,
-      nextDue: { id: 'b', number: 'INV-2', dueDate: new Date('2026-12-01'), balance: 116000 },
+      nextDue: {
+        id: 'b',
+        number: 'INV-2',
+        dueDate: new Date('2026-12-01'),
+        balance: 116000,
+      },
     });
   });
 
@@ -92,8 +147,16 @@ describe('PortalBillingService', () => {
       budget: '0',
       client: { currency: 'KES' },
       milestones: [
-        { retainedAmount: '10000', releasesRetention: false, invoice: { status: 'sent' } },
-        { retainedAmount: '0', releasesRetention: true, invoice: { status: 'sent' } },
+        {
+          retainedAmount: '10000',
+          releasesRetention: false,
+          invoice: { status: 'sent' },
+        },
+        {
+          retainedAmount: '0',
+          releasesRetention: true,
+          invoice: { status: 'sent' },
+        },
       ],
     });
     const f = await service.projectFinancials('portal-1', 'pu-1', 'p-1');
@@ -102,9 +165,9 @@ describe('PortalBillingService', () => {
 
   it("404s a project that isn't shared with the user", async () => {
     context.sharedProjectIds.mockResolvedValue([]);
-    await expect(service.projectFinancials('portal-1', 'pu-1', 'p-1')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.projectFinancials('portal-1', 'pu-1', 'p-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.invoice.findMany).not.toHaveBeenCalled();
   });
 

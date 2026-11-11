@@ -48,7 +48,12 @@ export class PortalNotificationsListener {
   @OnEvent(QuoteEvents.SENT, { async: true })
   async onQuoteSent({ quote, client }: QuoteSentEvent): Promise<void> {
     await this.safely('quote.sent', async () => {
-      const users = await this.portal.recipients(client.id, 'viewQuotes');
+      const users = await this.portal.recipients(
+        client.id,
+        'viewQuotes',
+        quote.projectId,
+        { billing: true },
+      );
       const from = await this.workspaceName(client.workspaceId);
       await this.portal.notify(users, {
         kind: PortalNotificationKind.quote_sent,
@@ -71,7 +76,19 @@ export class PortalNotificationsListener {
       event.previousStatus !== QuoteStatus.draft;
     if (event.status === QuoteStatus.draft && !wasVisible) return;
     await this.safely('quote.changed', async () => {
-      const users = await this.portal.recipients(event.clientId, 'viewQuotes');
+      // A removed quote is gone - the signal only tells open pages to drop it.
+      const quote = event.removed
+        ? null
+        : await this.prisma.quote.findUnique({
+            where: { id: event.quoteId },
+            select: { projectId: true },
+          });
+      const users = await this.portal.recipients(
+        event.clientId,
+        'viewQuotes',
+        quote?.projectId,
+        { billing: true },
+      );
       this.portal.push(users, PortalSocketEvents.QUOTE_CHANGED, {
         quoteId: event.quoteId,
         removed: !!event.removed,
@@ -83,7 +100,12 @@ export class PortalNotificationsListener {
   async onInvoiceSent({ invoice, client }: InvoiceSentEvent): Promise<void> {
     await this.safely('invoice.sent', async () => {
       // Invoices are gated by viewPayments - there is no separate flag.
-      const users = await this.portal.recipients(client.id, 'viewPayments');
+      const users = await this.portal.recipients(
+        client.id,
+        'viewPayments',
+        invoice.projectId,
+        { billing: true },
+      );
       await this.portal.notify(users, {
         kind: PortalNotificationKind.invoice_sent,
         title: `Invoice ${invoice.number}`,
@@ -99,11 +121,12 @@ export class PortalNotificationsListener {
     client,
   }: DocumentSharedEvent): Promise<void> {
     await this.safely('document.shared', async () => {
-      // A project-only document is visible through that project's share.
+      // A project's document (with or without the client set) is visible
+      // only through that project's share - same rule as GET /portal/documents.
       const users = await this.portal.recipients(
         client.id,
         'viewDocuments',
-        document.clientId ? undefined : (document.projectId ?? undefined),
+        document.projectId ?? undefined,
       );
       await this.portal.notify(users, {
         kind: PortalNotificationKind.document_shared,

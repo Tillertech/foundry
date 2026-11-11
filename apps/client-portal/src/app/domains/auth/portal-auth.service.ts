@@ -1,5 +1,6 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, tap } from 'rxjs';
+import { Observable, from, map, switchMap } from 'rxjs';
 import { Currency } from '@foundry/shared-util';
 import { PortalAuthApiService } from './portal-auth-api.service';
 import { PortalTokenStore } from './portal-token.store';
@@ -46,21 +47,29 @@ export class PortalAuthService {
           this.tokenStore.setSlug(me.clientPortal.slug);
           resolve();
         },
-        // An invalid/expired token 401s here; the interceptor already clears
-        // the session on 401, so just resolve and let the guard redirect.
-        error: () => resolve(),
+        // A revoked, suspended or expired token 401s here. The interceptor
+        // leaves /portal-auth/ calls alone, so drop the session ourselves -
+        // otherwise the guard would let a dead session into the shell.
+        error: (err: unknown) => {
+          if (err instanceof HttpErrorResponse && err.status === 401) {
+            this.logout();
+          }
+          resolve();
+        },
       });
     });
   }
 
   login(body: PortalLoginRequest): Observable<PortalAuthResponse> {
-    return this.api.login(body).pipe(tap((res) => this.applySession(res)));
+    return this.api
+      .login(body)
+      .pipe(switchMap((res) => this.applySession(res)));
   }
 
   acceptInvite(body: AcceptInviteRequest): Observable<PortalAuthResponse> {
     return this.api
       .acceptInvite(body)
-      .pipe(tap((res) => this.applySession(res)));
+      .pipe(switchMap((res) => this.applySession(res)));
   }
 
   logout(): void {
@@ -68,8 +77,13 @@ export class PortalAuthService {
     this.me.set(null);
   }
 
-  private applySession(res: PortalAuthResponse): void {
+  /** Stores the new session and completes once `/me` has loaded, so the
+   * pages navigated to next already know the portal's permissions. */
+  private applySession(
+    res: PortalAuthResponse,
+  ): Observable<PortalAuthResponse> {
+    this.me.set(null);
     this.tokenStore.set(res.accessToken, res.user.portalSlug);
-    void this.refresh();
+    return from(this.refresh()).pipe(map(() => res));
   }
 }

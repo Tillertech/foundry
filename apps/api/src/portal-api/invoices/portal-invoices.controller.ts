@@ -38,9 +38,14 @@ export class PortalInvoicesController {
   constructor(private readonly service: PortalInvoicesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List invoices with project, paid and balance (cursor paginated; ?projectId= for one project, ?status= for one status)' })
+  @ApiOperation({
+    summary:
+      'List invoices with project, paid and balance (cursor paginated; ?projectId= for one project, ?status= for one status)',
+  })
   @ApiPaginatedResponse(PortalInvoiceEntity)
-  @ApiForbiddenResponse({ description: 'Invoices are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Invoices are not enabled for this portal',
+  })
   @ApiNotFoundResponse({ description: 'projectId is not shared with you' })
   findAll(
     @CurrentPortalUser() user: PortalJwtPayload,
@@ -59,7 +64,9 @@ export class PortalInvoicesController {
   @ApiOperation({ summary: 'Get an invoice' })
   @ApiOkResponse({ type: PortalInvoiceEntity })
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse({ description: 'Invoices are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Invoices are not enabled for this portal',
+  })
   findOne(
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -72,7 +79,9 @@ export class PortalInvoicesController {
   @ApiProduces('application/pdf')
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse({ description: 'Invoices are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Invoices are not enabled for this portal',
+  })
   async download(
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -80,6 +89,7 @@ export class PortalInvoicesController {
   ): Promise<StreamableFile> {
     const { filename, buffer } = await this.service.downloadPdf(
       user.clientPortalId,
+      user.sub,
       id,
     );
     res.set({

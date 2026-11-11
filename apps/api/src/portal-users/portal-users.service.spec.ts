@@ -76,6 +76,7 @@ describe('PortalUsersService', () => {
           row({
             ...('allProjects' in data ? { allProjects: data.allProjects } : {}),
             ...(data.status ? { status: data.status } : {}),
+            ...(data.email ? { email: data.email } : {}),
             projects: data.projects?.create ?? [],
           }),
         ),
@@ -211,10 +212,27 @@ describe('PortalUsersService', () => {
     });
 
     it('409s an email already in the portal', async () => {
-      prisma.clientPortalUser.findUnique.mockResolvedValue(row());
+      prisma.clientPortalUser.findFirst.mockResolvedValue({ id: 'other' });
 
       await expect(service.create(ownerId, dto)).rejects.toThrow(
         ConflictException,
+      );
+    });
+
+    it('stores the email lowercased and checks for clashes case-insensitively', async () => {
+      await service.create(ownerId, { ...dto, email: '  Elena@Example.COM ' });
+
+      expect(prisma.clientPortalUser.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            email: { equals: 'elena@example.com', mode: 'insensitive' },
+          }),
+        }),
+      );
+      expect(prisma.clientPortalUser.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ email: 'elena@example.com' }),
+        }),
       );
     });
   });
@@ -294,10 +312,58 @@ describe('PortalUsersService', () => {
         service.update(ownerId, 'user-1', { status: 'suspended' }),
       ).resolves.toEqual(expect.objectContaining({ status: 'suspended' }));
 
-      existingUser({ status: 'suspended' });
+      existingUser({ status: 'suspended', emailVerifiedAt: new Date() });
       await expect(
         service.update(ownerId, 'user-1', { status: 'active' }),
       ).resolves.toEqual(expect.objectContaining({ status: 'active' }));
+    });
+
+    it('reactivates a user suspended before accepting back to invited', async () => {
+      existingUser({ status: 'suspended', emailVerifiedAt: null });
+
+      await expect(
+        service.update(ownerId, 'user-1', { status: 'active' }),
+      ).resolves.toEqual(expect.objectContaining({ status: 'invited' }));
+    });
+
+    it('re-sends a pending invite when its email changes', async () => {
+      existingUser({ status: 'invited' });
+      // findRow, then the clash check
+      prisma.clientPortalUser.findFirst.mockResolvedValueOnce(
+        await prisma.clientPortalUser.findFirst(),
+      );
+      prisma.clientPortalUser.findFirst.mockResolvedValueOnce(null);
+
+      await service.update(ownerId, 'user-1', { email: 'New@Example.com' });
+
+      expect(prisma.clientPortalUser.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: 'new@example.com',
+            otpSecret: expect.stringMatching(/:\d+$/),
+          }),
+        }),
+      );
+      expect(events.emit).toHaveBeenCalledWith(
+        PortalEvents.USER_INVITED,
+        expect.objectContaining({
+          email: 'new@example.com',
+          portalSlug: portal.slug,
+        }),
+      );
+    });
+
+    it('409s an email change onto another user of the portal', async () => {
+      existingUser({ status: 'active' });
+      prisma.clientPortalUser.findFirst.mockResolvedValueOnce(
+        await prisma.clientPortalUser.findFirst(),
+      );
+      prisma.clientPortalUser.findFirst.mockResolvedValueOnce({ id: 'other' });
+
+      await expect(
+        service.update(ownerId, 'user-1', { email: 'taken@example.com' }),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.clientPortalUser.update).not.toHaveBeenCalled();
     });
 
     it('refuses to activate a user who has not accepted their invite', async () => {

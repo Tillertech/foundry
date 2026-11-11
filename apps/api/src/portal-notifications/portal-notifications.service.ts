@@ -46,11 +46,16 @@ export class PortalNotificationsService {
    * Portal users of `clientId` allowed to see something gated by `flag`
    * (and, when given, inside `projectId`). Suspended users are skipped;
    * invited ones are included so the news is waiting at first sign-in.
+   *
+   * `billing` follows the billing rule instead (invoices, quotes): users on
+   * "all shared projects" get every client record, users on "specific
+   * projects" only project-less ones and those of their own shared projects.
    */
   async recipients(
     clientId: string,
     flag: PortalPermissionFlag,
-    projectId?: string,
+    projectId?: string | null,
+    { billing = false }: { billing?: boolean } = {},
   ): Promise<string[]> {
     const portal = await this.prisma.clientPortal.findUnique({
       where: { clientId },
@@ -75,7 +80,8 @@ export class PortalNotificationsService {
       portal.client.workspace,
     );
     if (!permission[flag]) return [];
-    if (projectId && !portal.clientPortalProjects?.length) return [];
+    const projectShared = !!portal.clientPortalProjects?.length;
+    if (projectId && !billing && !projectShared) return [];
 
     const users = await this.prisma.clientPortalUser.findMany({
       where: {
@@ -85,7 +91,9 @@ export class PortalNotificationsService {
           ? {
               OR: [
                 { allProjects: true },
-                { projects: { some: { projectId } } },
+                ...(projectShared
+                  ? [{ projects: { some: { projectId } } }]
+                  : []),
               ],
             }
           : {}),

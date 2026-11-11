@@ -91,14 +91,22 @@ export class PortalInvoicesService {
       'viewPayments',
     );
     if (query.projectId) {
-      await this.billing.assertVisible(clientPortalId, portalUserId, query.projectId);
+      await this.billing.assertVisible(
+        clientPortalId,
+        portalUserId,
+        query.projectId,
+      );
     }
-    const projects = await this.billing.visibleProjects(clientPortalId, portalUserId);
+    const [projects, scope] = await Promise.all([
+      this.billing.visibleProjects(clientPortalId, portalUserId),
+      this.billing.billingScope(clientPortalId, portalUserId),
+    ]);
     const page = await this.pagination.paginate<InvoiceRow>(
       this.prisma.invoice,
       {
         where: {
           clientId,
+          ...scope,
           // A status filter can never ask for drafts (the DTO refuses it).
           status: query.status ?? { not: 'draft' },
           ...(query.projectId ? { projectId: query.projectId } : {}),
@@ -126,27 +134,33 @@ export class PortalInvoicesService {
       clientPortalId,
       'viewPayments',
     );
+    const scope = await this.billing.billingScope(clientPortalId, portalUserId);
     const invoice = await this.prisma.invoice.findFirst({
-      where: { id, clientId, status: { not: 'draft' } },
+      where: { id, clientId, status: { not: 'draft' }, ...scope },
       include: ITEMS_INCLUDE,
       omit: SAFE_OMIT,
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
-    const projects = await this.billing.visibleProjects(clientPortalId, portalUserId);
+    const projects = await this.billing.visibleProjects(
+      clientPortalId,
+      portalUserId,
+    );
     const [decorated] = await this.decorate([invoice], projects);
     return decorated;
   }
 
   async downloadPdf(
     clientPortalId: string,
+    portalUserId: string,
     id: string,
   ): Promise<{ filename: string; buffer: Buffer }> {
     const { clientId } = await this.context.require(
       clientPortalId,
       'viewPayments',
     );
+    const scope = await this.billing.billingScope(clientPortalId, portalUserId);
     const invoice = await this.prisma.invoice.findFirst({
-      where: { id, clientId, status: { not: 'draft' } },
+      where: { id, clientId, status: { not: 'draft' }, ...scope },
       include: {
         items: { include: { expense: { select: { date: true } } } },
         client: true,

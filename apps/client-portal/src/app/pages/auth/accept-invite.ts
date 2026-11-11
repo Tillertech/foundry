@@ -175,7 +175,12 @@ export class AcceptInvite {
     this.error.set('');
     this.submitting.set(true);
     this.auth
-      .acceptInvite({ email, token, password: this.model().password })
+      .acceptInvite({
+        slug: this.slug(),
+        email,
+        token,
+        password: this.model().password,
+      })
       .subscribe({
         next: (res) =>
           void this.router.navigateByUrl(`/${res.user.portalSlug}`),

@@ -12,13 +12,11 @@ describe('PortalNotificationsListener', () => {
   beforeEach(() => {
     prisma = {
       project: {
-        findUnique: vi
-          .fn()
-          .mockResolvedValue({
-            id: 'p-1',
-            name: 'Griid Android',
-            clientId: 'c-1',
-          }),
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'p-1',
+          name: 'Griid Android',
+          clientId: 'c-1',
+        }),
       },
       workspace: { findUnique: vi.fn().mockResolvedValue({ name: 'Tiller' }) },
     };
@@ -104,7 +102,14 @@ describe('PortalNotificationsListener', () => {
       client: { id: 'c-1', workspaceId: 'ws-1' },
     } as any);
 
-    expect(portal.recipients).toHaveBeenCalledWith('c-1', 'viewQuotes');
+    expect(portal.recipients).toHaveBeenCalledWith(
+      'c-1',
+      'viewQuotes',
+      undefined,
+      {
+        billing: true,
+      },
+    );
     expect(portal.notify).toHaveBeenCalledWith(
       ['u-1'],
       expect.objectContaining({

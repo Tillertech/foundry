@@ -15,21 +15,29 @@ export interface PortalAuthResponse {
 }
 
 export interface PortalLoginRequest {
+  /** The portal being signed into - an email can belong to several. */
+  slug: string;
   email: string;
   password: string;
 }
 
 export interface AcceptInviteRequest {
+  /** The portal being signed into - an email can belong to several. */
+  slug: string;
   email: string;
   token: string;
   password: string;
 }
 
 export interface ForgotPortalPasswordRequest {
+  /** The portal being signed into - an email can belong to several. */
+  slug: string;
   email: string;
 }
 
 export interface ResetPortalPasswordRequest {
+  /** The portal being signed into - an email can belong to several. */
+  slug: string;
   email: string;
   token: string;
   password: string;

@@ -21,9 +21,16 @@ import { StorageService } from '../../storage/storage.service';
 import { NotificationService } from '../../notification/notification.service';
 import { QuoteAttachmentRow } from '../../quotes/quotes.service';
 import { PortalContextService } from '../portal-context.service';
-import { PortalBillingService, PortalProjectRef } from '../billing/portal-billing.service';
+import {
+  BillingScope,
+  PortalBillingService,
+  PortalProjectRef,
+} from '../billing/portal-billing.service';
 import { PortalQuotesQueryDto } from './dto/portal-quotes-query.dto';
-import { AcceptPortalQuoteDto, DeclinePortalQuoteDto } from './dto/respond-portal-quote.dto';
+import {
+  AcceptPortalQuoteDto,
+  DeclinePortalQuoteDto,
+} from './dto/respond-portal-quote.dto';
 
 export type PortalQuoteWithItems = Quote & {
   items: QuoteItem[];
@@ -50,7 +57,9 @@ const PORTAL_QUOTE_INCLUDE = {
     orderBy: { position: 'asc' as const },
     select: {
       position: true,
-      document: { select: { id: true, name: true, mimeType: true, size: true } },
+      document: {
+        select: { id: true, name: true, mimeType: true, size: true },
+      },
     },
   },
 };
@@ -75,18 +84,25 @@ export class PortalQuotesService {
     quote: PortalQuoteWithItems,
     projects: Map<string, PortalProjectRef>,
   ): PortalQuoteView {
-    const project = quote.projectId ? (projects.get(quote.projectId) ?? null) : null;
+    const project = quote.projectId
+      ? (projects.get(quote.projectId) ?? null)
+      : null;
     return { ...quote, projectId: project ? quote.projectId : null, project };
   }
 
   /** The quote PDF - the same document the quote mail attached. */
   async downloadPdf(
     clientPortalId: string,
+    portalUserId: string,
     id: string,
   ): Promise<{ filename: string; buffer: Buffer }> {
-    const { clientId } = await this.context.require(clientPortalId, 'viewQuotes');
+    const { clientId } = await this.context.require(
+      clientPortalId,
+      'viewQuotes',
+    );
+    const scope = await this.billing.billingScope(clientPortalId, portalUserId);
     const quote = await this.prisma.quote.findFirst({
-      where: { id, clientId, ...VISIBLE },
+      where: { id, clientId, ...VISIBLE, ...scope },
       include: { ...PORTAL_QUOTE_INCLUDE, client: true },
     });
     if (!quote) throw new NotFoundException('Quote not found');
@@ -105,15 +121,23 @@ export class PortalQuotesService {
       'viewQuotes',
     );
     if (query.projectId) {
-      await this.billing.assertVisible(clientPortalId, portalUserId, query.projectId);
+      await this.billing.assertVisible(
+        clientPortalId,
+        portalUserId,
+        query.projectId,
+      );
     }
-    const projects = await this.billing.visibleProjects(clientPortalId, portalUserId);
+    const [projects, scope] = await Promise.all([
+      this.billing.visibleProjects(clientPortalId, portalUserId),
+      this.billing.billingScope(clientPortalId, portalUserId),
+    ]);
     const page = await this.pagination.paginate<PortalQuoteWithItems>(
       this.prisma.quote,
       {
         where: {
           clientId,
           ...VISIBLE,
+          ...scope,
           ...(query.status ? { status: query.status } : {}),
           ...(query.projectId ? { projectId: query.projectId } : {}),
         },
@@ -142,10 +166,11 @@ export class PortalQuotesService {
       clientPortalId,
       'viewQuotes',
     );
-    const [quote, projects] = await Promise.all([
-      this.visibleQuote(clientId, id),
+    const [scope, projects] = await Promise.all([
+      this.billing.billingScope(clientPortalId, portalUserId),
       this.billing.visibleProjects(clientPortalId, portalUserId),
     ]);
+    const quote = await this.visibleQuote(clientId, id, scope);
     return this.withProject(quote, projects);
   }
 
@@ -156,12 +181,17 @@ export class PortalQuotesService {
    */
   async downloadAttachment(
     clientPortalId: string,
+    portalUserId: string,
     quoteId: string,
     documentId: string,
   ): Promise<{ document: Document; content: Buffer }> {
-    const { clientId } = await this.context.require(clientPortalId, 'viewQuotes');
+    const { clientId } = await this.context.require(
+      clientPortalId,
+      'viewQuotes',
+    );
+    const scope = await this.billing.billingScope(clientPortalId, portalUserId);
     const attachment = await this.prisma.quoteAttachment.findFirst({
-      where: { quoteId, documentId, quote: { clientId, ...VISIBLE } },
+      where: { quoteId, documentId, quote: { clientId, ...VISIBLE, ...scope } },
       include: { document: true },
     });
     if (!attachment) throw new NotFoundException('Attachment not found');
@@ -180,16 +210,24 @@ export class PortalQuotesService {
     id: string,
     dto: AcceptPortalQuoteDto,
   ): Promise<PortalQuoteWithItems> {
-    const { clientId } = await this.context.require(clientPortalId, 'viewQuotes');
-    const quote = await this.answerable(clientId, id);
+    const { clientId } = await this.context.require(
+      clientPortalId,
+      'viewQuotes',
+    );
+    const scope = await this.billing.billingScope(clientPortalId, portalUserId);
+    const quote = await this.answerable(clientId, id, scope);
 
     const optionIds = new Set(
-      quote.items.filter((it) => it.kind === QuoteItemKind.option).map((it) => it.id),
+      quote.items
+        .filter((it) => it.kind === QuoteItemKind.option)
+        .map((it) => it.id),
     );
     const picked = new Set(dto.optionIds ?? []);
     for (const pickedId of picked) {
       if (!optionIds.has(pickedId)) {
-        throw new BadRequestException('One of the picked options is not on this quote');
+        throw new BadRequestException(
+          'One of the picked options is not on this quote',
+        );
       }
     }
 
@@ -226,8 +264,12 @@ export class PortalQuotesService {
     id: string,
     dto: DeclinePortalQuoteDto,
   ): Promise<PortalQuoteWithItems> {
-    const { clientId } = await this.context.require(clientPortalId, 'viewQuotes');
-    await this.answerable(clientId, id);
+    const { clientId } = await this.context.require(
+      clientPortalId,
+      'viewQuotes',
+    );
+    const scope = await this.billing.billingScope(clientPortalId, portalUserId);
+    await this.answerable(clientId, id, scope);
     const respondedBy = await this.who(portalUserId);
     const note = dto.reason?.trim() || null;
     const updated = await this.prisma.quote.update({
@@ -247,9 +289,10 @@ export class PortalQuotesService {
   private async visibleQuote(
     clientId: string,
     id: string,
+    scope: BillingScope,
   ): Promise<PortalQuoteWithItems> {
     const quote = await this.prisma.quote.findFirst({
-      where: { id, clientId, ...VISIBLE },
+      where: { id, clientId, ...VISIBLE, ...scope },
       include: PORTAL_QUOTE_INCLUDE,
     });
     if (!quote) throw new NotFoundException('Quote not found');
@@ -260,8 +303,9 @@ export class PortalQuotesService {
   private async answerable(
     clientId: string,
     id: string,
+    scope: BillingScope,
   ): Promise<PortalQuoteWithItems> {
-    const quote = await this.visibleQuote(clientId, id);
+    const quote = await this.visibleQuote(clientId, id, scope);
     if (quote.status !== QuoteStatus.sent || quote.projectId) {
       throw new ConflictException(
         quote.status === QuoteStatus.accepted

@@ -73,11 +73,23 @@ export class PortalContextService {
     clientPortalId: string,
     portalUserId: string,
   ): Promise<string[]> {
+    return (await this.projectAccess(clientPortalId, portalUserId)).projectIds;
+  }
+
+  /**
+   * The user's project access: `allProjects` as stored, plus the visible
+   * project ids (see sharedProjectIds). Billing needs both - a user on
+   * "specific projects" is also limited to those projects' billing.
+   */
+  async projectAccess(
+    clientPortalId: string,
+    portalUserId: string,
+  ): Promise<{ allProjects: boolean; projectIds: string[] }> {
     const user = await this.prisma.clientPortalUser.findFirst({
       where: { id: portalUserId, clientPortalId },
       select: { allProjects: true },
     });
-    if (!user) return [];
+    if (!user) return { allProjects: false, projectIds: [] };
     const rows = await this.prisma.clientPortalProject.findMany({
       where: {
         clientPortalId,
@@ -94,6 +106,9 @@ export class PortalContextService {
       },
       select: { projectId: true },
     });
-    return rows.map((row) => row.projectId);
+    return {
+      allProjects: user.allProjects,
+      projectIds: rows.map((row) => row.projectId),
+    };
   }
 }

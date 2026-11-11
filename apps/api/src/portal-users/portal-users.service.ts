@@ -49,6 +49,11 @@ export function toSafePortalUser({
   };
 }
 
+/** Portal sign-in matches emails case-insensitively; store one canonical form. */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 @Injectable()
 export class PortalUsersService {
   constructor(
@@ -91,12 +96,8 @@ export class PortalUsersService {
       dto.projectIds,
     );
 
-    const existing = await this.prisma.clientPortalUser.findUnique({
-      where: {
-        email_clientPortalId: { email: dto.email, clientPortalId: portal.id },
-      },
-    });
-    if (existing) {
+    const email = normalizeEmail(dto.email);
+    if (await this.emailTaken(portal.id, email)) {
       throw new ConflictException(
         'This email is already invited to this portal',
       );
@@ -113,7 +114,7 @@ export class PortalUsersService {
     const user = await this.prisma.clientPortalUser.create({
       data: {
         name: dto.name,
-        email: dto.email,
+        email,
         passwordHash: placeholderHash,
         otpSecret,
         status: ClientPortalUserStatus.invited,
@@ -177,7 +178,13 @@ export class PortalUsersService {
     dto: UpdatePortalUserDto,
   ): Promise<SafePortalUser> {
     const existing = await this.findRow(ownerId, id);
-    const { allProjects, projectIds, status, ...profile } = dto;
+    const {
+      allProjects,
+      projectIds,
+      status,
+      email: rawEmail,
+      ...profile
+    } = dto;
 
     if (
       status === ClientPortalUserStatus.active &&
@@ -189,6 +196,28 @@ export class PortalUsersService {
         'This user has not accepted their invite yet - resend it instead',
       );
     }
+    // Lifting a suspension on someone who never accepted their invite puts
+    // them back to "invited", not "active": they still have no password, and
+    // only an invited user can use an invite link.
+    const nextStatus =
+      status === ClientPortalUserStatus.active && !existing.emailVerifiedAt
+        ? ClientPortalUserStatus.invited
+        : status;
+
+    const email = rawEmail === undefined ? undefined : normalizeEmail(rawEmail);
+    const emailChanged = email !== undefined && email !== existing.email;
+    if (
+      emailChanged &&
+      (await this.emailTaken(existing.clientPortalId, email, id))
+    ) {
+      throw new ConflictException('This email is already used in this portal');
+    }
+    // A pending invite's link carries the address it was sent to, so moving
+    // the user to another address re-issues the invite there.
+    const reinvite =
+      emailChanged &&
+      (nextStatus ?? existing.status) === ClientPortalUserStatus.invited;
+    const invite = reinvite ? await this.issueInviteToken() : null;
 
     // Project access changes only when the request touches it; the list is
     // then replaced wholesale (and cleared when switching back to "all").
@@ -211,12 +240,23 @@ export class PortalUsersService {
         where: { id },
         data: {
           ...profile,
-          ...(status ? { status } : {}),
+          ...(email !== undefined ? { email } : {}),
+          ...(invite ? { otpSecret: invite.otpSecret } : {}),
+          ...(nextStatus ? { status: nextStatus } : {}),
           ...(projects ? { allProjects: nextAllProjects, projects } : {}),
         },
         omit: SAFE_OMIT,
         include: WITH_PROJECTS,
       });
+      if (invite) {
+        this.events.emit(PortalEvents.USER_INVITED, {
+          email: user.email,
+          name: user.name,
+          portalSlug: existing.clientPortal.slug,
+          workspaceName: existing.clientPortal.client.workspace.name,
+          token: invite.token,
+        });
+      }
       return toSafePortalUser(user);
     } catch (err) {
       if (this.isDuplicateEmail(err)) {
@@ -323,6 +363,23 @@ export class PortalUsersService {
     const token = randomBytes(32).toString('hex');
     const tokenHash = await bcrypt.hash(token, SALT_ROUNDS);
     return { token, otpSecret: `${tokenHash}:${Date.now() + INVITE_TTL_MS}` };
+  }
+
+  /** Case-insensitive, so rows stored before emails were lowercased count too. */
+  private async emailTaken(
+    clientPortalId: string,
+    email: string,
+    exceptId?: string,
+  ): Promise<boolean> {
+    const clash = await this.prisma.clientPortalUser.findFirst({
+      where: {
+        clientPortalId,
+        email: { equals: email, mode: 'insensitive' },
+        ...(exceptId ? { id: { not: exceptId } } : {}),
+      },
+      select: { id: true },
+    });
+    return clash !== null;
   }
 
   private isDuplicateEmail(err: unknown): boolean {

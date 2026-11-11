@@ -13,7 +13,11 @@ describe('PortalQuotesService', () => {
   let events: { emit: Mock };
   let context: { require: Mock };
   let storage: { read: Mock };
-  let billing: { visibleProjects: Mock; assertVisible: Mock };
+  let billing: {
+    visibleProjects: Mock;
+    assertVisible: Mock;
+    billingScope: Mock;
+  };
   let pagination: { paginate: Mock };
 
   const now = new Date('2026-11-10T12:00:00Z');
@@ -42,10 +46,15 @@ describe('PortalQuotesService', () => {
       quote: {
         findFirst: vi.fn().mockResolvedValue(quote()),
         update: vi.fn(async ({ data }) => ({ ...quote(), ...data })),
-        findUnique: vi.fn(async () => ({ ...quote({ status: 'accepted' }), client: { id: 'c-1' } })),
+        findUnique: vi.fn(async () => ({
+          ...quote({ status: 'accepted' }),
+          client: { id: 'c-1' },
+        })),
       },
       clientPortalUser: {
-        findUnique: vi.fn().mockResolvedValue({ name: 'Ada', email: 'ada@griid.test' }),
+        findUnique: vi
+          .fn()
+          .mockResolvedValue({ name: 'Ada', email: 'ada@griid.test' }),
       },
       $transaction: vi.fn(async (fn: (t: unknown) => unknown) => fn(tx)),
     };
@@ -55,18 +64,32 @@ describe('PortalQuotesService', () => {
     billing = {
       visibleProjects: vi
         .fn()
-        .mockResolvedValue(new Map([['p-shared', { id: 'p-shared', name: 'Griid Android' }]])),
+        .mockResolvedValue(
+          new Map([['p-shared', { id: 'p-shared', name: 'Griid Android' }]]),
+        ),
       assertVisible: vi.fn().mockResolvedValue(undefined),
+      billingScope: vi.fn().mockResolvedValue({}),
     };
     pagination = {
       paginate: vi.fn(async () => ({
         count: 2,
         next: null,
         previous: null,
-        results: [quote({ projectId: 'p-shared' }), quote({ id: 'q-2', projectId: 'p-hidden' })],
+        results: [
+          quote({ projectId: 'p-shared' }),
+          quote({ id: 'q-2', projectId: 'p-hidden' }),
+        ],
       })),
     };
-    service = new PortalQuotesService(prisma, pagination as never, context as any, events as any, storage as any, {} as any, billing as never);
+    service = new PortalQuotesService(
+      prisma,
+      pagination as never,
+      context as any,
+      events as any,
+      storage as any,
+      {} as any,
+      billing as never,
+    );
   });
 
   afterEach(() => vi.useRealTimers());
@@ -78,7 +101,12 @@ describe('PortalQuotesService', () => {
           document: { id: 'doc-1', name: 'MSA.pdf', storageKey: 'k/1' },
         }),
       };
-      const res = await service.downloadAttachment('portal-1', 'q-1', 'doc-1');
+      const res = await service.downloadAttachment(
+        'portal-1',
+        'pu-1',
+        'q-1',
+        'doc-1',
+      );
 
       expect(context.require).toHaveBeenCalledWith('portal-1', 'viewQuotes');
       expect(prisma.quoteAttachment.findFirst.mock.calls[0][0].where).toEqual({
@@ -93,7 +121,7 @@ describe('PortalQuotesService', () => {
     it('404s for a file not attached to that quote', async () => {
       prisma.quoteAttachment = { findFirst: vi.fn().mockResolvedValue(null) };
       await expect(
-        service.downloadAttachment('portal-1', 'q-1', 'doc-9'),
+        service.downloadAttachment('portal-1', 'pu-1', 'q-1', 'doc-9'),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(storage.read).not.toHaveBeenCalled();
     });
@@ -101,9 +129,18 @@ describe('PortalQuotesService', () => {
 
   describe('findAll', () => {
     it('filters by status and a shared project', async () => {
-      await service.findAll('portal-1', 'pu-1', { status: 'accepted', projectId: 'p-shared' }, '/x');
+      await service.findAll(
+        'portal-1',
+        'pu-1',
+        { status: 'accepted', projectId: 'p-shared' },
+        '/x',
+      );
 
-      expect(billing.assertVisible).toHaveBeenCalledWith('portal-1', 'pu-1', 'p-shared');
+      expect(billing.assertVisible).toHaveBeenCalledWith(
+        'portal-1',
+        'pu-1',
+        'p-shared',
+      );
       expect(pagination.paginate.mock.calls[0][1].where).toEqual({
         clientId: 'c-1',
         status: 'accepted',
@@ -118,7 +155,9 @@ describe('PortalQuotesService', () => {
         clientId: 'c-1',
         status: { not: 'draft' },
       });
-      expect(page.results.map((q) => [q.projectId, q.project?.name ?? null])).toEqual([
+      expect(
+        page.results.map((q) => [q.projectId, q.project?.name ?? null]),
+      ).toEqual([
         ['p-shared', 'Griid Android'],
         [null, null],
       ]);
@@ -144,10 +183,17 @@ describe('PortalQuotesService', () => {
 
   describe('accept', () => {
     it('accepts with the picked options and records who answered', async () => {
-      const result = await service.accept('portal-1', 'pu-1', 'q-1', { optionIds: ['opt-b'] });
+      const result = await service.accept('portal-1', 'pu-1', 'q-1', {
+        optionIds: ['opt-b'],
+      });
 
       expect(context.require).toHaveBeenCalledWith('portal-1', 'viewQuotes');
-      expect(tx.quoteItem.update.mock.calls.map(([a]: any) => [a.where.id, a.data.selected])).toEqual([
+      expect(
+        tx.quoteItem.update.mock.calls.map(([a]: any) => [
+          a.where.id,
+          a.data.selected,
+        ]),
+      ).toEqual([
         ['opt-a', false],
         ['opt-b', true],
       ]);
@@ -159,11 +205,18 @@ describe('PortalQuotesService', () => {
       expect(result.status).toBe('accepted');
       expect(events.emit).toHaveBeenCalledWith(
         'quote.responded',
-        expect.objectContaining({ accepted: true, respondedBy: 'Ada <ada@griid.test>' }),
+        expect.objectContaining({
+          accepted: true,
+          respondedBy: 'Ada <ada@griid.test>',
+        }),
       );
       expect(events.emit).toHaveBeenCalledWith(
         'quote.changed',
-        expect.objectContaining({ quoteId: 'q-1', status: 'accepted', previousStatus: 'sent' }),
+        expect.objectContaining({
+          quoteId: 'q-1',
+          status: 'accepted',
+          previousStatus: 'sent',
+        }),
       );
     });
 
@@ -187,29 +240,35 @@ describe('PortalQuotesService', () => {
       prisma.quote.findFirst.mockResolvedValue(
         quote({ status: status === 'converted' ? 'sent' : status, ...extra }),
       );
-      await expect(service.accept('portal-1', 'pu-1', 'q-1', {})).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.accept('portal-1', 'pu-1', 'q-1', {}),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('stays answerable through the last valid day, not after it', async () => {
-      await expect(service.accept('portal-1', 'pu-1', 'q-1', {})).resolves.toBeTruthy();
-      prisma.quote.findFirst.mockResolvedValue(quote({ validUntil: new Date('2026-11-09T00:00:00Z') }));
-      await expect(service.accept('portal-1', 'pu-1', 'q-1', {})).rejects.toBeInstanceOf(
-        BadRequestException,
+      await expect(
+        service.accept('portal-1', 'pu-1', 'q-1', {}),
+      ).resolves.toBeTruthy();
+      prisma.quote.findFirst.mockResolvedValue(
+        quote({ validUntil: new Date('2026-11-09T00:00:00Z') }),
       );
+      await expect(
+        service.accept('portal-1', 'pu-1', 'q-1', {}),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it("404s a quote that isn't this client's (or is a draft)", async () => {
       prisma.quote.findFirst.mockResolvedValue(null);
-      await expect(service.accept('portal-1', 'pu-1', 'q-9', {})).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.accept('portal-1', 'pu-1', 'q-9', {}),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
   it('declines with a trimmed reason', async () => {
-    await service.decline('portal-1', 'pu-1', 'q-1', { reason: '  Budget moved  ' });
+    await service.decline('portal-1', 'pu-1', 'q-1', {
+      reason: '  Budget moved  ',
+    });
     expect(prisma.quote.update.mock.calls[0][0].data).toMatchObject({
       status: 'declined',
       responseNote: 'Budget moved',

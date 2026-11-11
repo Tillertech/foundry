@@ -52,7 +52,9 @@ export class PortalQuotesController {
   })
   @ApiPaginatedResponse(PortalQuoteEntity)
   @ApiNotFoundResponse({ description: 'projectId is not shared with you' })
-  @ApiForbiddenResponse({ description: 'Quotes are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Quotes are not enabled for this portal',
+  })
   findAll(
     @CurrentPortalUser() user: PortalJwtPayload,
     @Query() query: PortalQuotesQueryDto,
@@ -70,7 +72,9 @@ export class PortalQuotesController {
   @ApiOperation({ summary: 'Get a quote' })
   @ApiOkResponse({ type: PortalQuoteEntity })
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse({ description: 'Quotes are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Quotes are not enabled for this portal',
+  })
   findOne(
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -79,17 +83,26 @@ export class PortalQuotesController {
   }
 
   @Get(':id/download')
-  @ApiOperation({ summary: 'Download the quote as a PDF (the document the quote mail attached)' })
+  @ApiOperation({
+    summary:
+      'Download the quote as a PDF (the document the quote mail attached)',
+  })
   @ApiProduces('application/pdf')
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse({ description: 'Quotes are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Quotes are not enabled for this portal',
+  })
   async downloadPdf(
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const { filename, buffer } = await this.service.downloadPdf(user.clientPortalId, id);
+    const { filename, buffer } = await this.service.downloadPdf(
+      user.clientPortalId,
+      user.sub,
+      id,
+    );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
@@ -102,7 +115,9 @@ export class PortalQuotesController {
   @ApiProduces('application/octet-stream')
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse({ description: 'Quotes are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Quotes are not enabled for this portal',
+  })
   async downloadAttachment(
     @CurrentPortalUser() user: PortalJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -111,6 +126,7 @@ export class PortalQuotesController {
   ): Promise<StreamableFile> {
     const { document, content } = await this.service.downloadAttachment(
       user.clientPortalId,
+      user.sub,
       id,
       documentId,
     );
@@ -128,7 +144,9 @@ export class PortalQuotesController {
   })
   @ApiOkResponse({ type: PortalQuoteEntity })
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse({ description: 'Quotes are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Quotes are not enabled for this portal',
+  })
   @ApiConflictResponse({ description: 'Already answered, or no longer open' })
   @ApiBadRequestResponse({ description: 'Expired, or an unknown option id' })
   accept(
@@ -143,7 +161,9 @@ export class PortalQuotesController {
   @ApiOperation({ summary: 'Decline a sent quote, optionally saying why' })
   @ApiOkResponse({ type: PortalQuoteEntity })
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse({ description: 'Quotes are not enabled for this portal' })
+  @ApiForbiddenResponse({
+    description: 'Quotes are not enabled for this portal',
+  })
   @ApiConflictResponse({ description: 'Already answered, or no longer open' })
   @ApiBadRequestResponse({ description: 'Expired' })
   decline(

@@ -13,7 +13,12 @@ import {
 import { PortalContextService } from '../portal-context.service';
 
 type PaymentRow = Payment & {
-  invoice: { id: string; number: string; projectId: string | null; status: string } | null;
+  invoice: {
+    id: string;
+    number: string;
+    projectId: string | null;
+    status: string;
+  } | null;
 };
 
 export type PortalPayment = Payment & {
@@ -45,20 +50,32 @@ export class PortalPaymentsService {
       'viewPayments',
     );
     if (query.projectId) {
-      await this.billing.assertVisible(clientPortalId, portalUserId, query.projectId);
+      await this.billing.assertVisible(
+        clientPortalId,
+        portalUserId,
+        query.projectId,
+      );
     }
-    const projects = await this.billing.visibleProjects(clientPortalId, portalUserId);
+    const [projects, scope] = await Promise.all([
+      this.billing.visibleProjects(clientPortalId, portalUserId),
+      this.billing.paymentScope(clientPortalId, portalUserId),
+    ]);
     const page = await this.pagination.paginate<PaymentRow>(
       this.prisma.payment,
       {
         where: {
           clientId,
-          ...(query.projectId ? { invoice: { projectId: query.projectId } } : {}),
+          ...scope,
+          ...(query.projectId
+            ? { invoice: { projectId: query.projectId } }
+            : {}),
           ...(query.method ? { method: query.method } : {}),
         },
         include: {
           // Drafts never reach the client, so neither does their number.
-          invoice: { select: { id: true, number: true, projectId: true, status: true } },
+          invoice: {
+            select: { id: true, number: true, projectId: true, status: true },
+          },
         },
       },
       {
@@ -73,8 +90,9 @@ export class PortalPaymentsService {
       ...page,
       results: page.results.map(({ invoice, ...p }) => {
         const shown = invoice && invoice.status !== 'draft' ? invoice : null;
-        const project =
-          shown?.projectId ? (projects.get(shown.projectId) ?? null) : null;
+        const project = shown?.projectId
+          ? (projects.get(shown.projectId) ?? null)
+          : null;
         return {
           ...p,
           invoiceId: shown ? p.invoiceId : null,

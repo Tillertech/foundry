@@ -242,6 +242,30 @@ const PAGE_WIDTH: Record<NonNullable<PdfTheme['pageSize']>, number> = {
   LEGAL: 612,
 };
 
+const PAGE_HEIGHT: Record<NonNullable<PdfTheme['pageSize']>, number> = {
+  A4: 841.89,
+  LETTER: 792,
+  LEGAL: 1008,
+};
+
+/**
+ * A rough height for text set in a column, in points: enough to tell a
+ * milestone that fits comfortably on a page from one that may not.
+ * Deliberately generous (half an em per character).
+ */
+function estimateTextHeight(
+  text: string,
+  width: number,
+  fontSize: number,
+  lineHeight = 1.4,
+): number {
+  const perLine = Math.max(1, Math.floor(width / (fontSize * 0.5)));
+  const lines = text
+    .split('\n')
+    .reduce((n, para) => n + Math.max(1, Math.ceil(para.length / perLine)), 0);
+  return lines * fontSize * lineHeight;
+}
+
 const PADDING: Record<NonNullable<PdfTheme['density']>, [number, number]> = {
   compact: [4, 6],
   comfortable: [7, 9],
@@ -1172,19 +1196,46 @@ export class PdfGeneratorService {
   ): Content[] {
     const gap = tight ? 13 : 18;
     const several = data.milestones.length > 1;
+    // Body width beside the 42pt code gutter; half of it when deliverables and
+    // criteria sit side by side.
+    const bodyWidth = t.contentWidth - 42;
+    const halfWidth = (bodyWidth - 20) / 2;
+    // The tallest block that can safely be kept on one page: the first scope
+    // page loses ~150pt to its heading, so stay well under a full page.
+    const pageBody =
+      PAGE_HEIGHT[t.pageSize] - (tight ? t.marginY * 2 - 12 : t.marginY * 2 + 8);
+    const keepTogetherMax = pageBody * 0.5;
+    const list = (items: string[]): Content => ({
+      ul: items.map((d) => ({ text: d, style: 'msItem', margin: [0, 0, 0, 3] })),
+      type: 'square',
+      markerColor: t.accentBar,
+    });
     const blocks: Content[] = data.milestones.map((m, i) => {
+      const listHeight = (width: number) =>
+        m.deliverables.reduce(
+          (h, d) => h + estimateTextHeight(d, width - 12, 9.5, 1.3) + 3,
+          m.deliverables.length ? 18 : 0,
+        );
+      const criteriaHeight = (width: number) =>
+        m.acceptanceCriteria
+          ? 18 + 16 + estimateTextHeight(m.acceptanceCriteria, width - 22, 9.5)
+          : 0;
+      const sideBySide = !!(m.deliverables.length && m.acceptanceCriteria);
+      const estimate =
+        40 +
+        (m.details ? estimateTextHeight(m.details, bodyWidth, 10) + 8 : 0) +
+        (sideBySide
+          ? Math.max(listHeight(halfWidth), criteriaHeight(halfWidth)) + 12
+          : listHeight(bodyWidth) + criteriaHeight(bodyWidth) + 12);
+      // pdfmake silently drops an unbreakable block taller than the page, so a
+      // long milestone flows across pages instead (full-width sections, the
+      // heading kept with its first deliverable).
+      const long = estimate > keepTogetherMax;
+
       const received: Content[] = m.deliverables.length
         ? [
             { text: "YOU'LL RECEIVE", style: 'msLabel', margin: [0, 0, 0, 6] },
-            {
-              ul: m.deliverables.map((d) => ({
-                text: d,
-                style: 'msItem',
-                margin: [0, 0, 0, 3],
-              })),
-              type: 'square',
-              markerColor: t.accentBar,
-            },
+            list(m.deliverables),
           ]
         : [];
       const signoff: Content[] = m.acceptanceCriteria
@@ -1222,7 +1273,9 @@ export class PdfGeneratorService {
       if (m.details) {
         inner.push({ text: m.details, style: 'msDetails', margin: [0, 8, 0, 0] });
       }
-      if (received.length && signoff.length) {
+      if (long) {
+        // Built below: flows across pages.
+      } else if (received.length && signoff.length) {
         inner.push({
           columns: [
             { width: '*', stack: received },
@@ -1234,7 +1287,7 @@ export class PdfGeneratorService {
       } else if (received.length || signoff.length) {
         inner.push({ stack: [...received, ...signoff], margin: [0, 12, 0, 0] });
       }
-      if (!inner.length) {
+      if (!inner.length && !long) {
         inner.push({
           text: 'Delivered as described in the quote.',
           style: 'msNone',
@@ -1289,9 +1342,39 @@ export class PdfGeneratorService {
         },
         { stack: inner, margin: [42, 0, 0, 0] },
       );
+      if (!long) {
+        return {
+          stack: block,
+          unbreakable: true,
+          margin: [0, i === 0 ? 0 : gap, 0, 0],
+        } as Content;
+      }
+
+      // Long milestone: keep the heading (and the start of what follows it)
+      // together, let the rest break between deliverables.
+      const [first, ...rest] = m.deliverables;
+      const lead: Content[] = first
+        ? [
+            { text: "YOU'LL RECEIVE", style: 'msLabel', margin: [42, tight ? 9 : 12, 0, 6] },
+            { ...(list([first]) as object), margin: [42, 0, 0, 0] } as Content,
+          ]
+        : [];
+      const flowing: Content[] = [];
+      if (rest.length) {
+        flowing.push({ ...(list(rest) as object), margin: [42, 0, 0, 0] } as Content);
+      }
+      if (signoff.length) {
+        flowing.push({
+          stack: signoff,
+          unbreakable: criteriaHeight(bodyWidth) < keepTogetherMax,
+          margin: [42, 12, 0, 0],
+        });
+      }
       return {
-        stack: block,
-        unbreakable: true,
+        stack: [
+          { stack: [...block, ...lead], unbreakable: true },
+          ...flowing,
+        ],
         margin: [0, i === 0 ? 0 : gap, 0, 0],
       } as Content;
     });

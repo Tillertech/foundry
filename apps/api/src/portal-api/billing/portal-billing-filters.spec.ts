@@ -8,6 +8,8 @@ import { PortalPaymentsService } from '../payments/portal-payments.service';
 import { PortalPaymentsQueryDto } from '../payments/portal-payments-query.dto';
 
 /** The status/method/project filters of the portal's invoice and payment lists. */
+const LIMITED = { OR: [{ projectId: null }, { projectId: { in: ['p-1'] } }] };
+
 describe('portal billing list filters', () => {
   let pagination: { paginate: Mock };
   let context: { require: Mock };
@@ -15,12 +17,19 @@ describe('portal billing list filters', () => {
 
   beforeEach(() => {
     pagination = {
-      paginate: vi.fn(async () => ({ count: 0, next: null, previous: null, results: [] })),
+      paginate: vi.fn(async () => ({
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      })),
     };
     context = { require: vi.fn().mockResolvedValue({ clientId: 'c-1' }) };
     billing = {
       assertVisible: vi.fn().mockResolvedValue(undefined),
       visibleProjects: vi.fn().mockResolvedValue(new Map()),
+      billingScope: vi.fn().mockResolvedValue({}),
+      paymentScope: vi.fn().mockResolvedValue({}),
       paidByInvoice: vi.fn().mockResolvedValue(new Map()),
       total: vi.fn().mockReturnValue(0),
     };
@@ -30,7 +39,13 @@ describe('portal billing list filters', () => {
 
   describe('invoices', () => {
     const service = () =>
-      new PortalInvoicesService({} as never, pagination as never, context as never, {} as never, billing as never);
+      new PortalInvoicesService(
+        {} as never,
+        pagination as never,
+        context as never,
+        {} as never,
+        billing as never,
+      );
 
     it('hides drafts when unfiltered', async () => {
       await service().findAll('portal-1', 'pu-1', {}, '/x');
@@ -38,9 +53,33 @@ describe('portal billing list filters', () => {
     });
 
     it('filters by status and a shared project', async () => {
-      await service().findAll('portal-1', 'pu-1', { status: 'overdue', projectId: 'p-1' }, '/x');
-      expect(billing.assertVisible).toHaveBeenCalledWith('portal-1', 'pu-1', 'p-1');
-      expect(where()).toEqual({ clientId: 'c-1', status: 'overdue', projectId: 'p-1' });
+      await service().findAll(
+        'portal-1',
+        'pu-1',
+        { status: 'overdue', projectId: 'p-1' },
+        '/x',
+      );
+      expect(billing.assertVisible).toHaveBeenCalledWith(
+        'portal-1',
+        'pu-1',
+        'p-1',
+      );
+      expect(where()).toEqual({
+        clientId: 'c-1',
+        status: 'overdue',
+        projectId: 'p-1',
+      });
+    });
+
+    it('limits a specific-projects user to their projects and project-less invoices', async () => {
+      billing.billingScope.mockResolvedValue(LIMITED);
+      await service().findAll('portal-1', 'pu-1', {}, '/x');
+      expect(billing.billingScope).toHaveBeenCalledWith('portal-1', 'pu-1');
+      expect(where()).toEqual({
+        clientId: 'c-1',
+        status: { not: 'draft' },
+        ...LIMITED,
+      });
     });
 
     it('refuses a project the user cannot see', async () => {
@@ -52,17 +91,36 @@ describe('portal billing list filters', () => {
     });
 
     it('never accepts draft as a status filter', async () => {
-      const errors = await validate(plainToInstance(PortalInvoicesQueryDto, { status: 'draft' }));
+      const errors = await validate(
+        plainToInstance(PortalInvoicesQueryDto, { status: 'draft' }),
+      );
       expect(errors.map((e) => e.property)).toEqual(['status']);
     });
   });
 
   describe('payments', () => {
     const service = () =>
-      new PortalPaymentsService({} as never, pagination as never, context as never, billing as never);
+      new PortalPaymentsService(
+        {} as never,
+        pagination as never,
+        context as never,
+        billing as never,
+      );
+
+    it('limits a specific-projects user through the invoice paid', async () => {
+      const scope = { OR: [{ invoiceId: null }, { invoice: LIMITED }] };
+      billing.paymentScope.mockResolvedValue(scope);
+      await service().findAll('portal-1', 'pu-1', {}, '/x');
+      expect(where()).toEqual({ clientId: 'c-1', ...scope });
+    });
 
     it('filters by method and by the project of the invoice paid', async () => {
-      await service().findAll('portal-1', 'pu-1', { method: 'mobile_money', projectId: 'p-1' }, '/x');
+      await service().findAll(
+        'portal-1',
+        'pu-1',
+        { method: 'mobile_money', projectId: 'p-1' },
+        '/x',
+      );
       expect(where()).toEqual({
         clientId: 'c-1',
         invoice: { projectId: 'p-1' },
@@ -71,7 +129,9 @@ describe('portal billing list filters', () => {
     });
 
     it('rejects an unknown method', async () => {
-      const errors = await validate(plainToInstance(PortalPaymentsQueryDto, { method: 'cheque' }));
+      const errors = await validate(
+        plainToInstance(PortalPaymentsQueryDto, { method: 'cheque' }),
+      );
       expect(errors.map((e) => e.property)).toEqual(['method']);
     });
   });

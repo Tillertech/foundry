@@ -205,7 +205,8 @@ type AccessMode = 'all' | 'selected';
                 @if (ctx.projects.length === 0) {
                   This client has no projects yet.
                 } @else {
-                  Only the projects you pick below.
+                  Only the projects you pick below, and their invoices, quotes
+                  and payments.
                 }
               </span>
             </button>

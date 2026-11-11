@@ -244,7 +244,7 @@
   </div>
   } @else {
   <div
-    class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-[auto_1fr] lg:gap-x-14"
+    class="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:grid-rows-[auto_1fr] lg:gap-x-14"
   >
     <!-- Rail, top: state and details (above the document on mobile) -->
     <aside class="min-w-0 space-y-8 self-start lg:col-start-2 lg:row-start-1">
@@ -481,7 +481,7 @@
             <span class="w-7 shrink-0 font-mono text-[10px] font-semibold text-primary"
               >{{ m.code }}</span
             >
-            <span class="min-w-0 flex-1 truncate" [title]="m.label">
+            <span class="min-w-0 flex-1 [overflow-wrap:anywhere]">
               {{ m.label }}
               @if (m.option) {
               <span class="text-[11px] text-muted-foreground">· option</span>
