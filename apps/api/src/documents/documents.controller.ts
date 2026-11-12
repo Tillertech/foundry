@@ -28,12 +28,14 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiPayloadTooLargeResponse,
   ApiProduces,
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { requestBaseUrl } from '../common/http/request-base-url';
+import { DOCUMENT_MAX_BYTES } from '../common/http/upload-limits';
 import { ApiPaginatedResponse } from '../common/swagger/api-paginated-response.decorator';
 import { CurrentUser } from '../identity/auth/decorators/current-user.decorator';
 import { JwtAuthGuard, JwtPayload } from '../identity/auth/jwt-auth.guard';
@@ -66,8 +68,11 @@ export class DocumentsController {
       ],
     },
   })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: DOCUMENT_MAX_BYTES } }),
+  )
   @ApiCreatedResponse({ type: DocumentEntity })
+  @ApiPayloadTooLargeResponse({ description: 'File is larger than 25MB' })
   @ApiNotFoundResponse({ description: 'Client or project not found' })
   create(
     @CurrentUser() user: JwtPayload,

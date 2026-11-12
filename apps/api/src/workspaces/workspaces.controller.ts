@@ -25,10 +25,12 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiPayloadTooLargeResponse,
   ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { LOGO_MAX_BYTES } from '../common/http/upload-limits';
 import { CurrentUser } from '../identity/auth/decorators/current-user.decorator';
 import { JwtAuthGuard, JwtPayload } from '../identity/auth/jwt-auth.guard';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
@@ -126,12 +128,13 @@ export class WorkspacesController {
     },
   })
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }),
+    FileInterceptor('file', { limits: { fileSize: LOGO_MAX_BYTES } }),
   )
   @ApiCreatedResponse({ type: WorkspaceEntity })
   @ApiBadRequestResponse({
     description: 'Missing file or unsupported image type',
   })
+  @ApiPayloadTooLargeResponse({ description: 'Logo is larger than 10MB' })
   @ApiNotFoundResponse()
   uploadLogo(
     @CurrentUser() user: JwtPayload,

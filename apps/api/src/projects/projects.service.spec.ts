@@ -8,6 +8,7 @@ describe('ProjectsService', () => {
   let service: ProjectsService;
   let tx: {
     clientPortalProject: { deleteMany: Mock; upsert: Mock };
+    clientPortalUserProject: { deleteMany: Mock };
     expense: { updateMany: Mock };
     document: { updateMany: Mock };
     project: { update: Mock };
@@ -49,6 +50,9 @@ describe('ProjectsService', () => {
       clientPortalProject: {
         deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
         upsert: vi.fn(),
+      },
+      clientPortalUserProject: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       expense: { updateMany: vi.fn().mockResolvedValue({ count: 2 }) },
       document: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
@@ -231,6 +235,19 @@ describe('ProjectsService', () => {
           where: {
             projectId: 'project-1',
             clientPortal: { clientId: { not: clientB.id } },
+          },
+        });
+      });
+
+      it("drops other portals' per-user grants to the project", async () => {
+        await service.update(ownerId, 'project-1', { clientId: clientB.id });
+
+        expect(tx.clientPortalUserProject.deleteMany).toHaveBeenCalledWith({
+          where: {
+            projectId: 'project-1',
+            clientPortalUser: {
+              clientPortal: { clientId: { not: clientB.id } },
+            },
           },
         });
       });

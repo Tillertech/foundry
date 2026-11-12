@@ -1,6 +1,7 @@
 import type { Mock } from 'vitest';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/client';
+import { CreateQuoteDto } from './dto/create-quote.dto';
 import { QuotesService } from './quotes.service';
 
 describe('QuotesService', () => {
@@ -46,11 +47,38 @@ describe('QuotesService', () => {
         deliverables: [{ id: 'd1', label: 'Feature list' }],
         acceptanceCriteria: 'Client signs off the feature list',
       }),
-      line({ id: 'b', kind: 'milestone', description: 'M02', quantity: new Decimal(2), rate: new Decimal(10000) }),
-      line({ id: 'c', kind: 'recurring', description: 'Support', rate: new Decimal(25000) }),
-      line({ id: 'd', kind: 'option', description: 'iOS', rate: new Decimal(100000), selected: true }),
-      line({ id: 'e', kind: 'option', description: 'Social', rate: new Decimal(80000) }),
-      line({ id: 'f', kind: 'pass_through', description: 'Hosting', rate: new Decimal(3000) }),
+      line({
+        id: 'b',
+        kind: 'milestone',
+        description: 'M02',
+        quantity: new Decimal(2),
+        rate: new Decimal(10000),
+      }),
+      line({
+        id: 'c',
+        kind: 'recurring',
+        description: 'Support',
+        rate: new Decimal(25000),
+      }),
+      line({
+        id: 'd',
+        kind: 'option',
+        description: 'iOS',
+        rate: new Decimal(100000),
+        selected: true,
+      }),
+      line({
+        id: 'e',
+        kind: 'option',
+        description: 'Social',
+        rate: new Decimal(80000),
+      }),
+      line({
+        id: 'f',
+        kind: 'pass_through',
+        description: 'Hosting',
+        rate: new Decimal(3000),
+      }),
     ],
     ...overrides,
   });
@@ -58,7 +86,9 @@ describe('QuotesService', () => {
   beforeEach(() => {
     let n = 0;
     tx = {
-      milestone: { create: vi.fn(async ({ data }) => ({ id: `m-${n++}`, ...data })) },
+      milestone: {
+        create: vi.fn(async ({ data }) => ({ id: `m-${n++}`, ...data })),
+      },
       quoteItem: { update: vi.fn() },
       quote: {
         update: vi.fn(async ({ data }) => ({
@@ -77,14 +107,23 @@ describe('QuotesService', () => {
       $transaction: vi.fn(async (fn: (t: unknown) => unknown) => fn(tx)),
     };
     clients = {
-      findOne: vi.fn().mockResolvedValue({ id: 'c-1', name: 'Griid', currency: 'KES', workspaceId: 'ws-1' }),
+      findOne: vi.fn().mockResolvedValue({
+        id: 'c-1',
+        name: 'Griid',
+        currency: 'KES',
+        workspaceId: 'ws-1',
+      }),
     };
     projects = {
       insert: vi.fn(async (_db, dto) => ({ id: 'p-1', ...dto })),
       announceCreated: vi.fn(),
     };
     billing = {
-      invoice: vi.fn().mockResolvedValue({ id: 'inv-1', number: 'INV-1001', status: 'draft' }),
+      invoice: vi.fn().mockResolvedValue({
+        id: 'inv-1',
+        number: 'INV-1001',
+        status: 'draft',
+      }),
     };
     service = new QuotesService(
       prisma,
@@ -98,6 +137,76 @@ describe('QuotesService', () => {
   });
 
   const dto = { name: 'Griid Android', startDate: '2026-11-17' };
+
+  describe('create (numbering)', () => {
+    const body: CreateQuoteDto = {
+      clientId: 'c-1',
+      issueDate: '2026-11-11',
+      validUntil: '2026-12-11',
+      items: [{ description: 'Discovery', quantity: 1, rate: 500 }],
+    };
+    const taken = () =>
+      Object.assign(new Error('unique'), {
+        code: 'P2002',
+        meta: { target: ['workspaceId', 'number'] },
+      });
+
+    beforeEach(() => {
+      prisma.quote.create = vi.fn(async ({ data }) => ({
+        id: 'q-new',
+        ...data,
+      }));
+      prisma.quote.findMany = vi.fn().mockResolvedValue([]);
+      prisma.workspace = {
+        findUnique: vi.fn().mockResolvedValue({ quotePrefix: null }),
+      };
+    });
+
+    it("files the quote under its client's workspace", async () => {
+      await service.create(ownerId, body);
+      expect(prisma.quote.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            workspaceId: 'ws-1',
+            number: 'Q-2001',
+          }),
+        }),
+      );
+    });
+
+    it("continues the workspace's own sequence with its prefix, numerically", async () => {
+      prisma.workspace.findUnique.mockResolvedValue({ quotePrefix: 'EST-' });
+      prisma.quote.findMany.mockResolvedValue([
+        { number: 'EST-999' },
+        { number: 'EST-2001' },
+        { number: 'EST-draft' },
+      ]);
+      await service.create(ownerId, body);
+      expect(prisma.quote.findMany).toHaveBeenCalledWith({
+        where: { workspaceId: 'ws-1', number: { startsWith: 'EST-' } },
+        select: { number: true },
+      });
+      expect(prisma.quote.create.mock.calls[0][0].data.number).toBe('EST-2002');
+    });
+
+    it('retries a generated number another create took first', async () => {
+      prisma.quote.create
+        .mockRejectedValueOnce(taken())
+        .mockImplementationOnce(async ({ data }) => ({ id: 'q-new', ...data }));
+      await expect(service.create(ownerId, body)).resolves.toEqual(
+        expect.objectContaining({ id: 'q-new' }),
+      );
+      expect(prisma.quote.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('409s a typed number the workspace already uses, without retrying', async () => {
+      prisma.quote.create.mockRejectedValue(taken());
+      await expect(
+        service.create(ownerId, { ...body, number: 'Q-7' }),
+      ).rejects.toThrow(/Q-7 is already in use in this workspace/);
+      expect(prisma.quote.create).toHaveBeenCalledTimes(1);
+    });
+  });
 
   describe('convert', () => {
     it('creates the project with the one-off subtotal as budget and the quoted retention', async () => {
@@ -113,7 +222,11 @@ describe('QuotesService', () => {
           retentionPercent: 10,
         }),
       );
-      expect(projects.announceCreated).toHaveBeenCalledWith(ownerId, 'ws-1', 'p-1');
+      expect(projects.announceCreated).toHaveBeenCalledWith(
+        ownerId,
+        'ws-1',
+        'p-1',
+      );
     });
 
     it('turns milestone lines and picked options into priced milestones, options before the hand-over', async () => {
@@ -140,16 +253,30 @@ describe('QuotesService', () => {
         deliverables: [{ id: 'd1', label: 'Feature list', done: false }],
         acceptanceCriteria: 'Client signs off the feature list',
       });
-      expect(tx.quoteItem.update).toHaveBeenCalledWith({ where: { id: 'a' }, data: { milestoneId: 'm-0' } });
-      expect(tx.quote.update.mock.calls[0][0].data).toEqual({ status: 'accepted', projectId: 'p-1' });
-      expect(result).toMatchObject({ milestoneCount: 3, upfrontInvoiceNumber: null });
+      expect(tx.quoteItem.update).toHaveBeenCalledWith({
+        where: { id: 'a' },
+        data: { milestoneId: 'm-0' },
+      });
+      expect(tx.quote.update.mock.calls[0][0].data).toEqual({
+        status: 'accepted',
+        projectId: 'p-1',
+      });
+      expect(result).toMatchObject({
+        milestoneCount: 3,
+        upfrontInvoiceNumber: null,
+      });
       expect(billing.invoice).not.toHaveBeenCalled();
     });
 
     it('raises the first milestone invoice upfront when asked', async () => {
-      const result = await service.convert(ownerId, 'q-1', { ...dto, invoiceFirstMilestone: true });
+      const result = await service.convert(ownerId, 'q-1', {
+        ...dto,
+        invoiceFirstMilestone: true,
+      });
 
-      expect(tx.milestone.create.mock.calls[0][0].data.billingTrigger).toBe('upfront');
+      expect(tx.milestone.create.mock.calls[0][0].data.billingTrigger).toBe(
+        'upfront',
+      );
       expect(billing.invoice).toHaveBeenCalledWith(ownerId, 'm-0');
       expect(result.upfrontInvoiceNumber).toBe('INV-1001');
     });
@@ -157,53 +284,77 @@ describe('QuotesService', () => {
     it('still returns the project when the upfront invoice fails', async () => {
       billing.invoice.mockRejectedValue(new Error('boom'));
 
-      const result = await service.convert(ownerId, 'q-1', { ...dto, invoiceFirstMilestone: true });
+      const result = await service.convert(ownerId, 'q-1', {
+        ...dto,
+        invoiceFirstMilestone: true,
+      });
 
       expect(result.project).toMatchObject({ id: 'p-1' });
       expect(result.upfrontInvoiceNumber).toBeNull();
     });
 
     it('does not flag a retention-releasing milestone when nothing is retained', async () => {
-      prisma.quote.findFirst.mockResolvedValue(quote({ retentionPercent: new Decimal(0) }));
+      prisma.quote.findFirst.mockResolvedValue(
+        quote({ retentionPercent: new Decimal(0) }),
+      );
 
       await service.convert(ownerId, 'q-1', dto);
 
-      expect(tx.milestone.create.mock.calls.every(([{ data }]: any) => !data.releasesRetention)).toBe(true);
+      expect(
+        tx.milestone.create.mock.calls.every(
+          ([{ data }]: any) => !data.releasesRetention,
+        ),
+      ).toBe(true);
     });
 
     it('refuses a quote that was already converted', async () => {
       prisma.quote.findFirst.mockResolvedValue(quote({ projectId: 'p-0' }));
-      await expect(service.convert(ownerId, 'q-1', dto)).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.convert(ownerId, 'q-1', dto)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it.each(['declined', 'expired'])('refuses a %s quote', async (status) => {
       prisma.quote.findFirst.mockResolvedValue(quote({ status }));
-      await expect(service.convert(ownerId, 'q-1', dto)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.convert(ownerId, 'q-1', dto)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
 
     it("refuses a quote whose currency isn't the client's", async () => {
       prisma.quote.findFirst.mockResolvedValue(quote({ currency: 'USD' }));
-      await expect(service.convert(ownerId, 'q-1', dto)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.convert(ownerId, 'q-1', dto)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 
   describe('update', () => {
-    it("locks lines of a quote the client accepted", async () => {
+    it('locks lines of a quote the client accepted', async () => {
       prisma.quote.findFirst.mockResolvedValue(
         quote({ status: 'accepted', respondedAt: new Date() }),
       );
       await expect(
-        service.update(ownerId, 'q-1', { items: [{ description: 'x', quantity: 1, rate: 1 }] }),
+        service.update(ownerId, 'q-1', {
+          items: [{ description: 'x', quantity: 1, rate: 1 }],
+        }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('clears the client answer when the owner reopens the quote', async () => {
       prisma.quote.findFirst.mockResolvedValue(
-        quote({ status: 'accepted', respondedAt: new Date(), respondedBy: 'Ada' }),
+        quote({
+          status: 'accepted',
+          respondedAt: new Date(),
+          respondedBy: 'Ada',
+        }),
       );
-      prisma.quote.update = vi.fn(async ({ data }) => ({ ...quote(), ...data }));
+      prisma.quote.update = vi.fn(async ({ data }) => ({
+        ...quote(),
+        ...data,
+      }));
 
       await service.update(ownerId, 'q-1', { status: 'sent' });
 
@@ -227,7 +378,10 @@ describe('QuotesService', () => {
       prisma.quote.update = vi.fn();
       await expect(
         service.update(ownerId, 'q-1', {
-          attachmentIds: ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'],
+          attachmentIds: [
+            '11111111-1111-1111-1111-111111111111',
+            '22222222-2222-2222-2222-222222222222',
+          ],
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.document.count.mock.calls[0][0].where.OR).toEqual([
@@ -238,7 +392,10 @@ describe('QuotesService', () => {
     });
 
     it('keeps scope only on lines that become milestones', async () => {
-      prisma.quote.update = vi.fn(async ({ data }) => ({ ...quote(), ...data }));
+      prisma.quote.update = vi.fn(async ({ data }) => ({
+        ...quote(),
+        ...data,
+      }));
       const scope = {
         deliverables: [
           { id: 'x', label: '  Build  ' },
@@ -249,8 +406,20 @@ describe('QuotesService', () => {
       };
       await service.update(ownerId, 'q-1', {
         items: [
-          { description: 'M', quantity: 1, rate: 1, kind: 'milestone', ...scope },
-          { description: 'S', quantity: 1, rate: 1, kind: 'standard', ...scope },
+          {
+            description: 'M',
+            quantity: 1,
+            rate: 1,
+            kind: 'milestone',
+            ...scope,
+          },
+          {
+            description: 'S',
+            quantity: 1,
+            rate: 1,
+            kind: 'standard',
+            ...scope,
+          },
         ],
       });
       const rows = prisma.quote.update.mock.calls[0][0].data.items.create;
@@ -258,13 +427,18 @@ describe('QuotesService', () => {
         deliverables: [{ id: 'x', label: 'Build' }],
         acceptanceCriteria: 'Works',
       });
-      expect(rows[1]).toMatchObject({ deliverables: [], acceptanceCriteria: null });
+      expect(rows[1]).toMatchObject({
+        deliverables: [],
+        acceptanceCriteria: null,
+      });
     });
 
     it('locks the lines of a converted quote', async () => {
       prisma.quote.findFirst.mockResolvedValue(quote({ projectId: 'p-1' }));
       await expect(
-        service.update(ownerId, 'q-1', { items: [{ description: 'x', quantity: 1, rate: 1 }] }),
+        service.update(ownerId, 'q-1', {
+          items: [{ description: 'x', quantity: 1, rate: 1 }],
+        }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
   });

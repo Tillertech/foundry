@@ -40,6 +40,7 @@ import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { Currency, money, newId } from '@foundry/shared-util';
 import { QuoteDeliverable, QuoteItemKind } from '../../domains/quotes';
+import { lineKey } from './quote-validation';
 
 /** Editable quote line; ids are local until the API replaces them on save. */
 export interface QuoteLineDraft {
@@ -199,13 +200,20 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
     <div class="space-y-8">
       @if (items().length === 0) {
         <div
-          class="rounded-xl border border-dashed border-border px-4 py-10 text-center"
+          class="rounded-xl border border-dashed px-4 py-10 text-center"
+          [class.border-border]="!errors()['items']"
+          [class.border-destructive]="!!errors()['items']"
+          data-issue="items"
+          tabindex="-1"
         >
           <p class="text-sm font-medium">Start with what you're quoting</p>
           <p class="mt-1 text-xs text-muted-foreground">
             Milestones become the project plan and billing schedule once the
             quote is accepted.
           </p>
+          @if (errors()['items']; as e) {
+            <p class="mt-2 text-xs font-medium text-destructive" role="alert">{{ e }}</p>
+          }
         </div>
       }
 
@@ -293,6 +301,10 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
                     [readOnly]="locked()"
                     (input)="update(it.id, { description: $any($event.target).value })"
                     (keydown.enter)="$event.preventDefault(); addAfter(it)"
+                    (blur)="touch(it.id, 'description')"
+                    [forceInvalid]="!!err(it.id, 'description')"
+                    [attr.aria-invalid]="!!err(it.id, 'description')"
+                    [attr.data-issue]="key(it.id, 'description')"
                     [placeholder]="sec.placeholder"
                     class="h-8 w-full border-0 bg-transparent px-2 text-sm font-medium shadow-none hover:bg-muted/40 focus-visible:bg-muted/60"
                     [class.line-through]="sec.kind === 'option' && !it.selected"
@@ -312,6 +324,10 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
                       [value]="it.quantity"
                       [readOnly]="locked()"
                       (input)="update(it.id, { quantity: toNumber($event) })"
+                      (blur)="touch(it.id, 'quantity')"
+                      [forceInvalid]="!!err(it.id, 'quantity')"
+                      [attr.aria-invalid]="!!err(it.id, 'quantity')"
+                      [attr.data-issue]="key(it.id, 'quantity')"
                       class="h-8 w-full border-0 bg-transparent px-2 text-right tabular-nums shadow-none hover:bg-muted/40 focus-visible:bg-muted/60"
                       aria-label="Quantity"
                     />
@@ -323,6 +339,10 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
                       [value]="it.rate"
                       [readOnly]="locked()"
                       (input)="update(it.id, { rate: toNumber($event) })"
+                      (blur)="touch(it.id, 'rate')"
+                      [forceInvalid]="!!err(it.id, 'rate')"
+                      [attr.aria-invalid]="!!err(it.id, 'rate')"
+                      [attr.data-issue]="key(it.id, 'rate')"
                       class="h-8 w-full border-0 bg-transparent px-2 text-right tabular-nums shadow-none hover:bg-muted/40 focus-visible:bg-muted/60"
                       aria-label="Rate"
                     />
@@ -349,6 +369,16 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
                   </span>
 
                 </div>
+                @if (rowMessage(it); as msg) {
+                  <p
+                    class="flex items-start gap-1 pb-1 pl-[34px] pt-0.5 text-[11px] leading-snug"
+                    [class.text-destructive]="msg.error"
+                    [class.text-warning]="!msg.error"
+                    [attr.role]="msg.error ? 'alert' : null"
+                  >
+                    {{ msg.text }}
+                  </p>
+                }
 
                 @if (isScoped(sec.kind) && (!locked() || hasScope(it))) {
                   <div class="pl-[34px]">
@@ -366,8 +396,14 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
                               [value]="it.details"
                               [readOnly]="locked()"
                               (input)="update(it.id, { details: $any($event.target).value })"
+                              (blur)="touch(it.id, 'details')"
+                              [forceInvalid]="!!err(it.id, 'details')"
+                              [attr.data-issue]="key(it.id, 'details')"
                               placeholder="What this milestone covers, as the client will read it"
                             ></textarea>
+                            @if (err(it.id, 'details'); as e) {
+                              <span class="text-[11px] text-destructive" role="alert">{{ e }}</span>
+                            }
                           </label>
                           <label class="grid content-start gap-1">
                             <span class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
@@ -408,6 +444,7 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
                                     [readOnly]="locked()"
                                     (input)="renameDeliverable(it, d.id, $any($event.target).value)"
                                     (blur)="pruneDeliverables(it)"
+                                    maxlength="500"
                                     class="h-7 w-full border-0 bg-transparent px-1.5 text-xs shadow-none focus-visible:bg-muted/60"
                                     aria-label="Deliverable"
                                   />
@@ -437,8 +474,13 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
                                 newDeliverable.value = ''
                               "
                               (paste)="onDeliverablePaste(it, $event, newDeliverable)"
+                              [forceInvalid]="!!err(it.id, 'deliverables')"
+                              [attr.data-issue]="key(it.id, 'deliverables')"
                               aria-label="New deliverable"
                             />
+                          }
+                          @if (err(it.id, 'deliverables'); as e) {
+                            <span class="text-[11px] text-destructive" role="alert">{{ e }}</span>
                           }
                         </div>
 
@@ -453,8 +495,14 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
                             [value]="it.acceptanceCriteria"
                             [readOnly]="locked()"
                             (input)="update(it.id, { acceptanceCriteria: $any($event.target).value })"
+                            (blur)="touch(it.id, 'acceptanceCriteria')"
+                            [forceInvalid]="!!err(it.id, 'acceptanceCriteria')"
+                            [attr.data-issue]="key(it.id, 'acceptanceCriteria')"
                             placeholder="e.g. The app installs on two agreed Android phones and a user can sign in"
                           ></textarea>
+                          @if (err(it.id, 'acceptanceCriteria'); as e) {
+                            <span class="text-[11px] text-destructive" role="alert">{{ e }}</span>
+                          }
                         </label>
                       </div>
                     }
@@ -473,7 +521,11 @@ export const emptyQuoteLine = (kind: QuoteItemKind): QuoteLineDraft => ({
                       @if (isExpanded(it)) {
                         Hide scope
                       } @else {
-                        <span [class.text-warning]="needsScope(it)">{{ milestoneSummary(it) }}</span>
+                        @if (scopeError(it); as e) {
+                          <span class="text-destructive">{{ e }}</span>
+                        } @else {
+                          <span [class.text-warning]="needsScope(it)">{{ milestoneSummary(it) }}</span>
+                        }
                       }
                     </button>
                   </div>
@@ -547,7 +599,13 @@ export class QuoteLinesEditor {
   readonly locked = input(false);
   /** Shown under the locked editor - why it can't be edited. */
   readonly lockNote = input('');
+  /** Problems to show, keyed `line:<id>:<field>` (see quote-validation). */
+  readonly errors = input<Record<string, string>>({});
+  /** Non-blocking advice, keyed like errors. */
+  readonly warnings = input<Record<string, string>>({});
   readonly itemsChange = output<QuoteLineDraft[]>();
+  /** A line field lost focus - the editor starts showing its problems. */
+  readonly touched = output<string>();
 
   protected readonly sections = QUOTE_SECTIONS;
   protected readonly isScoped = isScoped;
@@ -562,6 +620,57 @@ export class QuoteLinesEditor {
 
   /** The one row whose scope panel is open (accordion); new milestones open. */
   private readonly expanded = signal<string | null>(null);
+
+  protected key(lineId: string, field: string): string {
+    return lineKey(lineId, field);
+  }
+
+  protected err(lineId: string, field: string): string {
+    return this.errors()[lineKey(lineId, field)] ?? '';
+  }
+
+  protected touch(lineId: string, field: string): void {
+    this.touched.emit(lineKey(lineId, field));
+  }
+
+  /** The row's own message: its first problem, else advice about it. */
+  protected rowMessage(it: QuoteLineDraft): { text: string; error: boolean } | null {
+    for (const field of ['description', 'quantity', 'rate']) {
+      const e = this.err(it.id, field);
+      if (e) return { text: e, error: true };
+    }
+    const w = this.locked() ? '' : this.warnings()[lineKey(it.id, 'rate')];
+    return w ? { text: w, error: false } : null;
+  }
+
+  /** A problem inside the (collapsed) scope panel. */
+  protected scopeError(it: QuoteLineDraft): string {
+    const e =
+      this.err(it.id, 'details') ||
+      this.err(it.id, 'deliverables') ||
+      this.err(it.id, 'acceptanceCriteria');
+    return e ? `Scope needs attention: ${e.charAt(0).toLowerCase()}${e.slice(1)}` : '';
+  }
+
+  /**
+   * Brings a line's field into view and focus - opening its scope panel
+   * first when the field lives there.
+   */
+  reveal(lineId: string, field: string): void {
+    if (['details', 'deliverables', 'acceptanceCriteria'].includes(field)) {
+      this.expanded.set(lineId);
+    }
+    afterNextRender(
+      () => {
+        const el = this.host.nativeElement.querySelector<HTMLElement>(
+          `[data-issue="${lineKey(lineId, field)}"]`,
+        );
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el?.focus({ preventScroll: true });
+      },
+      { injector: this.injector },
+    );
+  }
 
   protected rowsOf(kind: QuoteItemKind): QuoteLineDraft[] {
     return this.items().filter((it) => it.kind === kind);

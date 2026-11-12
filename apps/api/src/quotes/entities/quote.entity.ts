@@ -115,6 +115,12 @@ export class QuoteEntity {
   @ApiProperty({ format: 'uuid' })
   clientId: string;
 
+  @ApiProperty({
+    format: 'uuid',
+    description: "The client's workspace; quote numbers are unique within it",
+  })
+  workspaceId: string;
+
   @ApiPropertyOptional({
     nullable: true,
     format: 'uuid',

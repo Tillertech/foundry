@@ -20,7 +20,7 @@ const RELATIONS: Record<string, Record<string, [model: string, fk: string]>> = {
   Expense: { workspace: ['Workspace', 'workspaceId'], project: ['Project', 'projectId'] },
   Invoice: { workspace: ['Workspace', 'workspaceId'], client: ['Client', 'clientId'] },
   InvoiceItem: { invoice: ['Invoice', 'invoiceId'] },
-  Quote: { client: ['Client', 'clientId'] },
+  Quote: { workspace: ['Workspace', 'workspaceId'], client: ['Client', 'clientId'] },
   QuoteItem: { quote: ['Quote', 'quoteId'] },
   Payment: { client: ['Client', 'clientId'] },
   ReconciliationEntry: {
@@ -99,7 +99,9 @@ function account(p: string): Record<string, Row[]> {
     ],
     Invoice: [{ id: id('invoice'), workspaceId: id('ws'), clientId: id('client') }],
     InvoiceItem: [{ id: id('item'), invoiceId: id('invoice') }],
-    Quote: [{ id: id('quote'), clientId: id('client'), number: `Q-${p}` }],
+    Quote: [
+      { id: id('quote'), workspaceId: id('ws'), clientId: id('client'), number: `Q-${p}` },
+    ],
     QuoteItem: [{ id: id('qitem'), quoteId: id('quote') }],
     Payment: [{ id: id('payment'), clientId: id('client') }],
     ReconciliationEntry: [{ id: id('recon'), paymentId: id('payment'), invoiceId: null, projectId: null }],

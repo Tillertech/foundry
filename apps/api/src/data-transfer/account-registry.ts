@@ -61,12 +61,8 @@ export const ACCOUNT_TABLES: Record<Prisma.ModelName, TableRule> = {
     order: 8,
     owned: (id) => ({ invoice: { workspace: workspace(id) } }),
   },
-  // Quote numbers are unique across the install, not per workspace.
-  Quote: {
-    order: 9,
-    owned: (id) => ({ client: client(id) }),
-    globallyUnique: ['number'],
-  },
+
+  Quote: { order: 9, owned: (id) => ({ workspace: workspace(id) }) },
   QuoteItem: { order: 10, owned: (id) => ({ quote: { client: client(id) } }) },
   Payment: { order: 11, owned: (id) => ({ client: client(id) }) },
   // Each link is optional; any one of them proves ownership.

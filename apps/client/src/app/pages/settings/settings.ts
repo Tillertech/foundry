@@ -68,7 +68,7 @@ import { PortalSettings } from './portal/portal-settings';
 import { SETTINGS_SECTIONS } from '../../core/extensions';
 
 const LOGO_TYPES = ['image/png', 'image/jpeg'];
-const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const LOGO_MAX_BYTES = 10 * 1024 * 1024;
 
 const accents: { id: Accent; label: string; swatch: string }[] = [
   { id: 'orange', label: 'Orange', swatch: '#f97316' },
@@ -441,7 +441,7 @@ export class Settings {
       return;
     }
     if (file.size > LOGO_MAX_BYTES) {
-      this.toast.error('Logo must be 2MB or smaller');
+      this.toast.error('Logo must be 10MB or smaller');
       return;
     }
     this.logoBusy.set(true);
