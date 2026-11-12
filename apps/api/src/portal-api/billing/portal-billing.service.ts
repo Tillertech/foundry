@@ -141,20 +141,17 @@ export class PortalBillingService {
     );
   }
 
-  /**
-   * Where a project stands financially, in the client's currency: the
-   * agreed budget, what has been invoiced and paid, what's outstanding (and
-   * overdue), what's still to be invoiced, retention held back on milestone
-   * invoices, and the next payment due. Invoices in another currency can't
-   * be added up honestly, so they're counted separately.
-   */
+
   async projectFinancials(
     clientPortalId: string,
     portalUserId: string,
     projectId: string,
   ) {
     await this.context.require(clientPortalId, 'viewProjects');
-    await this.context.require(clientPortalId, 'viewPayments');
+    const { clientId } = await this.context.require(
+      clientPortalId,
+      'viewPayments',
+    );
     await this.assertVisible(clientPortalId, portalUserId, projectId);
 
     const project = await this.prisma.project.findUnique({
@@ -175,7 +172,10 @@ export class PortalBillingService {
     const currency = project.client.currency;
 
     const invoices = await this.prisma.invoice.findMany({
-      where: { projectId, status: { in: BILLED } },
+      // Only this client's invoices: a project moved over from another
+      // client keeps the invoices billed to that client, which this portal
+      // must never see.
+      where: { projectId, clientId, status: { in: BILLED } },
       select: {
         id: true,
         number: true,

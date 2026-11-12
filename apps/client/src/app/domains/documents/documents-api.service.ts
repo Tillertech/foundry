@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, throwError } from 'rxjs';
 import { API_BASE, toParams, PaginatedResponse } from '@foundry/shared-util';
 import {
   ApiDocument,
@@ -8,6 +8,8 @@ import {
   ListDocumentsQuery,
   UpdateDocumentRequest,
 } from './document.models';
+
+export const DOCUMENT_MAX_BYTES = 25 * 1024 * 1024;
 
 @Injectable({ providedIn: 'root' })
 export class DocumentsApiService {
@@ -19,6 +21,16 @@ export class DocumentsApiService {
     file: File,
     meta: CreateDocumentRequest = {},
   ): Observable<ApiDocument> {
+    if (file.size > DOCUMENT_MAX_BYTES) {
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 413,
+            statusText: 'Payload Too Large',
+            error: { message: 'Files must be 25MB or smaller' },
+          }),
+      );
+    }
     const form = new FormData();
     form.append('file', file);
     for (const [key, value] of Object.entries(meta)) {

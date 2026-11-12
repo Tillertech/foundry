@@ -170,6 +170,13 @@ export class ProjectsService {
       await tx.clientPortalProject.deleteMany({
         where: { projectId: id, clientPortal: { clientId: { not: clientId } } },
       });
+      // Per-user grants go with the old portal's share.
+      await tx.clientPortalUserProject.deleteMany({
+        where: {
+          projectId: id,
+          clientPortalUser: { clientPortal: { clientId: { not: clientId } } },
+        },
+      });
       if (portal) {
         await tx.clientPortalProject.upsert({
           where: {

@@ -32,7 +32,7 @@ import {
   DeclinePortalQuoteDto,
 } from './dto/respond-portal-quote.dto';
 
-export type PortalQuoteWithItems = Quote & {
+export type PortalQuoteWithItems = Omit<Quote, 'workspaceId'> & {
   items: QuoteItem[];
   attachments: QuoteAttachmentRow[];
 };
@@ -47,6 +47,9 @@ export type PortalQuoteView = PortalQuoteWithItems & {
  * capacity planning (kept out of the portal's milestones too) and the
  * milestone link is workspace-side bookkeeping.
  */
+/** Internal columns a portal quote never carries. */
+const PORTAL_QUOTE_OMIT = { workspaceId: true } as const;
+
 const PORTAL_QUOTE_INCLUDE = {
   items: {
     orderBy: { position: 'asc' as const },
@@ -142,6 +145,7 @@ export class PortalQuotesService {
           ...(query.projectId ? { projectId: query.projectId } : {}),
         },
         include: PORTAL_QUOTE_INCLUDE,
+        omit: PORTAL_QUOTE_OMIT,
       },
       {
         cursor: query.cursor,
@@ -252,6 +256,7 @@ export class PortalQuotesService {
           responseNote: null,
         },
         include: PORTAL_QUOTE_INCLUDE,
+        omit: PORTAL_QUOTE_OMIT,
       });
     });
     await this.announce(updated.id, true, respondedBy, null);
@@ -281,6 +286,7 @@ export class PortalQuotesService {
         responseNote: note,
       },
       include: PORTAL_QUOTE_INCLUDE,
+      omit: PORTAL_QUOTE_OMIT,
     });
     await this.announce(updated.id, false, respondedBy, note);
     return updated;
@@ -294,6 +300,7 @@ export class PortalQuotesService {
     const quote = await this.prisma.quote.findFirst({
       where: { id, clientId, ...VISIBLE, ...scope },
       include: PORTAL_QUOTE_INCLUDE,
+      omit: PORTAL_QUOTE_OMIT,
     });
     if (!quote) throw new NotFoundException('Quote not found');
     return quote;

@@ -60,6 +60,11 @@ export const QUOTE_INCLUDE = {
 } as const;
 
 /** Lines that become milestones on conversion, so carry promised scope. */
+const DEFAULT_QUOTE_PREFIX = 'Q-';
+/** Where a workspace's first quote starts (keeps the long-standing Q-2001). */
+const DEFAULT_QUOTE_START = 2001;
+const MAX_NUMBER_ATTEMPTS = 5;
+
 const SCOPED_KINDS: QuoteItemKind[] = [QuoteItemKind.milestone, QuoteItemKind.option];
 
 /** Request lines to rows, numbering positions and dropping fields that don't apply to the kind. */
@@ -161,22 +166,30 @@ export class QuotesService {
   }
 
   async create(ownerId: string, dto: CreateQuoteDto): Promise<QuoteWithItems> {
-    await this.clients.findOne(ownerId, dto.clientId);
+    const client = await this.clients.findOne(ownerId, dto.clientId);
     const { items, number, attachmentIds, ...data } = dto;
     if (attachmentIds?.length) {
       await this.assertAttachable(dto.clientId, attachmentIds);
     }
-    const created = await this.prisma.quote.create({
-      data: {
-        ...data,
-        number: number ?? (await this.nextNumber()),
-        items: { create: toRows(items) },
-        ...(attachmentIds?.length
-          ? { attachments: { create: toAttachmentRows(attachmentIds) } }
-          : {}),
-      },
-      include: QUOTE_INCLUDE,
-    });
+    const write = (quoteNumber: string) =>
+      this.prisma.quote.create({
+        data: {
+          ...data,
+          number: quoteNumber,
+          workspaceId: client.workspaceId,
+          items: { create: toRows(items) },
+          ...(attachmentIds?.length
+            ? { attachments: { create: toAttachmentRows(attachmentIds) } }
+            : {}),
+        },
+        include: QUOTE_INCLUDE,
+      });
+    // A typed number is the user's choice: one attempt, and a clear message
+    // if the workspace already uses it. A generated one races other creates
+    // in the same workspace, so retry with the next number instead.
+    const created = number
+      ? await write(number).catch((err) => this.rethrowTakenNumber(err, number))
+      : await this.withGeneratedNumber(client.workspaceId, write);
     this.changed({
       quoteId: created.id,
       clientId: created.clientId,
@@ -274,7 +287,7 @@ export class QuotesService {
           : {}),
       },
       include: QUOTE_INCLUDE,
-    });
+    }).catch((err) => this.rethrowTakenNumber(err, data.number));
     this.changed({
       quoteId: id,
       clientId: updated.clientId,
@@ -458,13 +471,62 @@ export class QuotesService {
     this.events.emit(QuoteEvents.CHANGED, event);
   }
 
-  private async nextNumber(): Promise<string> {
-    const latest = await this.prisma.quote.findFirst({
-      where: { number: { startsWith: 'Q-' } },
-      orderBy: { number: 'desc' },
+  /**
+   * Quote numbers are unique: a typed number that's taken answers with a
+   * message the editor can show on the number field, not a 500.
+   */
+  private rethrowTakenNumber(err: unknown, number?: string): never {
+    if (this.isTakenNumber(err)) {
+      throw new ConflictException(
+        `Quote number ${number ?? ''} is already in use in this workspace - choose another, or clear it to number the quote automatically`,
+      );
+    }
+    throw err;
+  }
+
+  /** The per-workspace (workspaceId, number) unique constraint tripped. */
+  private isTakenNumber(err: unknown): boolean {
+    const { code, meta } = (err ?? {}) as { code?: string; meta?: unknown };
+    return code === 'P2002' && JSON.stringify(meta ?? {}).includes('number');
+  }
+
+  private async withGeneratedNumber(
+    workspaceId: string,
+    write: (number: string) => Promise<QuoteWithItems>,
+  ): Promise<QuoteWithItems> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+      try {
+        return await write(await this.nextNumber(workspaceId));
+      } catch (err) {
+        if (!this.isTakenNumber(err)) throw err;
+        lastError = err;
+      }
+    }
+    throw new ConflictException(
+      'Could not generate a unique quote number, please retry',
+      { cause: lastError },
+    );
+  }
+
+  /**
+   * Next number in the workspace's own sequence, using its quotePrefix when
+   * set (falling back to "Q-"). Compared numerically, so Q-999 < Q-2001.
+   */
+  private async nextNumber(workspaceId: string): Promise<string> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { quotePrefix: true },
+    });
+    const prefix = workspace?.quotePrefix?.trim() || DEFAULT_QUOTE_PREFIX;
+    const existing = await this.prisma.quote.findMany({
+      where: { workspaceId, number: { startsWith: prefix } },
       select: { number: true },
     });
-    const current = Number(latest?.number.replace('Q-', ''));
-    return `Q-${Number.isNaN(current) ? 2001 : current + 1}`;
+    const latest = existing.reduce((max, { number }) => {
+      const n = Number(number.slice(prefix.length));
+      return Number.isInteger(n) ? Math.max(max, n) : max;
+    }, 0);
+    return `${prefix}${latest > 0 ? latest + 1 : DEFAULT_QUOTE_START}`;
   }
 }

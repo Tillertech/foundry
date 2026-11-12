@@ -122,6 +122,13 @@ describe('PortalBillingService', () => {
 
     expect(context.require).toHaveBeenCalledWith('portal-1', 'viewProjects');
     expect(context.require).toHaveBeenCalledWith('portal-1', 'viewPayments');
+    // Only this portal's client: a project moved in from another client
+    // keeps that client's invoices out of view.
+    expect(prisma.invoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ projectId: 'p-1', clientId: 'c-1' }),
+      }),
+    );
     expect(f).toEqual({
       currency: 'KES',
       budget: 400000,

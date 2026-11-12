@@ -43,6 +43,7 @@ export function apiErrorMessage(
       ?.message;
     if (Array.isArray(message)) return message.join('. ');
     if (typeof message === 'string') return message;
+    if (err.status === 413) return 'The file is too large to upload.';
     if (err.status === 0) return 'Cannot reach the server.';
   }
   return fallback;

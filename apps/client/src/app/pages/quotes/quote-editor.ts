@@ -2,16 +2,19 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
   input,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { FormField, form, max, min, required } from '@angular/forms/signals';
+import { FormField, form } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -82,6 +85,23 @@ import {
   sortBySection,
 } from './quote-lines-editor';
 import { milestoneSchedule } from './quote-schedule';
+import {
+  QuoteIssue,
+  issuesFromApi,
+  quoteWarnings,
+  validateQuote,
+} from './quote-validation';
+
+/** Keys of the details-rail controls, in the order they read on screen. */
+const FIELD_ORDER = [
+  'client',
+  'number',
+  'issueDate',
+  'validUntil',
+  'taxRate',
+  'retentionPercent',
+  'items',
+];
 
 /** The editable content. Status is never edited here - the actions move it. */
 interface QuoteForm {
@@ -206,6 +226,7 @@ export class QuoteEditor {
   private readonly realtime = inject(WorkspaceRealtimeService);
   private readonly dialogService = inject(HlmDialogService);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
   protected readonly fx = inject(WorkspaceCurrencyService);
 
   /** Route param: a quote id, or `new`. */
@@ -219,12 +240,23 @@ export class QuoteEditor {
   protected readonly project = signal<Project | null>(null);
 
   protected readonly model = signal<QuoteForm>(blankQuote());
-  protected readonly f = form(this.model, (p) => {
-    required(p.clientId, { message: 'Select a client' });
-    min(p.retentionPercent, 0, { message: 'Between 0 and 100' });
-    max(p.retentionPercent, 100, { message: 'Between 0 and 100' });
-  });
+  /** Binding only - the rules live in quote-validation, shared with the lines. */
+  protected readonly f = form(this.model);
   protected readonly fieldError = fieldError;
+
+  private readonly linesEditor = viewChild(QuoteLinesEditor);
+
+  /**
+   * Problems show once their control has been left, or for everything once
+   * the user has tried to save or send - never on a blank new quote.
+   */
+  protected readonly attempted = signal(false);
+  private readonly touchedKeys = signal<ReadonlySet<string>>(new Set());
+  /**
+   * What the API rejected, each kept only while its field still holds the
+   * value that was rejected (editing it clears the message).
+   */
+  private readonly apiIssues = signal<(QuoteIssue & { value: string })[]>([]);
 
   /** The model as last saved (or loaded), to tell whether there are edits. */
   private readonly savedJson = signal(JSON.stringify(blankQuote()));
@@ -244,9 +276,59 @@ export class QuoteEditor {
   protected readonly status = computed<QuoteStatus>(
     () => this.saved()?.status ?? 'draft',
   );
-  protected readonly valid = computed(
-    () => this.f().valid() && this.model().items.length > 0,
+  /** Everything that would stop a save. */
+  protected readonly issues = computed<QuoteIssue[]>(() => {
+    const m = this.model();
+    const local = validateQuote(m, { pickClient: this.isNew() });
+    const fromApi = this.apiIssues().filter(
+      (i) => this.valueOf(i.key) === i.value && !local.some((l) => l.key === i.key),
+    );
+    return this.ordered([...local, ...fromApi]);
+  });
+  /** Saving's rules plus what stops the client acting on it. */
+  private readonly sendIssues = computed(() =>
+    this.ordered([
+      ...this.issues(),
+      ...validateQuote(this.model(), { pickClient: false, sending: true }).filter(
+        (i) => i.key === 'validUntil' && !this.issues().some((x) => x.key === i.key),
+      ),
+    ]),
   );
+  protected readonly valid = computed(() => this.issues().length === 0);
+
+  /** Messages to show now, by key. */
+  protected readonly errors = computed<Record<string, string>>(() => {
+    const shown: Record<string, string> = {};
+    const all = this.attempted() ? this.sendIssues() : this.issues();
+    for (const i of all) {
+      if (shown[i.key]) continue;
+      if (this.attempted() || this.touchedKeys().has(i.key) || this.isApiIssue(i)) {
+        shown[i.key] = i.message;
+      }
+    }
+    return shown;
+  });
+  protected readonly lineErrors = computed(() => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(this.errors())) {
+      if (k.startsWith('line:') || k === 'items') out[k] = v;
+    }
+    return out;
+  });
+  protected readonly errorCount = computed(() => Object.keys(this.errors()).length);
+  /** The summary at the top, once the user has asked to save or send. */
+  protected readonly summary = computed(() =>
+    this.attempted() ? this.sendIssues().slice(0, 5) : [],
+  );
+  protected readonly summaryTotal = computed(() =>
+    this.attempted() ? this.sendIssues().length : 0,
+  );
+
+  protected readonly warnings = computed(() => {
+    const m = this.model();
+    const c = this.clients().find((x) => x.id === m.clientId);
+    return quoteWarnings(m, c ? { name: c.company || c.name, currency: c.currency } : null);
+  });
 
   protected readonly clientOptions = computed(() => clientOptions(this.clients()));
   protected readonly clientName = computed(() => {
@@ -279,10 +361,17 @@ export class QuoteEditor {
 
   protected readonly saveState = computed(() => {
     if (this.saving()) return 'Saving…';
+    if (this.dirty() && !this.valid() && (this.autosave() || this.attempted())) {
+      const n = this.issues().length;
+      return `Not saved · ${n} ${n === 1 ? 'thing' : 'things'} to fix`;
+    }
     if (this.isNew()) return 'Not saved yet';
     if (!this.dirty()) return 'Saved';
     return this.autosave() && this.valid() ? 'Saving…' : 'Unsaved changes';
   });
+  protected readonly blockedSave = computed(() =>
+    this.saveState().startsWith('Not saved ·'),
+  );
 
   /** "Ada" out of "Ada <ada@x.com>". */
   protected readonly responder = computed(
@@ -354,10 +443,8 @@ export class QuoteEditor {
         () =>
           untracked(() =>
             this.persist().subscribe({
-              error: (err) =>
-                toast.error('Could not save the draft', {
-                  description: apiErrorMessage(err),
-                }),
+              // Typing continues: mark the field, don't pull focus to it.
+              error: (err) => this.saveFailed(err, 'Could not save the draft', false),
             }),
           ),
         AUTOSAVE_MS,
@@ -568,19 +655,138 @@ export class QuoteEditor {
             void this.router.navigate(['/quotes', q.id], { replaceUrl: true });
           }
         },
-        error: () => this.saving.set(false),
+        error: (err) => {
+          this.saving.set(false);
+          this.absorbApiError(err);
+        },
       }),
     );
   }
 
+  /** Files what the API rejected under the fields it names. */
+  private absorbApiError(err: unknown): string[] {
+    const { issues, unplaced } = issuesFromApi(err, this.model().items);
+    if (issues.length) {
+      this.apiIssues.set(issues.map((i) => ({ ...i, value: this.valueOf(i.key) })));
+    }
+    return unplaced;
+  }
+
+  private isApiIssue(i: QuoteIssue): boolean {
+    return this.apiIssues().some((a) => a.key === i.key && a.message === i.message);
+  }
+
+  /** The current value behind an issue key, to tell whether it was edited since. */
+  private valueOf(key: string): string {
+    const m = this.model();
+    if (key.startsWith('line:')) {
+      const [, id, field] = key.split(':');
+      const it = m.items.find((x) => x.id === id);
+      return JSON.stringify(it ? (it as unknown as Record<string, unknown>)[field] : null);
+    }
+    if (key === 'client') return m.clientId;
+    if (key === 'items') return String(m.items.length);
+    return JSON.stringify((m as unknown as Record<string, unknown>)[key]);
+  }
+
+  /** Rail fields first, then lines in document order. */
+  private ordered(issues: QuoteIssue[]): QuoteIssue[] {
+    const lineOrder = new Map(this.model().items.map((it, i) => [it.id, i]));
+    const rank = (k: string) => {
+      const field = FIELD_ORDER.indexOf(k);
+      if (field >= 0) return field;
+      const id = k.split(':')[1];
+      return FIELD_ORDER.length + (lineOrder.get(id) ?? 0);
+    };
+    return [...issues].sort((a, b) => rank(a.key) - rank(b.key));
+  }
+
+  protected touch(key: string): void {
+    if (this.touchedKeys().has(key)) return;
+    this.touchedKeys.update((s) => new Set(s).add(key));
+  }
+
+  /**
+   * Gate for save/send: when something needs fixing, show every problem,
+   * take the user to the first one and say what's wrong - instead of a
+   * silently disabled button.
+   */
+  private ready(action: 'save' | 'send'): boolean {
+    const issues = action === 'send' ? this.sendIssues() : this.issues();
+    if (!issues.length) return true;
+    this.attempted.set(true);
+    this.focusFirst(issues);
+    const n = issues.length;
+    toast.error(
+      `Fix ${n === 1 ? 'one thing' : `${n} things`} before ${action === 'send' ? 'sending' : 'saving'}`,
+      { description: issues[0].message },
+    );
+    return false;
+  }
+
+  /** Shows every problem and jumps to the first. */
+  protected reveal(): void {
+    this.attempted.set(true);
+    this.focusFirst(this.sendIssues());
+  }
+
+  protected jumpTo(key: string): void {
+    this.focusFirst([{ key, message: '' }]);
+  }
+
+  private focusFirst(issues: QuoteIssue[]): void {
+    const first = issues[0];
+    if (!first) return;
+    if (this.preview()) {
+      this.preview.set(false);
+      this.clearPdf();
+    }
+    if (first.key.startsWith('line:')) {
+      const [, id, field] = first.key.split(':');
+      this.linesEditor()?.reveal(id, field);
+      return;
+    }
+    afterNextRender(
+      () => {
+        const host = document.querySelector<HTMLElement>(`[data-issue="${first.key}"]`);
+        if (!host) return;
+        host.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const target = host.matches('input, textarea, button')
+          ? host
+          : host.querySelector<HTMLElement>('input, textarea, button') ?? host;
+        target.focus({ preventScroll: true });
+      },
+      { injector: this.injector },
+    );
+  }
+
   protected save(): void {
-    if (!this.valid() || this.saving()) return;
+    if (this.saving() || (!this.isNew() && !this.dirty())) return;
+    if (!this.ready('save')) return;
     const wasNew = this.isNew();
     this.persist().subscribe({
       next: () => toast.success(wasNew ? 'Draft saved' : 'Changes saved'),
-      error: (err) =>
-        toast.error('Could not save quote', { description: apiErrorMessage(err) }),
+      error: (err) => this.saveFailed(err),
     });
+  }
+
+  /** Field problems are already marked on the page; anything else is toasted. */
+  private saveFailed(
+    err: unknown,
+    title = 'Could not save quote',
+    focus = true,
+  ): void {
+    const { issues } = issuesFromApi(err, this.model().items);
+    if (issues.length) {
+      if (focus) this.focusFirst(issues);
+      const n = issues.length;
+      toast.error(title, {
+        description:
+          n === 1 ? issues[0].message : `${n} fields need attention - they're marked in red.`,
+      });
+      return;
+    }
+    toast.error(title, { description: apiErrorMessage(err) });
   }
 
   /**
@@ -588,7 +794,8 @@ export class QuoteEditor {
    * first, so the client never gets an older version than the one on screen.
    */
   protected send(): void {
-    if (!this.valid() || this.saving() || this.sending()) return;
+    if (this.saving() || this.sending()) return;
+    if (!this.ready('send')) return;
     const go = (q: Quote) => {
       this.sending.set(true);
       this.quotesApi.send(q.id).subscribe({
@@ -614,8 +821,7 @@ export class QuoteEditor {
     }
     this.persist().subscribe({
       next: go,
-      error: (err) =>
-        toast.error('Could not save quote', { description: apiErrorMessage(err) }),
+      error: (err) => this.saveFailed(err, 'Could not send the quote'),
     });
   }
 
@@ -630,16 +836,13 @@ export class QuoteEditor {
   /** Moves the status (saving edits with it). Accepting leads into starting the project. */
   protected setStatus(status: QuoteStatus): void {
     if (this.saving()) return;
-    if (!this.saved() && !this.valid()) return;
+    if (!this.ready('save')) return;
     this.persist(status).subscribe({
       next: (q) => {
         if (status === 'accepted' && !q.projectId) this.openConvert(q);
         else toast.success(this.statusWords[status]);
       },
-      error: (err) =>
-        toast.error('Could not update the quote', {
-          description: apiErrorMessage(err),
-        }),
+      error: (err) => this.saveFailed(err, 'Could not update the quote'),
     });
   }
 
@@ -710,6 +913,7 @@ export class QuoteEditor {
 
   /** Only a new quote picks its client; it's fixed once saved. */
   protected onClientChange(clientId: string): void {
+    this.touch('client');
     const c = this.clients().find((x) => x.id === clientId);
     const dropped = clientId !== this.model().clientId && this.model().attachments.length;
     this.model.update((m) => ({
