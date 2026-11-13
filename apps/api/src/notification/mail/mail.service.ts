@@ -274,14 +274,19 @@ export class MailService {
     to: string,
     context: QuoteMailContext,
     pdf?: Buffer,
+    extra: Attachment[] = [],
   ): Promise<boolean> {
+    const files: Attachment[] = [
+      ...(pdf ? [{ filename: `${context.number}.pdf`, content: pdf }] : []),
+      ...extra,
+    ];
     return this.send(
       to,
       `Quote ${context.number} from ${context.workspaceName}`,
       'quote-sent',
       { ...context },
       this.workspaceSender(context.workspaceName),
-      pdf ? [{ filename: `${context.number}.pdf`, content: pdf }] : undefined,
+      files.length ? files : undefined,
     );
   }
 

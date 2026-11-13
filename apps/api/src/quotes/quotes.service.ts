@@ -33,6 +33,7 @@ import { QuoteConversionEntity } from './entities/quote-conversion.entity';
 import { milestoneSchedule, quoteTotals } from './quote-totals';
 import { ListQuotesQueryDto } from './dto/list-quotes-query.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
+import { MB, QUOTE_ATTACHMENTS_MAX_BYTES } from '../common/http/upload-limits';
 import { WorkspaceScope } from '../common/workspace-scope/workspace-scope';
 
 export type QuoteAttachmentRow = {
@@ -453,15 +454,22 @@ export class QuotesService {
    */
   private async assertAttachable(clientId: string, ids: string[]): Promise<void> {
     const unique = [...new Set(ids)];
-    const found = await this.prisma.document.count({
+    const docs = await this.prisma.document.findMany({
       where: {
         id: { in: unique },
         OR: [{ clientId }, { project: { clientId } }],
       },
+      select: { size: true },
     });
-    if (found !== unique.length) {
+    if (docs.length !== unique.length) {
       throw new BadRequestException(
         "Attachments must be documents of this quote's client or its projects",
+      );
+    }
+    const total = docs.reduce((sum, d) => sum + d.size, 0);
+    if (total > QUOTE_ATTACHMENTS_MAX_BYTES) {
+      throw new BadRequestException(
+        `Quote attachments total ${(total / MB).toFixed(1)}MB - the limit is ${QUOTE_ATTACHMENTS_MAX_BYTES / MB}MB combined`,
       );
     }
   }

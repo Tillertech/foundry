@@ -23,6 +23,9 @@ import { AutocompleteOption, OptionAutocomplete } from '@foundry/shared-ui';
 import { ApiDocument, DocumentsApiService } from '../../domains/documents';
 import { QuoteAttachment } from '../../domains/quotes';
 
+/** Combined cap on a quote's attachments (emailed together). */
+const MAX_TOTAL_BYTES = 25 * 1024 * 1024;
+
 export type QuoteAttachmentDoc = QuoteAttachment['document'];
 
 /**
@@ -68,6 +71,9 @@ export type QuoteAttachmentDoc = QuoteAttachment['document'];
           </li>
         }
       </ul>
+      <p class="mb-2 text-[11px] text-muted-foreground">
+        {{ size(total()) }} of {{ size(maxBytes) }} combined
+      </p>
     }
 
     @if (!locked()) {
@@ -147,6 +153,7 @@ export class QuoteAttachments {
   protected attach(id: string): void {
     const doc = this.clientDocs().find((d) => d.id === id);
     if (!doc || this.attachments().some((a) => a.id === id)) return;
+    if (this.overLimit(doc.size)) return;
     this.attachmentsChange.emit([...this.attachments(), toAttachment(doc)]);
   }
 
@@ -159,6 +166,7 @@ export class QuoteAttachments {
     const file = field.files?.[0];
     field.value = '';
     if (!file || !this.clientId()) return;
+    if (this.overLimit(file.size)) return;
     this.uploading.set(true);
     this.documentsApi.create(file, { clientId: this.clientId() }).subscribe({
       next: (doc) => {
@@ -176,6 +184,18 @@ export class QuoteAttachments {
   }
 
   protected readonly size = fileSize;
+  protected readonly maxBytes = MAX_TOTAL_BYTES;
+  protected readonly total = computed(() =>
+    this.attachments().reduce((sum, a) => sum + a.size, 0),
+  );
+
+  private overLimit(bytes: number): boolean {
+    if (this.total() + bytes <= MAX_TOTAL_BYTES) return false;
+    toast.error('Attachments too large', {
+      description: `A quote's files can total at most ${fileSize(MAX_TOTAL_BYTES)} combined.`,
+    });
+    return true;
+  }
 }
 
 const toAttachment = (d: ApiDocument): QuoteAttachmentDoc => ({
