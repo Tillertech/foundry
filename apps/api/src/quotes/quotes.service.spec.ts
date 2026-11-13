@@ -374,7 +374,9 @@ describe('QuotesService', () => {
     });
 
     it("refuses attachments that aren't the client's documents", async () => {
-      prisma.document = { count: vi.fn().mockResolvedValue(1) };
+      prisma.document = {
+        findMany: vi.fn().mockResolvedValue([{ size: 1 }]),
+      };
       prisma.quote.update = vi.fn();
       await expect(
         service.update(ownerId, 'q-1', {
@@ -384,10 +386,29 @@ describe('QuotesService', () => {
           ],
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
-      expect(prisma.document.count.mock.calls[0][0].where.OR).toEqual([
+      expect(prisma.document.findMany.mock.calls[0][0].where.OR).toEqual([
         { clientId: 'c-1' },
         { project: { clientId: 'c-1' } },
       ]);
+      expect(prisma.quote.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses attachments over 25MB combined', async () => {
+      const MB = 1024 * 1024;
+      prisma.document = {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([{ size: 20 * MB }, { size: 6 * MB }]),
+      };
+      prisma.quote.update = vi.fn();
+      await expect(
+        service.update(ownerId, 'q-1', {
+          attachmentIds: [
+            '11111111-1111-1111-1111-111111111111',
+            '22222222-2222-2222-2222-222222222222',
+          ],
+        }),
+      ).rejects.toThrow(/25MB combined/);
       expect(prisma.quote.update).not.toHaveBeenCalled();
     });
 

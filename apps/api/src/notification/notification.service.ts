@@ -103,7 +103,7 @@ export interface QuotePdfSource {
     deliverables?: unknown;
     acceptanceCriteria?: string | null;
   }[];
-  attachments?: { document: { name: string } }[];
+  attachments?: { document: { id?: string; name: string } }[];
 }
 
 @Injectable()
@@ -339,7 +339,13 @@ export class NotificationService {
     const context = this.quoteContext(quote, client.name, workspace?.name);
     const pdf = await this.quotePdfBuffer(quote, client, workspace);
 
-    const delivered = await this.mail.sendQuote(client.email, context, pdf);
+    const files = await this.quoteAttachmentFiles(quote);
+    const delivered = await this.mail.sendQuote(
+      client.email,
+      context,
+      pdf,
+      files,
+    );
     if (workspace) {
       this.gateway.emitToUser(workspace.ownerId, 'quote.sent', {
         id: quote.id,
@@ -355,6 +361,35 @@ export class NotificationService {
         });
       }
     }
+  }
+
+  /** The quote's attached documents as mail attachments; unreadable files are skipped. */
+  private async quoteAttachmentFiles(
+    quote: QuotePdfSource,
+  ): Promise<{ filename: string; content: Buffer; contentType?: string }[]> {
+    const ids = (quote.attachments ?? []).flatMap((a) => a.document.id ?? []);
+    if (!ids.length) return [];
+    const docs = await this.prisma.document.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, storageKey: true, mimeType: true },
+    });
+    const byId = new Map(docs.map((d) => [d.id, d]));
+    const files: { filename: string; content: Buffer; contentType?: string }[] =
+      [];
+    for (const id of ids) {
+      const doc = byId.get(id);
+      if (!doc?.storageKey) continue;
+      try {
+        files.push({
+          filename: doc.name,
+          content: await this.storage.read(doc.storageKey),
+          ...(doc.mimeType ? { contentType: doc.mimeType } : {}),
+        });
+      } catch (error) {
+        this.logger.warn(`Could not attach ${doc.name} to quote: ${String(error)}`);
+      }
+    }
+    return files;
   }
 
   /**
